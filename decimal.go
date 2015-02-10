@@ -8,7 +8,7 @@
 //
 // The zero-value of a Decimal is 0, as you would expect.
 //
-// The best way to create a new Decimal is to use decimal.NewFromString. ex:
+// The best way to create a new Decimal is to use decimal.NewFromString, ex:
 //
 //     n, err := decimal.NewFromString("-123.4567")
 //     n.String() // output: "-123.4567"
@@ -26,8 +26,11 @@ import (
 	"strings"
 )
 
-// number of decimal places in the result when it doesn't divide exactly
-// ex: d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
+// Number of decimal places in the result when it doesn't divide exactly
+//
+// Example:
+//
+//     d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
 //     d1.String() // output: "0.6666666666666667"
 //     d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000)
 //     d2.String() // output: "0.0000666666666667"
@@ -36,9 +39,10 @@ import (
 //     decimal.DivisionPrecision = 3
 //     d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
 //     d4.String() // output: "0.667"
+//
 var DivisionPrecision = 16
 
-// to make computations faster
+// constant, to make computations faster
 var Zero = New(0, 1)
 var tenInt = big.NewInt(10)
 var oneInt = big.NewInt(1)
@@ -56,7 +60,7 @@ type Decimal struct {
 	exp int32
 }
 
-// New returns a new fixed-point decimal
+// Returns a new fixed-point decimal, value * 10 ^ exp
 func New(value int64, exp int32) Decimal {
 	return Decimal{
 		value: big.NewInt(value),
@@ -106,8 +110,10 @@ func NewFromString(value string) (Decimal, error) {
 
 // Converts a float64 to Decimal
 //
-// ex: NewFromFloat(123.45678901234567).String() // output: "123.4567890123456"
-// ex: NewFromFloat(.00000000000000001).String() // output: "0.00000000000000001"
+// Example:
+//
+//     NewFromFloat(123.45678901234567).String() // output: "123.4567890123456"
+//     NewFromFloat(.00000000000000001).String() // output: "0.00000000000000001"
 //
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat(value float64) Decimal {
@@ -131,7 +137,10 @@ func NewFromFloat(value float64) Decimal {
 
 // Same as NewFromFloat, except you can choose the number of fractional digits
 //
-// ex: NewFromFloatWithExponent(123.456, -2).String() // output: "123.46"
+// Example:
+//
+//     NewFromFloatWithExponent(123.456, -2).String() // output: "123.46"
+//
 func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	mul := math.Pow(10, -float64(exp))
 	floatValue := value * mul
@@ -194,7 +203,7 @@ func (d Decimal) Abs() Decimal {
 	}
 }
 
-// Add adds d to d2 and return d3
+// Returns d + d2
 func (d Decimal) Add(d2 Decimal) Decimal {
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
@@ -207,7 +216,7 @@ func (d Decimal) Add(d2 Decimal) Decimal {
 	}
 }
 
-// Sub subtracts d2 from d and returns d3
+// Returns d2 - d
 func (d Decimal) Sub(d2 Decimal) Decimal {
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
@@ -220,7 +229,7 @@ func (d Decimal) Sub(d2 Decimal) Decimal {
 	}
 }
 
-// returns d multiplied with d2
+// Returns d * d2
 func (d Decimal) Mul(d2 Decimal) Decimal {
 	d.ensureInitialized()
 	d2.ensureInitialized()
@@ -239,7 +248,8 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 	}
 }
 
-// returns d divided by d2
+// Returns d / d2. If it doesn't divide exactly,
+// the result will have DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {
 	// NOTE(vadim): division is hard, use Rat to do it
 	ratNum := d.Rat()
@@ -257,11 +267,9 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 
 // Cmp compares x and y and returns -1, 0 or 1
 //
-// Example
-//
-//-1 if x <  y
-// 0 if x == y
-//+1 if x >  y
+//     -1 if x <  y
+//      0 if x == y
+//     +1 if x >  y
 //
 func (d Decimal) Cmp(d2 Decimal) int {
 	baseExp := min(d.exp, d2.exp)
@@ -380,9 +388,12 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 	return []byte(str), nil
 }
 
-// This truncates off digits from the number
-// precision is >= 0, the last digit that will not be truncated (in 10^x format)
-// ex: decimal.NewFromString("123.456").Truncate(2).String() -> "123.45"
+// This truncates off digits from the number, without rounding
+//
+// NOTE: precision is the last digit that will not be truncated (should be >= 0)
+//
+//     decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
+//
 func (d Decimal) Truncate(precision int32) Decimal {
 	d.ensureInitialized()
 	if precision >= 0 && -precision > d.exp {
@@ -391,7 +402,7 @@ func (d Decimal) Truncate(precision int32) Decimal {
 	return d
 }
 
-// db mapping methods
+// db deserialization
 func (d *Decimal) Scan(value interface{}) error {
 	str, err := unquoteIfQuoted(value)
 	if err != nil {
@@ -402,11 +413,12 @@ func (d *Decimal) Scan(value interface{}) error {
 	return err
 }
 
+// db serialization
 func (d Decimal) Value() (driver.Value, error) {
 	return d.String(), nil
 }
 
-// xml serialization/deserialization methods
+// xml deserialization
 func (d *Decimal) UnmarshalText(text []byte) error {
 	str := string(text)
 
@@ -419,6 +431,7 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// xml serialization
 func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }

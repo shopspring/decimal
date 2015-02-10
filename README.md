@@ -1,8 +1,19 @@
-# decimal
+# decimal [![Build Status](https://travis-ci.org/jellolabs/decimal.png?branch=master)](https://travis-ci.org/jellolabs/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
 NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decmial point.
+
+## Features
+
+ * addition, subtraction, multiplication with no loss of precision
+ * division with specified precision
+ * database/sql serialization/deserialization
+ * json and xml serialization/deserialization
+
+## Notable users
+
+This is currently being used in production by [Spring](https://shopspring.com/), and has been since August 14, 2014.
 
 ## Usage
 

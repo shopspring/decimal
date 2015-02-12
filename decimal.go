@@ -216,7 +216,7 @@ func (d Decimal) Add(d2 Decimal) Decimal {
 	}
 }
 
-// Returns d2 - d
+// Returns d - d2
 func (d Decimal) Sub(d2 Decimal) Decimal {
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)

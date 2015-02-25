@@ -1,4 +1,4 @@
-# decimal [![Build Status](https://travis-ci.org/jellolabs/decimal.png?branch=master)](https://travis-ci.org/jellolabs/decimal)
+# decimal [![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
@@ -14,7 +14,7 @@ NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decmi
 
 ## Install
 
-Run `go get github.com/jellolabs/decimal`
+Run `go get github.com/shopspring/decimal`
 
 ## Usage
 
@@ -23,7 +23,7 @@ package main
 
 import (
     "fmt"
-    "github.com/jellolabs/decimal"
+    "github.com/shopspring/decimal"
 )
 
 func main() {
@@ -53,7 +53,7 @@ func main() {
 
 ## Documentation
 
-http://godoc.org/github.com/jellolabs/decimal
+http://godoc.org/github.com/shopspring/decimal
 
 ## Production Usage
 

@@ -6,14 +6,15 @@ NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decmi
 
 ## Features
 
+ * the zero-value is 0, and is safe to use without initialization
  * addition, subtraction, multiplication with no loss of precision
  * division with specified precision
  * database/sql serialization/deserialization
  * json and xml serialization/deserialization
 
-## Notable users
+## Install
 
-This is currently being used in production by [Spring](https://shopspring.com/), and has been since August 14, 2014.
+Run `go get github.com/jellolabs/decimal`
 
 ## Usage
 
@@ -53,6 +54,11 @@ func main() {
 ## Documentation
 
 http://godoc.org/github.com/jellolabs/decimal
+
+## Production Usage
+
+* [Spring](https://shopspring.com/), since August 14, 2014.
+* If you are using this in production, please let us know!
 
 ## License
 

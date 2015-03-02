@@ -63,3 +63,5 @@ http://godoc.org/github.com/shopspring/decimal
 ## License
 
 The MIT License (MIT)
+
+This is a heavily modified fork of [fpd.Decimal](https://github.com/oguzbilgic/fpd), which was also released under the MIT License.

@@ -269,8 +269,7 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return ret
 }
 
-// Cmp compares d and d2 and returns -1, 0 or 1.
-// The smallest scale of d and d2 are used in comparison.
+// Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2
 //      0 if d == d2
@@ -284,7 +283,7 @@ func (d Decimal) Cmp(d2 Decimal) int {
 	return rd.value.Cmp(rd2.value)
 }
 
-// Equals returns whether d == d2 at the smallest scale among d and d2.
+// Equals returns whether the numbers represented by d and d2 are equal.
 func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }

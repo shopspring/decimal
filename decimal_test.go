@@ -477,6 +477,23 @@ func TestDecimal_Abs2(t *testing.T) {
 	}
 }
 
+func TestDecimal_Equal(t *testing.T) {
+	a := New(1234, 3)
+	b := New(1234, 3)
+
+	if !a.Equals(b) {
+		t.Errorf("Error")
+	}
+}
+
+func TestDecimal_ScalesNotEqual(t *testing.T) {
+	a := New(1234, 2)
+	b := New(1234, 3)
+	if a.Equals(b) {
+		t.Errorf("Error")
+	}
+}
+
 func TestDecimal_Cmp1(t *testing.T) {
 	a := New(123, 3)
 	b := New(-1234, 2)

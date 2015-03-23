@@ -28,14 +28,16 @@ var testTable = map[float64]string{
 	.1000000000000008:   "0.1000000000000008",
 }
 
-func TestNewFromFloat(t *testing.T) {
+func init() {
 	// add negatives
 	for f, s := range testTable {
 		if f > 0 {
 			testTable[-f] = "-" + s
 		}
 	}
+}
 
+func TestNewFromFloat(t *testing.T) {
 	for f, s := range testTable {
 		d := NewFromFloat(f)
 		if d.String() != s {
@@ -60,13 +62,6 @@ func TestNewFromFloat(t *testing.T) {
 }
 
 func TestNewFromString(t *testing.T) {
-	// add negatives
-	for f, s := range testTable {
-		if f > 0 {
-			testTable[-f] = "-" + s
-		}
-	}
-
 	for _, s := range testTable {
 		d, err := NewFromString(s)
 		if err != nil {

@@ -1,4 +1,4 @@
-// Package implements an arbitrary precision fixed-point decimal
+// Package decimal implements an arbitrary precision fixed-point decimal.
 //
 // To use as part of a struct:
 //
@@ -13,8 +13,8 @@
 //     n, err := decimal.NewFromString("-123.4567")
 //     n.String() // output: "-123.4567"
 //
-// NOTE: this can "only" represent numbers with a maximum of 2^31 digits
-// after the decimal point
+// NOTE: This can "only" represent numbers with a maximum of 2^31 digits
+// after the decimal point.
 package decimal
 
 import (
@@ -26,7 +26,8 @@ import (
 	"strings"
 )
 
-// Number of decimal places in the result when it doesn't divide exactly
+// DivisionPrecision is the number of decimal places in the result when it
+// doesn't divide exactly.
 //
 // Example:
 //
@@ -42,8 +43,9 @@ import (
 //
 var DivisionPrecision = 16
 
-// constant, to make computations faster
+// Zero constant, to make computations faster.
 var Zero = New(0, 1)
+
 var tenInt = big.NewInt(10)
 var oneInt = big.NewInt(1)
 
@@ -60,7 +62,7 @@ type Decimal struct {
 	exp int32
 }
 
-// Returns a new fixed-point decimal, value * 10 ^ exp
+// New returns a new fixed-point decimal, value * 10 ^ exp.
 func New(value int64, exp int32) Decimal {
 	return Decimal{
 		value: big.NewInt(value),
@@ -68,7 +70,7 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
-// Returns a new Decimal from a string representation
+// NewFromString returns a new Decimal from a string representation.
 //
 // Example:
 //
@@ -108,7 +110,7 @@ func NewFromString(value string) (Decimal, error) {
 	}, nil
 }
 
-// Converts a float64 to Decimal
+// NewFromFloat converts a float64 to Decimal.
 //
 // Example:
 //
@@ -135,7 +137,8 @@ func NewFromFloat(value float64) Decimal {
 	return dec
 }
 
-// Same as NewFromFloat, except you can choose the number of fractional digits
+// NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary
+// number of fractional digits.
 //
 // Example:
 //
@@ -155,7 +158,7 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	}
 }
 
-// Rescale returns a rescaled version of the decimal. Returned
+// rescale returns a rescaled version of the decimal. Returned
 // decimal may be less precise if the given exponent is bigger
 // than the initial exponent of the Decimal.
 // NOTE: this will truncate, NOT round
@@ -194,6 +197,7 @@ func (d Decimal) rescale(exp int32) Decimal {
 	}
 }
 
+// Abs returns the absolute value of the decimal.
 func (d Decimal) Abs() Decimal {
 	d.ensureInitialized()
 	d2Value := new(big.Int).Abs(d.value)
@@ -203,7 +207,7 @@ func (d Decimal) Abs() Decimal {
 	}
 }
 
-// Returns d + d2
+// Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
@@ -216,7 +220,7 @@ func (d Decimal) Add(d2 Decimal) Decimal {
 	}
 }
 
-// Returns d - d2
+// Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
@@ -229,7 +233,7 @@ func (d Decimal) Sub(d2 Decimal) Decimal {
 	}
 }
 
-// Returns d * d2
+// Mul returns d * d2.
 func (d Decimal) Mul(d2 Decimal) Decimal {
 	d.ensureInitialized()
 	d2.ensureInitialized()
@@ -248,8 +252,8 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 	}
 }
 
-// Returns d / d2. If it doesn't divide exactly,
-// the result will have DivisionPrecision digits after the decimal point.
+// Div returns d / d2. If it doesn't divide exactly, the result will have
+// DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {
 	// NOTE(vadim): division is hard, use Rat to do it
 	ratNum := d.Rat()
@@ -265,11 +269,12 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return ret
 }
 
-// Cmp compares x and y and returns -1, 0 or 1
+// Cmp compares d and d2 and returns -1, 0 or 1.
+// The smallest scale of d and d2 are used in comparison.
 //
-//     -1 if x <  y
-//      0 if x == y
-//     +1 if x >  y
+//     -1 if d <  d2
+//      0 if d == d2
+//     +1 if d >  d2
 //
 func (d Decimal) Cmp(d2 Decimal) int {
 	baseExp := min(d.exp, d2.exp)
@@ -279,20 +284,23 @@ func (d Decimal) Cmp(d2 Decimal) int {
 	return rd.value.Cmp(rd2.value)
 }
 
+// Equals returns whether d == d2 at the smallest scale among d and d2.
 func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
+// Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp
 }
 
+// IntPart returns the integer component of the decimal.
 func (d Decimal) IntPart() int64 {
 	scaledD := d.rescale(0)
 	return scaledD.value.Int64()
 }
 
-// Returns a rational number representation of the decimal
+// Rat returns a rational number representation of the decimal.
 func (d Decimal) Rat() *big.Rat {
 	d.ensureInitialized()
 	if d.exp <= 0 {
@@ -305,7 +313,7 @@ func (d Decimal) Rat() *big.Rat {
 	}
 }
 
-// Returns the nearest float64 value for d and a bool indicating
+// Float64 returns the nearest float64 value for d and a bool indicating
 // whether f represents d exactly.
 // For more details, see the documentation for big.Rat.Float64
 func (d Decimal) Float64() (f float64, exact bool) {
@@ -313,7 +321,7 @@ func (d Decimal) Float64() (f float64, exact bool) {
 }
 
 // String returns the string representation of the decimal
-// with the fixed point
+// with the fixed point.
 //
 // Example:
 //
@@ -369,6 +377,7 @@ func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	str, err := unquoteIfQuoted(decimalBytes)
 	if err != nil {
@@ -383,12 +392,13 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	return nil
 }
 
+// MarshalJSON implements the json.Marshaler interface.
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	str := "\"" + d.String() + "\""
 	return []byte(str), nil
 }
 
-// This truncates off digits from the number, without rounding
+// Truncate truncates off digits from the number, without rounding.
 //
 // NOTE: precision is the last digit that will not be truncated (should be >= 0)
 //
@@ -402,7 +412,7 @@ func (d Decimal) Truncate(precision int32) Decimal {
 	return d
 }
 
-// db deserialization
+// Scan implements the sql.Scanner interface for database deserialization.
 func (d *Decimal) Scan(value interface{}) error {
 	str, err := unquoteIfQuoted(value)
 	if err != nil {
@@ -413,12 +423,13 @@ func (d *Decimal) Scan(value interface{}) error {
 	return err
 }
 
-// db serialization
+// Value implements the driver.Valuer interface for database serialization.
 func (d Decimal) Value() (driver.Value, error) {
 	return d.String(), nil
 }
 
-// xml deserialization
+// UnmarshalText implements the encoding.TextUnmarshaler interface for XML
+// deserialization.
 func (d *Decimal) UnmarshalText(text []byte) error {
 	str := string(text)
 
@@ -431,7 +442,8 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// xml serialization
+// MarshalText implements the encoding.TextMarshaler interface for XML
+// serialization.
 func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }

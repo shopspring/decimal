@@ -1,6 +1,7 @@
 package decimal
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 )
@@ -143,6 +144,30 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 		var d Decimal
 		if !didPanic(func() { d = NewFromFloatWithExponent(n, 0) }) {
 			t.Fatalf("Expected panic when creating a Decimal from %v, got %v instead", n, d.String())
+		}
+	}
+}
+
+func TestJSON(t *testing.T) {
+	for _, s := range testTable {
+		var doc struct {
+			Amount Decimal `json:"amount"`
+		}
+		docStr := `{"amount":"` + s + `"}`
+		err := json.Unmarshal([]byte(docStr), &doc)
+		if err != nil {
+			t.Errorf("error unmarshaling %s: %v", docStr, err)
+		} else if doc.Amount.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, doc.Amount.String(),
+				doc.Amount.value.String(), doc.Amount.exp)
+		}
+
+		out, err := json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStr {
+			t.Errorf("expected %s, got %s", docStr, string(out))
 		}
 	}
 }

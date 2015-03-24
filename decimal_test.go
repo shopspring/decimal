@@ -484,6 +484,21 @@ func TestDecimal_Overflow(t *testing.T) {
 	}
 }
 
+func TestIntPart(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec     string
+		IntPart int64
+	}{{"0.01", 0}, {"12.1", 12}, {"9999.999", 9999}, {"-32768.01234", -32768}} {
+		d, err := NewFromString(testCase.Dec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.IntPart() != testCase.IntPart {
+			t.Errorf("expect %d, got %d", testCase.IntPart, d.IntPart())
+		}
+	}
+}
+
 // old tests after this line
 
 func TestDecimal_Scale(t *testing.T) {

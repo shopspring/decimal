@@ -158,6 +158,18 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	}
 }
 
+// NewFromRat returns a decimal from a big.Rat representation.
+func NewFromRat(value *big.Rat) Decimal {
+	// fast path, where Rat is an int
+	if value.IsInt() {
+		f, _ := value.Float64()
+		return New(int64(math.Floor(f)), 0)
+	}
+
+	floatValue, _ := value.Float64()
+	return NewFromFloat(floatValue)
+}
+
 // rescale returns a rescaled version of the decimal. Returned
 // decimal may be less precise if the given exponent is bigger
 // than the initial exponent of the Decimal.

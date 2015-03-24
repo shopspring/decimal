@@ -2,6 +2,7 @@ package decimal
 
 import (
 	"math"
+	"math/big"
 	"testing"
 )
 
@@ -55,6 +56,26 @@ func TestNewFromFloat(t *testing.T) {
 		var d Decimal
 		if !didPanic(func() { d = NewFromFloat(n) }) {
 			t.Fatalf("Expected panic when creating a Decimal from %v, got %v instead", n, d.String())
+		}
+	}
+}
+
+func TestNewFromRat(t *testing.T) {
+	// add negatives
+	for f, s := range testTable {
+		if f > 0 {
+			testTable[-f] = "-" + s
+		}
+	}
+
+	for f, s := range testTable {
+		r := big.NewRat(0, 1)
+		r.SetFloat64(f)
+		d := NewFromRat(r)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
 		}
 	}
 }

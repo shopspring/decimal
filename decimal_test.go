@@ -173,6 +173,23 @@ func TestJSON(t *testing.T) {
 	}
 }
 
+func TestBadJSON(t *testing.T) {
+	for _, testCase := range []string{
+		"]o_o[", "{", `{"amount":""`,
+		`{"amount":""}`,
+		`{"amount":"nope"}`,
+		`0.333`,
+	} {
+		var doc struct {
+			Amount Decimal `json:"amount"`
+		}
+		err := json.Unmarshal([]byte(testCase), &doc)
+		if err == nil {
+			t.Errorf("expected error, got %+v", doc)
+		}
+	}
+}
+
 func TestXML(t *testing.T) {
 	for _, s := range testTable {
 		var doc struct {
@@ -194,6 +211,25 @@ func TestXML(t *testing.T) {
 			t.Errorf("error marshaling %+v: %v", doc, err)
 		} else if string(out) != docStr {
 			t.Errorf("expected %s, got %s", docStr, string(out))
+		}
+	}
+}
+
+func TestBadXML(t *testing.T) {
+	for _, testCase := range []string{
+		"o_o", "<abc", "<account><amount>7",
+		`<html><body></body></html>`,
+		`<account><amount></amount></account>`,
+		`<account><amount>nope</amount></account>`,
+		`0.333`,
+	} {
+		var doc struct {
+			XMLName xml.Name `xml:"account"`
+			Amount  Decimal  `xml:"amount"`
+		}
+		err := xml.Unmarshal([]byte(testCase), &doc)
+		if err == nil {
+			t.Errorf("expected error, got %+v", doc)
 		}
 	}
 }

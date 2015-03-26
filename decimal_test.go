@@ -175,7 +175,9 @@ func TestJSON(t *testing.T) {
 
 func TestBadJSON(t *testing.T) {
 	for _, testCase := range []string{
-		"]o_o[", "{", `{"amount":""`,
+		"]o_o[",
+		"{",
+		`{"amount":""`,
 		`{"amount":""}`,
 		`{"amount":"nope"}`,
 		`0.333`,
@@ -217,7 +219,9 @@ func TestXML(t *testing.T) {
 
 func TestBadXML(t *testing.T) {
 	for _, testCase := range []string{
-		"o_o", "<abc", "<account><amount>7",
+		"o_o",
+		"<abc",
+		"<account><amount>7",
 		`<html><body></body></html>`,
 		`<account><amount></amount></account>`,
 		`<account><amount>nope</amount></account>`,
@@ -488,7 +492,12 @@ func TestIntPart(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec     string
 		IntPart int64
-	}{{"0.01", 0}, {"12.1", 12}, {"9999.999", 9999}, {"-32768.01234", -32768}} {
+	}{
+		{"0.01", 0},
+		{"12.1", 12},
+		{"9999.999", 9999},
+		{"-32768.01234", -32768},
+	} {
 		d, err := NewFromString(testCase.Dec)
 		if err != nil {
 			t.Fatal(err)
@@ -533,7 +542,7 @@ func TestDecimal_Equal(t *testing.T) {
 	b := New(1234, 3)
 
 	if !a.Equals(b) {
-		t.Errorf("Error")
+		t.Errorf("%q should equal %q", a, b)
 	}
 }
 
@@ -541,7 +550,7 @@ func TestDecimal_ScalesNotEqual(t *testing.T) {
 	a := New(1234, 2)
 	b := New(1234, 3)
 	if a.Equals(b) {
-		t.Errorf("Error")
+		t.Errorf("%q should not equal %q", a, b)
 	}
 }
 

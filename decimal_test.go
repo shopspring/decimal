@@ -449,6 +449,26 @@ func TestDecimal_Cmp2(t *testing.T) {
 	}
 }
 
+func TestDecimal_Min(t *testing.T) {
+	a := NewFromFloat(3.14)
+	b := NewFromFloat(1.6)
+	c := NewFromFloat(-2)
+
+	if a.Min(b, c) != c {
+		t.Errorf("Error")
+	}
+}
+
+func TestDecimal_Max(t *testing.T) {
+	a := NewFromFloat(3.14)
+	b := NewFromFloat(1.6)
+	c := NewFromFloat(-2)
+
+	if a.Max(b, c) != a {
+		t.Errorf("Error")
+	}
+}
+
 func didPanic(f func()) bool {
 	ret := false
 	func() {

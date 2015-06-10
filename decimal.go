@@ -447,6 +447,26 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }
 
+func (d Decimal) Min(others ...Decimal) Decimal {
+    ans := d
+    for _, d2 := range others {
+        if d2.Cmp(ans) <= 0 {
+            ans = d2
+        }
+    }
+    return ans
+}
+
+func (d Decimal) Max(others ...Decimal) Decimal {
+    ans := d
+    for _, d2 := range others {
+        if d2.Cmp(ans) >= 0 {
+            ans = d2
+        }
+    }
+    return ans
+}
+
 func (d *Decimal) ensureInitialized() {
 	if d.value == nil {
 		d.value = new(big.Int)

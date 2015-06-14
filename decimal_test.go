@@ -1,6 +1,8 @@
 package decimal
 
 import (
+	"encoding/json"
+	"encoding/xml"
 	"math"
 	"strings"
 	"testing"
@@ -29,14 +31,16 @@ var testTable = map[float64]string{
 	.1000000000000008:   "0.1000000000000008",
 }
 
-func TestNewFromFloat(t *testing.T) {
+func init() {
 	// add negatives
 	for f, s := range testTable {
 		if f > 0 {
 			testTable[-f] = "-" + s
 		}
 	}
+}
 
+func TestNewFromFloat(t *testing.T) {
 	for f, s := range testTable {
 		d := NewFromFloat(f)
 		if d.String() != s {
@@ -61,13 +65,6 @@ func TestNewFromFloat(t *testing.T) {
 }
 
 func TestNewFromString(t *testing.T) {
-	// add negatives
-	for f, s := range testTable {
-		if f > 0 {
-			testTable[-f] = "-" + s
-		}
-	}
-
 	for _, s := range testTable {
 		d, err := NewFromString(s)
 		if err != nil {
@@ -149,6 +146,95 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 		var d Decimal
 		if !didPanic(func() { d = NewFromFloatWithExponent(n, 0) }) {
 			t.Fatalf("Expected panic when creating a Decimal from %v, got %v instead", n, d.String())
+		}
+	}
+}
+
+func TestJSON(t *testing.T) {
+	for _, s := range testTable {
+		var doc struct {
+			Amount Decimal `json:"amount"`
+		}
+		docStr := `{"amount":"` + s + `"}`
+		err := json.Unmarshal([]byte(docStr), &doc)
+		if err != nil {
+			t.Errorf("error unmarshaling %s: %v", docStr, err)
+		} else if doc.Amount.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, doc.Amount.String(),
+				doc.Amount.value.String(), doc.Amount.exp)
+		}
+
+		out, err := json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStr {
+			t.Errorf("expected %s, got %s", docStr, string(out))
+		}
+	}
+}
+
+func TestBadJSON(t *testing.T) {
+	for _, testCase := range []string{
+		"]o_o[",
+		"{",
+		`{"amount":""`,
+		`{"amount":""}`,
+		`{"amount":"nope"}`,
+		`0.333`,
+	} {
+		var doc struct {
+			Amount Decimal `json:"amount"`
+		}
+		err := json.Unmarshal([]byte(testCase), &doc)
+		if err == nil {
+			t.Errorf("expected error, got %+v", doc)
+		}
+	}
+}
+
+func TestXML(t *testing.T) {
+	for _, s := range testTable {
+		var doc struct {
+			XMLName xml.Name `xml:"account"`
+			Amount  Decimal  `xml:"amount"`
+		}
+		docStr := `<account><amount>` + s + `</amount></account>`
+		err := xml.Unmarshal([]byte(docStr), &doc)
+		if err != nil {
+			t.Errorf("error unmarshaling %s: %v", docStr, err)
+		} else if doc.Amount.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, doc.Amount.String(),
+				doc.Amount.value.String(), doc.Amount.exp)
+		}
+
+		out, err := xml.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStr {
+			t.Errorf("expected %s, got %s", docStr, string(out))
+		}
+	}
+}
+
+func TestBadXML(t *testing.T) {
+	for _, testCase := range []string{
+		"o_o",
+		"<abc",
+		"<account><amount>7",
+		`<html><body></body></html>`,
+		`<account><amount></amount></account>`,
+		`<account><amount>nope</amount></account>`,
+		`0.333`,
+	} {
+		var doc struct {
+			XMLName xml.Name `xml:"account"`
+			Amount  Decimal  `xml:"amount"`
+		}
+		err := xml.Unmarshal([]byte(testCase), &doc)
+		if err == nil {
+			t.Errorf("expected error, got %+v", doc)
 		}
 	}
 }
@@ -538,6 +624,26 @@ func TestDecimal_Overflow(t *testing.T) {
 	}
 }
 
+func TestIntPart(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec     string
+		IntPart int64
+	}{
+		{"0.01", 0},
+		{"12.1", 12},
+		{"9999.999", 9999},
+		{"-32768.01234", -32768},
+	} {
+		d, err := NewFromString(testCase.Dec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.IntPart() != testCase.IntPart {
+			t.Errorf("expect %d, got %d", testCase.IntPart, d.IntPart())
+		}
+	}
+}
+
 // old tests after this line
 
 func TestDecimal_Scale(t *testing.T) {
@@ -564,6 +670,23 @@ func TestDecimal_Abs2(t *testing.T) {
 	c := b.Abs()
 	if c.Cmp(a) == 0 {
 		t.Errorf("error")
+	}
+}
+
+func TestDecimal_Equal(t *testing.T) {
+	a := New(1234, 3)
+	b := New(1234, 3)
+
+	if !a.Equals(b) {
+		t.Errorf("%q should equal %q", a, b)
+	}
+}
+
+func TestDecimal_ScalesNotEqual(t *testing.T) {
+	a := New(1234, 2)
+	b := New(1234, 3)
+	if a.Equals(b) {
+		t.Errorf("%q should not equal %q", a, b)
 	}
 }
 

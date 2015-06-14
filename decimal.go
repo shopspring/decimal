@@ -46,8 +46,10 @@ var DivisionPrecision = 16
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
-var tenInt = big.NewInt(10)
+var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
+var fiveInt = big.NewInt(5)
+var tenInt = big.NewInt(10)
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -332,6 +334,10 @@ func (d Decimal) Float64() (f float64, exact bool) {
 //     -12.345
 //
 func (d Decimal) String() string {
+	return d.string(true)
+}
+
+func (d Decimal) string(trimTrailingZeros bool) string {
 	if d.exp >= 0 {
 		return d.rescale(0).value.String()
 	}
@@ -351,13 +357,15 @@ func (d Decimal) String() string {
 		fractionalPart = strings.Repeat("0", num0s) + str
 	}
 
-	i := len(fractionalPart) - 1
-	for ; i >= 0; i-- {
-		if fractionalPart[i] != '0' {
-			break
+	if trimTrailingZeros {
+		i := len(fractionalPart) - 1
+		for ; i >= 0; i-- {
+			if fractionalPart[i] != '0' {
+				break
+			}
 		}
+		fractionalPart = fractionalPart[:i+1]
 	}
-	fractionalPart = fractionalPart[:i+1]
 
 	number := intPart
 	if len(fractionalPart) > 0 {
@@ -371,9 +379,64 @@ func (d Decimal) String() string {
 	return number
 }
 
-// StringScaled first scales the decimal then calls .String() on it.
-func (d Decimal) StringScaled(exp int32) string {
-	return d.rescale(exp).String()
+// StringFixed returns a rounded fixed-point string with places digits after
+// the decimal point.
+//
+// Example:
+//
+// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixed(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.5"
+// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+//
+func (d Decimal) StringFixed(places int32) string {
+	rounded := d.Round(places)
+	return rounded.string(false)
+}
+
+// Round rounds the decimal to places decimal places.
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Example:
+//
+// 	   NewFromFloat(5.45).Round(1).String() // output: "5.5"
+// 	   NewFromFloat(545).Round(-1).String() // output: "550"
+//
+func (d Decimal) Round(places int32) Decimal {
+	almost := d.rescale(-(places + 1))
+	if almost.value.Sign() < 0 {
+		almost.value.Sub(almost.value, fiveInt)
+	} else {
+		almost.value.Add(almost.value, fiveInt)
+	}
+
+	_, m := almost.value.DivMod(almost.value, tenInt, new(big.Int))
+	almost.exp += 1
+	if almost.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		almost.value.Add(almost.value, oneInt)
+	}
+
+	return almost
+}
+
+func (d Decimal) Floor() Decimal {
+	exp := big.NewInt(10)
+	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
+	z := new(big.Int).Div(d.value, exp)
+	return Decimal{value: z, exp: 0}
+}
+
+func (d Decimal) Ceil() Decimal {
+	exp := big.NewInt(10)
+	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
+	z, m := new(big.Int).DivMod(d.value, exp, new(big.Int))
+	if m.Cmp(zeroInt) != 0 {
+		z.Add(z, oneInt)
+	}
+	return Decimal{value: z, exp: 0}
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -445,6 +508,12 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 // serialization.
 func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
+}
+
+// NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
+// StringScaled first scales the decimal then calls .String() on it.
+func (d Decimal) StringScaled(exp int32) string {
+	return d.rescale(exp).String()
 }
 
 func (d *Decimal) ensureInitialized() {

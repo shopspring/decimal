@@ -423,11 +423,20 @@ func TestDecimal_Uninitialized(t *testing.T) {
 		a.Sub(b),
 		a.Mul(b),
 		a.Div(New(1, -1)),
+		a.Floor(),
+		a.Ceil(),
+		a.Round(2),
 	}
 
 	for _, d := range decs {
 		if d.String() != "0" {
 			t.Errorf("expected 0, got %s", d.String())
+		}
+		if d.StringFixed(3) != "0.000" {
+			t.Errorf("expected 0, got %s", d.StringFixed(3))
+		}
+		if d.StringScaled(-2) != "0" {
+			t.Errorf("expected 0, got %s", d.StringScaled(-2))
 		}
 	}
 

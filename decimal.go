@@ -337,48 +337,6 @@ func (d Decimal) String() string {
 	return d.string(true)
 }
 
-func (d Decimal) string(trimTrailingZeros bool) string {
-	if d.exp >= 0 {
-		return d.rescale(0).value.String()
-	}
-
-	abs := new(big.Int).Abs(d.value)
-	str := abs.String()
-
-	var intPart, fractionalPart string
-	dExpInt := int(d.exp)
-	if len(str) > -dExpInt {
-		intPart = str[:len(str)+dExpInt]
-		fractionalPart = str[len(str)+dExpInt:]
-	} else {
-		intPart = "0"
-
-		num0s := -dExpInt - len(str)
-		fractionalPart = strings.Repeat("0", num0s) + str
-	}
-
-	if trimTrailingZeros {
-		i := len(fractionalPart) - 1
-		for ; i >= 0; i-- {
-			if fractionalPart[i] != '0' {
-				break
-			}
-		}
-		fractionalPart = fractionalPart[:i+1]
-	}
-
-	number := intPart
-	if len(fractionalPart) > 0 {
-		number += "." + fractionalPart
-	}
-
-	if d.value.Sign() < 0 {
-		return "-" + number
-	}
-
-	return number
-}
-
 // StringFixed returns a rounded fixed-point string with places digits after
 // the decimal point.
 //
@@ -406,24 +364,30 @@ func (d Decimal) StringFixed(places int32) string {
 // 	   NewFromFloat(545).Round(-1).String() // output: "550"
 //
 func (d Decimal) Round(places int32) Decimal {
-	almost := d.rescale(-(places + 1))
-	if almost.value.Sign() < 0 {
-		almost.value.Sub(almost.value, fiveInt)
+	// truncate to places + 1
+	ret := d.rescale(-(places + 1))
+
+	// add sign(d) * 0.5
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fiveInt)
 	} else {
-		almost.value.Add(almost.value, fiveInt)
+		ret.value.Add(ret.value, fiveInt)
 	}
 
-	_, m := almost.value.DivMod(almost.value, tenInt, new(big.Int))
-	almost.exp += 1
-	if almost.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
-		almost.value.Add(almost.value, oneInt)
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp += 1
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
 	}
 
-	return almost
+	return ret
 }
 
 // Floor returns the nearest integer value less than or equal to d.
 func (d Decimal) Floor() Decimal {
+	d.ensureInitialized()
+
 	exp := big.NewInt(10)
 	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
 	z := new(big.Int).Div(d.value, exp)
@@ -432,6 +396,8 @@ func (d Decimal) Floor() Decimal {
 
 // Ceil returns the nearest integer value greater than or equal to d.
 func (d Decimal) Ceil() Decimal {
+	d.ensureInitialized()
+
 	exp := big.NewInt(10)
 	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
 	z, m := new(big.Int).DivMod(d.value, exp, new(big.Int))
@@ -516,6 +482,48 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 // StringScaled first scales the decimal then calls .String() on it.
 func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()
+}
+
+func (d Decimal) string(trimTrailingZeros bool) string {
+	if d.exp >= 0 {
+		return d.rescale(0).value.String()
+	}
+
+	abs := new(big.Int).Abs(d.value)
+	str := abs.String()
+
+	var intPart, fractionalPart string
+	dExpInt := int(d.exp)
+	if len(str) > -dExpInt {
+		intPart = str[:len(str)+dExpInt]
+		fractionalPart = str[len(str)+dExpInt:]
+	} else {
+		intPart = "0"
+
+		num0s := -dExpInt - len(str)
+		fractionalPart = strings.Repeat("0", num0s) + str
+	}
+
+	if trimTrailingZeros {
+		i := len(fractionalPart) - 1
+		for ; i >= 0; i-- {
+			if fractionalPart[i] != '0' {
+				break
+			}
+		}
+		fractionalPart = fractionalPart[:i+1]
+	}
+
+	number := intPart
+	if len(fractionalPart) > 0 {
+		number += "." + fractionalPart
+	}
+
+	if d.value.Sign() < 0 {
+		return "-" + number
+	}
+
+	return number
 }
 
 func (d *Decimal) ensureInitialized() {

@@ -422,6 +422,7 @@ func (d Decimal) Round(places int32) Decimal {
 	return almost
 }
 
+// Floor returns the nearest integer value less than or equal to d.
 func (d Decimal) Floor() Decimal {
 	exp := big.NewInt(10)
 	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
@@ -429,6 +430,7 @@ func (d Decimal) Floor() Decimal {
 	return Decimal{value: z, exp: 0}
 }
 
+// Ceil returns the nearest integer value greater than or equal to d.
 func (d Decimal) Ceil() Decimal {
 	exp := big.NewInt(10)
 	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)

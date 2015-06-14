@@ -305,7 +305,8 @@ func (d Decimal) IntPart() int64 {
 func (d Decimal) Rat() *big.Rat {
 	d.ensureInitialized()
 	if d.exp <= 0 {
-		denom := new(big.Int).Exp(tenInt, big.NewInt(int64(-d.exp)), nil)
+		// NOTE(vadim): must negate after casting to prevent int32 overflow
+		denom := new(big.Int).Exp(tenInt, big.NewInt(-int64(d.exp)), nil)
 		return new(big.Rat).SetFrac(d.value, denom)
 	} else {
 		mul := new(big.Int).Exp(tenInt, big.NewInt(int64(d.exp)), nil)
@@ -365,7 +366,7 @@ func (d Decimal) StringFixed(places int32) string {
 //
 func (d Decimal) Round(places int32) Decimal {
 	// truncate to places + 1
-	ret := d.rescale(-(places + 1))
+	ret := d.rescale(-places - 1)
 
 	// add sign(d) * 0.5
 	if ret.value.Sign() < 0 {
@@ -389,7 +390,10 @@ func (d Decimal) Floor() Decimal {
 	d.ensureInitialized()
 
 	exp := big.NewInt(10)
-	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
+
+	// NOTE(vadim): must negate after casting to prevent int32 overflow
+	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
+
 	z := new(big.Int).Div(d.value, exp)
 	return Decimal{value: z, exp: 0}
 }
@@ -399,12 +403,31 @@ func (d Decimal) Ceil() Decimal {
 	d.ensureInitialized()
 
 	exp := big.NewInt(10)
-	exp.Exp(exp, big.NewInt(int64(-d.exp)), nil)
+
+	// NOTE(vadim): must negate after casting to prevent int32 overflow
+	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
+
 	z, m := new(big.Int).DivMod(d.value, exp, new(big.Int))
 	if m.Cmp(zeroInt) != 0 {
 		z.Add(z, oneInt)
 	}
 	return Decimal{value: z, exp: 0}
+}
+
+// Truncate truncates off digits from the number, without rounding.
+//
+// NOTE: precision is the last digit that will not be truncated (must be >= 0).
+//
+// Example:
+//
+//     decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
+//
+func (d Decimal) Truncate(precision int32) Decimal {
+	d.ensureInitialized()
+	if precision >= 0 && -precision > d.exp {
+		return d.rescale(-precision)
+	}
+	return d
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -426,20 +449,6 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	str := "\"" + d.String() + "\""
 	return []byte(str), nil
-}
-
-// Truncate truncates off digits from the number, without rounding.
-//
-// NOTE: precision is the last digit that will not be truncated (should be >= 0)
-//
-//     decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
-//
-func (d Decimal) Truncate(precision int32) Decimal {
-	d.ensureInitialized()
-	if precision >= 0 && -precision > d.exp {
-		return d.rescale(-precision)
-	}
-	return d
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
@@ -493,6 +502,9 @@ func (d Decimal) string(trimTrailingZeros bool) string {
 	str := abs.String()
 
 	var intPart, fractionalPart string
+
+	// NOTE(vadim): this cast to int will cause bugs if d.exp == INT_MIN
+	// and you are on a 32-bit machine. Won't fix this super-edge case.
 	dExpInt := int(d.exp)
 	if len(str) > -dExpInt {
 		intPart = str[:len(str)+dExpInt]

@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 )
 
 var testTable = map[float64]string{
@@ -423,9 +424,10 @@ func TestDecimal_Uninitialized(t *testing.T) {
 		a.Sub(b),
 		a.Mul(b),
 		a.Div(New(1, -1)),
+		a.Round(2),
 		a.Floor(),
 		a.Ceil(),
-		a.Round(2),
+		a.Truncate(2),
 	}
 
 	for _, d := range decs {
@@ -445,6 +447,16 @@ func TestDecimal_Uninitialized(t *testing.T) {
 	}
 	if a.Exponent() != 0 {
 		t.Errorf("a.Exponent() != 0")
+	}
+	if a.IntPart() != 0 {
+		t.Errorf("a.IntPar() != 0")
+	}
+	f, _ := a.Float64()
+	if f != 0 {
+		t.Errorf("a.Float64() != 0")
+	}
+	if a.Rat().RatString() != "0" {
+		t.Errorf("a.Rat() != 0, got %s", a.Rat().RatString())
 	}
 }
 
@@ -631,6 +643,52 @@ func TestDecimal_Overflow(t *testing.T) {
 	if !didPanic(func() { New(1, math.MaxInt32).Mul(New(1, math.MaxInt32)) }) {
 		t.Fatalf("should have gotten an overflow panic")
 	}
+}
+
+func TestDecimal_ExtremeValues(t *testing.T) {
+	// NOTE(vadim): this test takes pretty much forever
+	if testing.Short() {
+		t.Skip()
+	}
+
+	// NOTE(vadim): Seriously, the numbers invovled are so large that this
+	// test will take way too long, so mark it as success if it takes over
+	// 1 second. The way this test typically fails (integer overflow) is that
+	// a wrong result appears quickly, so if it takes a long time then it is
+	// probably working properly.
+	// Why even bother testing this? Completeness, I guess. -Vadim
+	const timeLimit = 1 * time.Second
+	test := func(f func()) {
+		c := make(chan bool)
+		go func() {
+			f()
+			close(c)
+		}()
+		select {
+		case <-c:
+		case <-time.After(timeLimit):
+		}
+	}
+
+	test(func() {
+		got := New(123, math.MinInt32).Floor()
+		if !got.Equals(NewFromFloat(0)) {
+			t.Errorf("Error: got %s, expected 0", got)
+		}
+	})
+	test(func() {
+		got := New(123, math.MinInt32).Ceil()
+		if !got.Equals(NewFromFloat(1)) {
+			t.Errorf("Error: got %s, expected 1", got)
+		}
+	})
+	test(func() {
+		got := New(123, math.MinInt32).Rat().FloatString(10)
+		expected := "0.0000000000"
+		if got != expected {
+			t.Errorf("Error: got %s, expected %s", got, expected)
+		}
+	})
 }
 
 func TestIntPart(t *testing.T) {

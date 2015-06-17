@@ -2,7 +2,7 @@
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
-NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decmial point.
+NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
 
 ## Features
 

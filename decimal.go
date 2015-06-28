@@ -489,9 +489,11 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 
 func Min(numbers ...Decimal) Decimal {
     ans := Decimal{}
+    first := true
     for _, item := range numbers {
-        if item.Cmp(ans) <= 0 {
+        if item.Cmp(ans) <= 0 || first {
             ans = item
+            first = false
         }
     }
     return ans
@@ -499,9 +501,11 @@ func Min(numbers ...Decimal) Decimal {
 
 func Max(numbers ...Decimal) Decimal {
     ans := Decimal{}
+    first := true
     for _, item := range numbers {
-        if item.Cmp(ans) >= 0 {
+        if item.Cmp(ans) >= 0 || first {
             ans = item
+            first = false
         }
     }
     return ans

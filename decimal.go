@@ -46,8 +46,10 @@ var DivisionPrecision = 16
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
-var tenInt = big.NewInt(10)
+var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
+var fiveInt = big.NewInt(5)
+var tenInt = big.NewInt(10)
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -303,7 +305,8 @@ func (d Decimal) IntPart() int64 {
 func (d Decimal) Rat() *big.Rat {
 	d.ensureInitialized()
 	if d.exp <= 0 {
-		denom := new(big.Int).Exp(tenInt, big.NewInt(int64(-d.exp)), nil)
+		// NOTE(vadim): must negate after casting to prevent int32 overflow
+		denom := new(big.Int).Exp(tenInt, big.NewInt(-int64(d.exp)), nil)
 		return new(big.Rat).SetFrac(d.value, denom)
 	} else {
 		mul := new(big.Int).Exp(tenInt, big.NewInt(int64(d.exp)), nil)
@@ -332,48 +335,99 @@ func (d Decimal) Float64() (f float64, exact bool) {
 //     -12.345
 //
 func (d Decimal) String() string {
-	if d.exp >= 0 {
-		return d.rescale(0).value.String()
-	}
-
-	abs := new(big.Int).Abs(d.value)
-	str := abs.String()
-
-	var intPart, fractionalPart string
-	dExpInt := int(d.exp)
-	if len(str) > -dExpInt {
-		intPart = str[:len(str)+dExpInt]
-		fractionalPart = str[len(str)+dExpInt:]
-	} else {
-		intPart = "0"
-
-		num0s := -dExpInt - len(str)
-		fractionalPart = strings.Repeat("0", num0s) + str
-	}
-
-	i := len(fractionalPart) - 1
-	for ; i >= 0; i-- {
-		if fractionalPart[i] != '0' {
-			break
-		}
-	}
-	fractionalPart = fractionalPart[:i+1]
-
-	number := intPart
-	if len(fractionalPart) > 0 {
-		number += "." + fractionalPart
-	}
-
-	if d.value.Sign() < 0 {
-		return "-" + number
-	}
-
-	return number
+	return d.string(true)
 }
 
-// StringScaled first scales the decimal then calls .String() on it.
-func (d Decimal) StringScaled(exp int32) string {
-	return d.rescale(exp).String()
+// StringFixed returns a rounded fixed-point string with places digits after
+// the decimal point.
+//
+// Example:
+//
+// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixed(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.5"
+// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+//
+func (d Decimal) StringFixed(places int32) string {
+	rounded := d.Round(places)
+	return rounded.string(false)
+}
+
+// Round rounds the decimal to places decimal places.
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Example:
+//
+// 	   NewFromFloat(5.45).Round(1).String() // output: "5.5"
+// 	   NewFromFloat(545).Round(-1).String() // output: "550"
+//
+func (d Decimal) Round(places int32) Decimal {
+	// truncate to places + 1
+	ret := d.rescale(-places - 1)
+
+	// add sign(d) * 0.5
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fiveInt)
+	} else {
+		ret.value.Add(ret.value, fiveInt)
+	}
+
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp += 1
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
+	}
+
+	return ret
+}
+
+// Floor returns the nearest integer value less than or equal to d.
+func (d Decimal) Floor() Decimal {
+	d.ensureInitialized()
+
+	exp := big.NewInt(10)
+
+	// NOTE(vadim): must negate after casting to prevent int32 overflow
+	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
+
+	z := new(big.Int).Div(d.value, exp)
+	return Decimal{value: z, exp: 0}
+}
+
+// Ceil returns the nearest integer value greater than or equal to d.
+func (d Decimal) Ceil() Decimal {
+	d.ensureInitialized()
+
+	exp := big.NewInt(10)
+
+	// NOTE(vadim): must negate after casting to prevent int32 overflow
+	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
+
+	z, m := new(big.Int).DivMod(d.value, exp, new(big.Int))
+	if m.Cmp(zeroInt) != 0 {
+		z.Add(z, oneInt)
+	}
+	return Decimal{value: z, exp: 0}
+}
+
+// Truncate truncates off digits from the number, without rounding.
+//
+// NOTE: precision is the last digit that will not be truncated (must be >= 0).
+//
+// Example:
+//
+//     decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
+//
+func (d Decimal) Truncate(precision int32) Decimal {
+	d.ensureInitialized()
+	if precision >= 0 && -precision > d.exp {
+		return d.rescale(-precision)
+	}
+	return d
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -395,20 +449,6 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	str := "\"" + d.String() + "\""
 	return []byte(str), nil
-}
-
-// Truncate truncates off digits from the number, without rounding.
-//
-// NOTE: precision is the last digit that will not be truncated (should be >= 0)
-//
-//     decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
-//
-func (d Decimal) Truncate(precision int32) Decimal {
-	d.ensureInitialized()
-	if precision >= 0 && -precision > d.exp {
-		return d.rescale(-precision)
-	}
-	return d
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
@@ -465,6 +505,57 @@ func (d Decimal) Max(others ...Decimal) Decimal {
         }
     }
     return ans
+}
+
+// NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
+// StringScaled first scales the decimal then calls .String() on it.
+func (d Decimal) StringScaled(exp int32) string {
+	return d.rescale(exp).String()
+}
+
+func (d Decimal) string(trimTrailingZeros bool) string {
+	if d.exp >= 0 {
+		return d.rescale(0).value.String()
+	}
+
+	abs := new(big.Int).Abs(d.value)
+	str := abs.String()
+
+	var intPart, fractionalPart string
+
+	// NOTE(vadim): this cast to int will cause bugs if d.exp == INT_MIN
+	// and you are on a 32-bit machine. Won't fix this super-edge case.
+	dExpInt := int(d.exp)
+	if len(str) > -dExpInt {
+		intPart = str[:len(str)+dExpInt]
+		fractionalPart = str[len(str)+dExpInt:]
+	} else {
+		intPart = "0"
+
+		num0s := -dExpInt - len(str)
+		fractionalPart = strings.Repeat("0", num0s) + str
+	}
+
+	if trimTrailingZeros {
+		i := len(fractionalPart) - 1
+		for ; i >= 0; i-- {
+			if fractionalPart[i] != '0' {
+				break
+			}
+		}
+		fractionalPart = fractionalPart[:i+1]
+	}
+
+	number := intPart
+	if len(fractionalPart) > 0 {
+		number += "." + fractionalPart
+	}
+
+	if d.value.Sign() < 0 {
+		return "-" + number
+	}
+
+	return number
 }
 
 func (d *Decimal) ensureInitialized() {

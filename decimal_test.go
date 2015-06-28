@@ -780,7 +780,7 @@ func TestDecimal_Min(t *testing.T) {
 	b := NewFromFloat(1.6)
 	c := NewFromFloat(-2)
 
-	if a.Min(b, c) != c {
+	if !Min(a, b, c).Equals(c) {
 		t.Errorf("Error")
 	}
 }
@@ -790,7 +790,7 @@ func TestDecimal_Max(t *testing.T) {
 	b := NewFromFloat(1.6)
 	c := NewFromFloat(-2)
 
-	if a.Max(b, c) != a {
+	if !Max(a, b, c).Equals(a) {
 		t.Errorf("Error")
 	}
 }

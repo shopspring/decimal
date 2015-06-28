@@ -487,21 +487,21 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }
 
-func (d Decimal) Min(others ...Decimal) Decimal {
-    ans := d
-    for _, d2 := range others {
-        if d2.Cmp(ans) <= 0 {
-            ans = d2
+func Min(numbers ...Decimal) Decimal {
+    ans := Decimal{}
+    for _, item := range numbers {
+        if item.Cmp(ans) <= 0 {
+            ans = item
         }
     }
     return ans
 }
 
-func (d Decimal) Max(others ...Decimal) Decimal {
-    ans := d
-    for _, d2 := range others {
-        if d2.Cmp(ans) >= 0 {
-            ans = d2
+func Max(numbers ...Decimal) Decimal {
+    ans := Decimal{}
+    for _, item := range numbers {
+        if item.Cmp(ans) >= 0 {
+            ans = item
         }
     }
     return ans

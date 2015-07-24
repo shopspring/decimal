@@ -544,6 +544,40 @@ func (d *Decimal) ensureInitialized() {
 	}
 }
 
+// Returns the minimum Decimal that was passed in the arguments.
+//
+// To call this function with an array, you must do:
+//
+//     Min(arr[0], arr[1:]...)
+//
+// This makes it harder to accidentally call Min with 0 arguments.
+func Min(first Decimal, rest ...Decimal) Decimal {
+	ans := first
+	for _, item := range rest {
+		if item.Cmp(ans) < 0 {
+			ans = item
+		}
+	}
+	return ans
+}
+
+// Returns the maximum Decimal that was passed in the arguments.
+//
+// To call this function with an array, you must do:
+//
+//     Max(arr[0], arr[1:]...)
+//
+// This makes it harder to accidentally call Max with 0 arguments.
+func Max(first Decimal, rest ...Decimal) Decimal {
+	ans := first
+	for _, item := range rest {
+		if item.Cmp(ans) > 0 {
+			ans = item
+		}
+	}
+	return ans
+}
+
 func min(x, y int32) int32 {
 	if x >= y {
 		return y

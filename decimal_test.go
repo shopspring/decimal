@@ -711,6 +711,61 @@ func TestIntPart(t *testing.T) {
 	}
 }
 
+func TestDecimal_Min(t *testing.T) {
+	// the first element in the array is the expected answer, rest are inputs
+	testCases := [][]float64{
+		{0, 0},
+		{1, 1},
+		{-1, -1},
+		{1, 1, 2},
+		{-2, 1, 2, -2},
+		{-3, 0, 2, -2, -3},
+	}
+
+	for _, test := range testCases {
+		expected, input := test[0], test[1:]
+		expectedDecimal := NewFromFloat(expected)
+		decimalInput := []Decimal{}
+		for _, inp := range input {
+			d := NewFromFloat(inp)
+			decimalInput = append(decimalInput, d)
+		}
+		got := Min(decimalInput[0], decimalInput[1:]...)
+		if !got.Equals(expectedDecimal) {
+			t.Errorf("Expected %v, got %v, input=%+v", expectedDecimal, got,
+				decimalInput)
+		}
+	}
+}
+
+func TestDecimal_Max(t *testing.T) {
+	// the first element in the array is the expected answer, rest are inputs
+	testCases := [][]float64{
+		{0, 0},
+		{1, 1},
+		{-1, -1},
+		{2, 1, 2},
+		{2, 1, 2, -2},
+		{3, 0, 3, -2},
+		{-2, -3, -2},
+	}
+
+	for _, test := range testCases {
+		expected, input := test[0], test[1:]
+		expectedDecimal := NewFromFloat(expected)
+		decimalInput := []Decimal{}
+		for _, inp := range input {
+			d := NewFromFloat(inp)
+			decimalInput = append(decimalInput, d)
+		}
+		got := Max(decimalInput[0], decimalInput[1:]...)
+		if !got.Equals(expectedDecimal) {
+			t.Errorf("Expected %v, got %v, input=%+v", expectedDecimal, got,
+				decimalInput)
+		}
+	}
+}
+
 // old tests after this line
 
 func TestDecimal_Scale(t *testing.T) {

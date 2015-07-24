@@ -544,7 +544,7 @@ func (d *Decimal) ensureInitialized() {
 	}
 }
 
-// Returns the minimum Decimal that was passed in the arguments.
+// Returns the smallest Decimal that was passed in the arguments.
 //
 // To call this function with an array, you must do:
 //
@@ -561,7 +561,7 @@ func Min(first Decimal, rest ...Decimal) Decimal {
 	return ans
 }
 
-// Returns the maximum Decimal that was passed in the arguments.
+// Returns the largest Decimal that was passed in the arguments.
 //
 // To call this function with an array, you must do:
 //

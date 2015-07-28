@@ -33,13 +33,18 @@ var testTable = map[float64]string{
 }
 
 var testTableScientificNotation = map[string]string{
-	"1e9":       "1000000000",
-	"2.41E-3":   "0.00241",
-	"24.2E-4":   "0.00242",
-	"243E-5":    "0.00243",
-	"-1e-5":     "-0.00001",
-	"-245E3":    "-245000",
-	"1.2345E-1": "0.12345",
+	"1e9":        "1000000000",
+	"2.41E-3":    "0.00241",
+	"24.2E-4":    "0.00242",
+	"243E-5":     "0.00243",
+	"1e-5":       "0.00001",
+	"245E3":      "245000",
+	"1.2345E-1":  "0.12345",
+	"0e5":        "0",
+	"0e-5":       "0",
+	"123.456e0":  "123.456",
+	"123.456e2":  "12345.6",
+	"123.456e10": "1234560000000",
 }
 
 func init() {
@@ -47,6 +52,11 @@ func init() {
 	for f, s := range testTable {
 		if f > 0 {
 			testTable[-f] = "-" + s
+		}
+	}
+	for e, s := range testTableScientificNotation {
+		if string(e[0]) != "-" && s != "0" {
+			testTableScientificNotation["-"+e] = "-" + s
 		}
 	}
 }
@@ -119,6 +129,12 @@ func TestNewFromStringErrs(t *testing.T) {
 		"1e",
 		"1-e",
 		"1e9e",
+		"1ee9",
+		"1ee",
+		"1e1.2",
+		"123.456e1.3",
+		"1e-1.2",
+		"123.456e-1.3",
 	}
 
 	for _, s := range tests {

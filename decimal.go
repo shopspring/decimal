@@ -81,17 +81,17 @@ func New(value int64, exp int32) Decimal {
 //
 func NewFromString(value string) (Decimal, error) {
 	var intString string
-	var exp int32
+	var exp int64
 
 	// Check if number is using scientific notation
 	eIndex := strings.IndexAny(value, "Ee")
 	if eIndex != -1 {
-		expInt, err := strconv.ParseInt(value[eIndex+1:len(value)], 10, 32)
+		expInt, err := strconv.ParseInt(value[eIndex+1:len(value)], 10, 64)
 		if err != nil {
 			return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent is not numeric", value)
 		}
 		value = value[0:eIndex]
-		exp = int32(expInt)
+		exp = expInt
 	}
 
 	parts := strings.Split(value, ".")
@@ -102,11 +102,7 @@ func NewFromString(value string) (Decimal, error) {
 	} else if len(parts) == 2 {
 		intString = parts[0] + parts[1]
 		expInt := -len(parts[1])
-		if expInt < math.MinInt32 {
-			// NOTE(vadim): I doubt a string could realistically be this long
-			return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
-		}
-		exp += int32(expInt)
+		exp += int64(expInt)
 	} else {
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
 	}
@@ -117,9 +113,14 @@ func NewFromString(value string) (Decimal, error) {
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
 	}
 
+	if exp < math.MinInt32 || exp > math.MaxInt32 {
+		// NOTE(vadim): I doubt a string could realistically be this long
+		return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
+	}
+
 	return Decimal{
 		value: dValue,
-		exp:   exp,
+		exp:   int32(exp),
 	}, nil
 }
 

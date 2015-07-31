@@ -86,11 +86,15 @@ func NewFromString(value string) (Decimal, error) {
 	// Check if number is using scientific notation
 	eIndex := strings.IndexAny(value, "Ee")
 	if eIndex != -1 {
-		expInt, err := strconv.ParseInt(value[eIndex+1:len(value)], 10, 64)
+		expInt, err := strconv.ParseInt(value[eIndex+1:], 10, 32)
 		if err != nil {
+			rerr := err.(*strconv.NumError)
+			if rerr.Err == strconv.ErrRange {
+				return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
+			}
 			return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent is not numeric", value)
 		}
-		value = value[0:eIndex]
+		value = value[:eIndex]
 		exp = expInt
 	}
 

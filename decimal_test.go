@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -135,6 +136,7 @@ func TestNewFromStringErrs(t *testing.T) {
 		"123.456e1.3",
 		"1e-1.2",
 		"123.456e-1.3",
+		"123.456e" + strconv.FormatInt(math.MinInt64, 10),
 	}
 
 	for _, s := range tests {

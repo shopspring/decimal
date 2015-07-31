@@ -80,6 +80,7 @@ func New(value int64, exp int32) Decimal {
 //     d2, err := NewFromString(".0001")
 //
 func NewFromString(value string) (Decimal, error) {
+	originalInput := value
 	var intString string
 	var exp int64
 
@@ -88,8 +89,7 @@ func NewFromString(value string) (Decimal, error) {
 	if eIndex != -1 {
 		expInt, err := strconv.ParseInt(value[eIndex+1:], 10, 32)
 		if err != nil {
-			rerr := err.(*strconv.NumError)
-			if rerr.Err == strconv.ErrRange {
+			if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
 				return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
 			}
 			return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent is not numeric", value)
@@ -119,7 +119,7 @@ func NewFromString(value string) (Decimal, error) {
 
 	if exp < math.MinInt32 || exp > math.MaxInt32 {
 		// NOTE(vadim): I doubt a string could realistically be this long
-		return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
+		return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", originalInput)
 	}
 
 	return Decimal{

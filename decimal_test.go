@@ -137,6 +137,7 @@ func TestNewFromStringErrs(t *testing.T) {
 		"1e-1.2",
 		"123.456e-1.3",
 		"123.456e" + strconv.FormatInt(math.MinInt64, 10),
+		"123.456e" + strconv.FormatInt(math.MinInt32, 10),
 	}
 
 	for _, s := range tests {

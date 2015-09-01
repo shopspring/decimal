@@ -630,7 +630,7 @@ func TestDecimal_Div(t *testing.T) {
 		Inp{"-4612301402398.4753343454", "23.5"}: "-196268144782.9138440146978723",
 	}
 
-	for inp, expected := range inputs {
+	for inp, expectedStr := range inputs {
 		num, err := NewFromString(inp.a)
 		if err != nil {
 			t.FailNow()
@@ -640,13 +640,14 @@ func TestDecimal_Div(t *testing.T) {
 			t.FailNow()
 		}
 		got := num.Div(denom)
-		if got.String() != expected {
-			t.Errorf("expected %s when dividing %v by %v, got %v",
+		expected, _ := NewFromString(expectedStr)
+		if !got.Equals(expected) {
+			t.Errorf("expected %v when dividing %v by %v, got %v",
 				expected, num, denom, got)
 		}
 		got2 := num.DivRound(denom, int32(DivisionPrecision))
-		if !got.Equals(got2) {
-			t.Errorf("aua: %s %s", got.String(), got2.String())
+		if !got2.Equals(expected) {
+			t.Errorf("expected %v on DivRound (%v,%v), got %v", expected, num, denom, got2)
 		}
 	}
 
@@ -719,20 +720,61 @@ func TestDecimal_QuoRem(t *testing.T) {
 		expectedQ, _ := NewFromString(inp4.q)
 		expectedR, _ := NewFromString(inp4.r)
 		if !q.Equals(expectedQ) || !r.Equals(expectedR) {
-			t.Errorf("bad division %s  %s  %d -> %s  %s",
-				inp4.d, inp4.d2, exp, q.String(), r.String())
+			t.Errorf("bad QuoRem division %s , %s , %d got %v, %v expected %s , %s",
+				inp4.d, inp4.d2, exp, q, r, inp4.q, inp4.r)
 		}
 		if !d.Equals(d2.Mul(q).Add(r)) {
 			t.Errorf("not fitting")
 		}
 		if !q.Equals(q.Truncate(exp)) {
-			t.Errorf("Quotient wrong")
+			t.Errorf("quotient wrong precision")
 		}
 		if r.Abs().Cmp(d2.Abs().Mul(New(1, -exp))) >= 0 {
-			t.Errorf("rem too large")
+			t.Errorf("remainder too large")
 		}
 		if r.value.Sign()*d.value.Sign() < 0 {
 			t.Errorf("signum of divisor and rest do not match")
+		}
+	}
+}
+
+func TestDecimal_QuoRem2(t *testing.T) {
+	var n int32 = 5
+
+	a := []int{1, 2, 3, 6, 7, 10, 100, 14, 5, 400, 0}
+	for s := -1; s < 2; s = s + 2 {
+		for s2 := -1; s2 < 2; s2 = s2 + 2 {
+			for e1 := -n; e1 < n; e1++ {
+				for e2 := -n; e2 < n; e2++ {
+					var prec int32
+					for prec = -n; prec < n; prec++ {
+						for _, v1 := range a {
+							for _, v2 := range a {
+								if v2 == 0 {
+									continue
+								}
+								sign1 := New(int64(s), 0)
+								sign2 := New(int64(s2), 0)
+								d := sign1.Mul(New(int64(v1), int32(e1)))
+								d2 := sign2.Mul(New(int64(v2), int32(e2)))
+								q, r := d.QuoRem(d2, prec)
+								if !d.Equals(d2.Mul(q).Add(r)) {
+									t.Errorf("not fitting")
+								}
+								if !q.Equals(q.Truncate(prec)) {
+									t.Errorf("quotient wrong precision")
+								}
+								if r.Abs().Cmp(d2.Abs().Mul(New(1, -prec))) >= 0 {
+									t.Errorf("remainder too large")
+								}
+								if r.value.Sign()*d.value.Sign() < 0 {
+									t.Errorf("signum of divisor and rest do not match")
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 }
@@ -748,7 +790,6 @@ func TestDecimal_DivRound(t *testing.T) {
 		{"1", "2", 0, "1"},
 		{"-1", "2", 0, "-1"},
 		{"-1", "-2", 0, "1"},
-		{"1", "-2", 0, "-1"},
 		{"1", "-2", 0, "-1"},
 		{"1", "-20", 1, "-0.1"},
 		{"1", "-20", 2, "-0.05"},

@@ -644,6 +644,10 @@ func TestDecimal_Div(t *testing.T) {
 			t.Errorf("expected %s when dividing %v by %v, got %v",
 				expected, num, denom, got)
 		}
+		got2 := num.DivRound(denom, int32(DivisionPrecision))
+		if !got.Equals(got2) {
+			t.Errorf("aua: %s %s", got.String(), got2.String())
+		}
 	}
 
 	type Inp2 struct {
@@ -679,6 +683,85 @@ func TestDecimal_Div(t *testing.T) {
 						expected, num, denom, got)
 				}
 			}
+		}
+	}
+}
+
+func TestDecimal_QuoRem(t *testing.T) {
+	type Inp4 struct {
+		d   string
+		d2  string
+		exp int32
+		q   string
+		r   string
+	}
+	cases := []Inp4{
+		Inp4{"10", "1", 0, "10", "0"},
+		Inp4{"1", "10", 0, "0", "1"},
+		Inp4{"1", "4", 2, "0.25", "0"},
+		Inp4{"1", "8", 2, "0.12", "0.04"},
+		Inp4{"10", "3", 1, "3.3", "0.1"},
+		Inp4{"100", "3", 1, "33.3", "0.1"},
+		Inp4{"1000", "10", -3, "0", "1000"},
+		Inp4{"1e-3", "2e-5", 0, "50", "0"},
+		Inp4{"1e-3", "2e-3", 1, "0.5", "0"},
+		Inp4{"4e-3", "0.8", 4, "5e-3", "0"},
+		Inp4{"4.1e-3", "0.8", 3, "5e-3", "1e-4"},
+		Inp4{"-4", "-3", 0, "1", "-1"},
+		Inp4{"-4", "3", 0, "-1", "-1"},
+	}
+
+	for _, inp4 := range cases {
+		d, _ := NewFromString(inp4.d)
+		d2, _ := NewFromString(inp4.d2)
+		exp := inp4.exp
+		q, r := d.QuoRem(d2, exp)
+		expectedQ, _ := NewFromString(inp4.q)
+		expectedR, _ := NewFromString(inp4.r)
+		if !q.Equals(expectedQ) || !r.Equals(expectedR) {
+			t.Errorf("bad division %s  %s  %d -> %s  %s",
+				inp4.d, inp4.d2, exp, q.String(), r.String())
+		}
+		if !d.Equals(d2.Mul(q).Add(r)) {
+			t.Errorf("not fitting")
+		}
+		if !q.Equals(q.Truncate(exp)) {
+			t.Errorf("Quotient wrong")
+		}
+		if r.Abs().Cmp(d2.Abs().Mul(New(1, -exp))) >= 0 {
+			t.Errorf("rem too large")
+		}
+		if r.value.Sign()*d.value.Sign() < 0 {
+			t.Errorf("signum of divisor and rest do not match")
+		}
+	}
+}
+
+func TestDecimal_DivRound(t *testing.T) {
+	cases := []struct {
+		d      string
+		d2     string
+		scale  int32
+		result string
+	}{
+		{"2", "2", 0, "1"},
+		{"1", "2", 0, "1"},
+		{"-1", "2", 0, "-1"},
+		{"-1", "-2", 0, "1"},
+		{"1", "-2", 0, "-1"},
+		{"1", "-2", 0, "-1"},
+		{"1", "-20", 1, "-0.1"},
+		{"1", "-20", 2, "-0.05"},
+		{"1", "20.0000000000000000001", 1, "0"},
+		{"1", "19.9999999999999999999", 1, "0.1"},
+	}
+	for _, s := range cases {
+		d, _ := NewFromString(s.d)
+		d2, _ := NewFromString(s.d2)
+		result, _ := NewFromString(s.result)
+		q := d.DivRound(d2, s.scale)
+		if !q.Equals(result) {
+			t.Errorf("division wrong %s / %s scale %d = %s, got %s", s.d, s.d2, s.scale, s.result, q.String())
 		}
 	}
 }

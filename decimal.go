@@ -287,6 +287,70 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return ret
 }
 
+// return quotient q and remainder r such that
+// scale := -precision
+// d = d2 * q + r such that q an integral multiple of 10^scale
+//  and 0 <= r < abs(d2) * 10 ^scale
+//  this holds if d>=0
+// if d <0  then r =<0 with r>= -abs(d2) * 10 ^ scale
+func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
+	scale := -precision
+	e := int64(d.exp - d2.exp - scale)
+	var aa, bb, expo big.Int
+	var scalerest int32
+	// d = a 10^ea
+	// d2 = b 10^eb
+	if e < 0 {
+		aa = *d.value
+		expo.SetInt64(-e)
+		bb.Exp(tenInt, &expo, nil)
+		bb.Mul(d2.value, &bb)
+		scalerest = d.exp
+		// now aa = a
+		//     bb = b 10^(scale + eb - ea)
+	} else {
+		expo.SetInt64(e)
+		aa.Exp(tenInt, &expo, nil)
+		aa.Mul(d.value, &aa)
+		bb = *d2.value
+		scalerest = scale + d2.exp
+		// now aa = a ^ (ea - eb - scale)
+		//     bb = b
+	}
+	var q, r big.Int
+	q.QuoRem(&aa, &bb, &r)
+	dq := Decimal{value: &q, exp: scale}
+	dr := Decimal{value: &r, exp: scalerest}
+	return dq, dr
+}
+
+// divide by d by d2 and round to precision digits after .
+// i.e. to an integer multiple of 10^(-precision)
+// for positive numbers normal rounding, 5 is rounded up,
+// if the quotient is negative then 5 is rounded down
+func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
+	q, r := d.QuoRem(d2, precision)
+	// the actual rounding decision is based on comparing r*10^precision and d2/2
+	// instead compare 2 r 10 ^precision and d2
+	var rv2 big.Int
+	rv2.Abs(r.value)
+	rv2.Lsh(&rv2, 1)
+	// now rv2 = abs(r.value) * 2
+	r2 := Decimal{value: &rv2, exp: r.exp + precision}
+	// r2 is now 2 * r * 10 ^ precision
+	var c = r2.Cmp(d2.Abs())
+
+	if c < 0 {
+		return q
+	} else {
+		if d.value.Sign()*d2.value.Sign() < 0 {
+			return q.Sub(New(1, -precision))
+		} else {
+			return q.Add(New(1, -precision))
+		}
+	}
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2

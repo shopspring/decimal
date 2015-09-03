@@ -287,12 +287,12 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return ret
 }
 
-// return quotient q and remainder r such that
-// scale := -precision
-// d = d2 * q + r such that q an integral multiple of 10^scale
-//  and 0 <= r < abs(d2) * 10 ^scale
-//  this holds if d>=0
-// if d <0  then r =<0 with r>= -abs(d2) * 10 ^ scale
+// QuoRem does divsion with remainder
+// d.QuoRem(d2,precision) returns quotient q and remainder r such that
+//   d = d2 * q + r, q an integer multiple of 10^(-precision)
+//   0 <= r < abs(d2) * 10 ^(-precision) if d>=0
+//   0 >= r > -abs(d2) * 10 ^(-precision) if d<0
+// Note that precision<0 is allowed as input.
 func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 	scale := -precision
 	e := int64(d.exp - d2.exp - scale)
@@ -324,10 +324,11 @@ func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 	return dq, dr
 }
 
-// divide by d by d2 and round to precision digits after .
+// DivRound divides and rounds to a given precision
 // i.e. to an integer multiple of 10^(-precision)
-// for positive numbers normal rounding, 5 is rounded up,
-// if the quotient is negative then 5 is rounded down
+//   for a positive quotient digit 5 is rounded up, away from 0
+//   if the quotient is negative then digit 5 is rounded down, away from 0
+// Note that precision<0 is allowed as input.
 func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 	q, r := d.QuoRem(d2, precision)
 	// the actual rounding decision is based on comparing r*10^precision and d2/2

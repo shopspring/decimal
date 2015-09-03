@@ -273,18 +273,7 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {
-	// NOTE(vadim): division is hard, use Rat to do it
-	ratNum := d.Rat()
-	ratDenom := d2.Rat()
-
-	quoRat := big.NewRat(0, 1).Quo(ratNum, ratDenom)
-
-	// HACK(vadim): converting from Rat to Decimal inefficiently for now
-	ret, err := NewFromString(quoRat.FloatString(DivisionPrecision))
-	if err != nil {
-		panic(err) // this should never happen
-	}
-	return ret
+	return d.DivRound(d2,int32(DivisionPrecision))
 }
 
 // QuoRem does divsion with remainder
@@ -294,8 +283,16 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 //   0 >= r > -abs(d2) * 10 ^(-precision) if d<0
 // Note that precision<0 is allowed as input.
 func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
+	d.ensureInitialized()
+	d2.ensureInitialized()
+	if (d2.value.Sign()==0) {
+		panic("decimal division by 0")
+	}
 	scale := -precision
 	e := int64(d.exp - d2.exp - scale)
+	if e > math.MaxInt32 || e < math.MinInt32 {
+		panic("overflow in decimal QuoRem")
+	}
 	var aa, bb, expo big.Int
 	var scalerest int32
 	// d = a 10^ea
@@ -330,6 +327,7 @@ func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 //   if the quotient is negative then digit 5 is rounded down, away from 0
 // Note that precision<0 is allowed as input.
 func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
+	// QuoRem already checks initialization
 	q, r := d.QuoRem(d2, precision)
 	// the actual rounding decision is based on comparing r*10^precision and d2/2
 	// instead compare 2 r 10 ^precision and d2

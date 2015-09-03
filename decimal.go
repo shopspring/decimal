@@ -273,7 +273,7 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {
-	return d.DivRound(d2,int32(DivisionPrecision))
+	return d.DivRound(d2, int32(DivisionPrecision))
 }
 
 // QuoRem does divsion with remainder
@@ -285,7 +285,7 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 	d.ensureInitialized()
 	d2.ensureInitialized()
-	if (d2.value.Sign()==0) {
+	if d2.value.Sign() == 0 {
 		panic("decimal division by 0")
 	}
 	scale := -precision

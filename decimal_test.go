@@ -715,32 +715,35 @@ func TestDecimal_QuoRem(t *testing.T) {
 	for _, inp4 := range cases {
 		d, _ := NewFromString(inp4.d)
 		d2, _ := NewFromString(inp4.d2)
-		exp := inp4.exp
-		q, r := d.QuoRem(d2, exp)
+		prec := inp4.exp
+		q, r := d.QuoRem(d2, prec)
 		expectedQ, _ := NewFromString(inp4.q)
 		expectedR, _ := NewFromString(inp4.r)
 		if !q.Equals(expectedQ) || !r.Equals(expectedR) {
 			t.Errorf("bad QuoRem division %s , %s , %d got %v, %v expected %s , %s",
-				inp4.d, inp4.d2, exp, q, r, inp4.q, inp4.r)
+				inp4.d, inp4.d2, prec, q, r, inp4.q, inp4.r)
 		}
 		if !d.Equals(d2.Mul(q).Add(r)) {
-			t.Errorf("not fitting")
+			t.Errorf("not fitting: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
 		}
-		if !q.Equals(q.Truncate(exp)) {
-			t.Errorf("quotient wrong precision")
+		if !q.Equals(q.Truncate(prec)) {
+			t.Errorf("quotient wrong precision: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
 		}
-		if r.Abs().Cmp(d2.Abs().Mul(New(1, -exp))) >= 0 {
-			t.Errorf("remainder too large")
+		if r.Abs().Cmp(d2.Abs().Mul(New(1, -prec))) >= 0 {
+			t.Errorf("remainder too large: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
 		}
 		if r.value.Sign()*d.value.Sign() < 0 {
-			t.Errorf("signum of divisor and rest do not match")
+			t.Errorf("signum of divisor and rest do not match: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
 		}
 	}
 }
 
 func TestDecimal_QuoRem2(t *testing.T) {
 	var n int32 = 5
-
 	a := []int{1, 2, 3, 6, 7, 10, 100, 14, 5, 400, 0}
 	for s := -1; s < 2; s = s + 2 {
 		for s2 := -1; s2 < 2; s2 = s2 + 2 {
@@ -758,17 +761,26 @@ func TestDecimal_QuoRem2(t *testing.T) {
 								d := sign1.Mul(New(int64(v1), int32(e1)))
 								d2 := sign2.Mul(New(int64(v2), int32(e2)))
 								q, r := d.QuoRem(d2, prec)
+								// rule 1: d = d2*q +r
 								if !d.Equals(d2.Mul(q).Add(r)) {
-									t.Errorf("not fitting")
+									t.Errorf("not fitting, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+										d, d2, prec, q, r)
 								}
+								// rule 2: q is integral multiple of 10^(-prec)
 								if !q.Equals(q.Truncate(prec)) {
-									t.Errorf("quotient wrong precision")
+									t.Errorf("quotient wrong precision, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+										d, d2, prec, q, r)
 								}
+								// rule 3: abs(r)<abs(d) * 10^(-prec)
 								if r.Abs().Cmp(d2.Abs().Mul(New(1, -prec))) >= 0 {
-									t.Errorf("remainder too large")
+									t.Errorf("remainder too large, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+										d, d2, prec, q, r)
 								}
+								// rule 4: r and d have the same sign
 								if r.value.Sign()*d.value.Sign() < 0 {
-									t.Errorf("signum of divisor and rest do not match")
+									t.Errorf("signum of divisor and rest do not match, "+
+										"d=%v, d2=%v, prec=%d, q=%v, r=%v",
+										d, d2, prec, q, r)
 								}
 							}
 						}
@@ -779,11 +791,26 @@ func TestDecimal_QuoRem2(t *testing.T) {
 	}
 }
 
+func sign(d Decimal) int {
+	return d.value.Sign()
+}
+
+// rules for rounded divide, rounded to integer
+// rounded_divide(d,d2) = q
+// sign q * sign (d/d2) >= 0
+// for d and d2 >0 :
+// q is already rounded
+// q = d/d2 + r , with r > -0.5 and r <= 0.5
+// thus q-d/d2 = r, with r > -0.5 and r <= 0.5
+// and d2 q -d = r d2 with r d2 > -d2/2 and r d2 <= d2/2
+// and 2 (d2 q -d) = x with x > -d2 and x <= d2
+// if we factor in precision then x > -d2 * 10^(-precision) and x <= d2 * 10(-precision)
+
 func TestDecimal_DivRound(t *testing.T) {
 	cases := []struct {
 		d      string
 		d2     string
-		scale  int32
+		prec   int32
 		result string
 	}{
 		{"2", "2", 0, "1"},
@@ -800,9 +827,20 @@ func TestDecimal_DivRound(t *testing.T) {
 		d, _ := NewFromString(s.d)
 		d2, _ := NewFromString(s.d2)
 		result, _ := NewFromString(s.result)
-		q := d.DivRound(d2, s.scale)
+		prec := s.prec
+		q := d.DivRound(d2, prec)
+		if sign(q)*sign(d)*sign(d2) < 0 {
+			t.Errorf("sign of quotient wrong, got: %v/%v is about %v", d, d2, q)
+		}
+		x := q.Mul(d2).Abs().Sub(d.Abs()).Mul(New(2, 0))
+		if x.Cmp(d2.Abs().Mul(New(1, -prec))) > 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
+		}
+		if x.Cmp(d2.Abs().Mul(New(-1, -prec))) <= 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
+		}
 		if !q.Equals(result) {
-			t.Errorf("division wrong %s / %s scale %d = %s, got %s", s.d, s.d2, s.scale, s.result, q.String())
+			t.Errorf("rounded division wrong %s / %s scale %d = %s, got %v", s.d, s.d2, prec, s.result, q)
 		}
 	}
 }

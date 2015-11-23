@@ -471,19 +471,28 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 func (d *Decimal) Scan(value interface{}) error {
 	var err error
 	// first try to see if the data is stored in database as a Numeric datatype
-	if val, ok := value.(float64); ok {
-		*d = NewFromFloat(val)
+	switch value.(type) {
+
+	case float64:
+		// numeric in sqlite3 sends us float64
+		*d = NewFromFloat(value.(float64))
+		return err
+
+	case int64:
+		// at least in sqlite3 when the value is 0 in db, the data is sent
+		// to us as an int64 instead of a float64 ...
+		*d = NewFromFloat(float64(value.(int64)))
+		return err
+
+	default:
+		// default is trying to interpret value stored as string
+		str, err := unquoteIfQuoted(value)
+		if err != nil {
+			return err
+		}
+		*d, err = NewFromString(str)
 		return err
 	}
-
-	// then try to see if it is stored as a string
-	str, err := unquoteIfQuoted(value)
-	if err != nil {
-		return err
-	}
-	*d, err = NewFromString(str)
-
-	return err
 }
 
 // Value implements the driver.Valuer interface for database serialization.

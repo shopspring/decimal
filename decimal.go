@@ -481,7 +481,7 @@ func (d *Decimal) Scan(value interface{}) error {
 	case int64:
 		// at least in sqlite3 when the value is 0 in db, the data is sent
 		// to us as an int64 instead of a float64 ...
-		*d = NewFromFloat(float64(value.(int64)))
+		*d = New(value.(int64), 0)
 		return err
 
 	default:

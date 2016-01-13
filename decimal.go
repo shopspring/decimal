@@ -294,6 +294,13 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 //     +1 if d >  d2
 //
 func (d Decimal) Cmp(d2 Decimal) int {
+	d.ensureInitialized()
+	d2.ensureInitialized()
+
+	if d.exp == d2.exp {
+		return d.value.Cmp(d2.value)
+	}
+
 	baseExp := min(d.exp, d2.exp)
 	rd := d.rescale(baseExp)
 	rd2 := d2.rescale(baseExp)

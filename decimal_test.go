@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -956,4 +957,20 @@ func didPanic(f func()) bool {
 
 	return ret
 
+}
+
+type DecimalSlice []Decimal
+
+func (p DecimalSlice) Len() int           { return len(p) }
+func (p DecimalSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p DecimalSlice) Less(i, j int) bool { return p[i].Cmp(p[j]) < 0 }
+func Benchmark_Cmp(b *testing.B) {
+	decimals := DecimalSlice([]Decimal{})
+	for i := 0; i < 1000000; i++ {
+		decimals = append(decimals, New(int64(i), 0))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sort.Sort(decimals)
+	}
 }

@@ -685,6 +685,39 @@ func TestDecimal_Div(t *testing.T) {
 	}
 }
 
+func TestDecimal_Mod(t *testing.T) {
+	type Inp struct {
+		a string
+		b string
+	}
+
+	inputs := map[Inp]string{
+		Inp{"3", "2"}:                     "1",
+		Inp{"3451204593", "2454495034"}:   "996709559",
+		Inp{"24544.95034", ".3451204593"}: "0.3283950433",
+		Inp{".1", ".1"}:                   "0",
+		Inp{"0", "1.001"}:                 "0",
+		Inp{"-7.5", "2"}:                  "-1.5",
+		Inp{"7.5", "-2"}:                  "1.5",
+		Inp{"-7.5", "-2"}:                 "-1.5",
+	}
+
+	for inp, res := range inputs {
+		a, err := NewFromString(inp.a)
+		if err != nil {
+			t.FailNow()
+		}
+		b, err := NewFromString(inp.b)
+		if err != nil {
+			t.FailNow()
+		}
+		c := a.Mod(b)
+		if c.String() != res {
+			t.Errorf("expected %s, got %s", res, c.String())
+		}
+	}
+}
+
 func TestDecimal_Overflow(t *testing.T) {
 	if !didPanic(func() { New(1, math.MinInt32).Mul(New(1, math.MinInt32)) }) {
 		t.Fatalf("should have gotten an overflow panic")

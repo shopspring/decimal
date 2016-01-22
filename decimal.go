@@ -313,6 +313,12 @@ func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
+// DigitsValue returns the integer that represents the digits of the decimal.
+// This is the value of the decimal scaled by 10^Exponent().
+func (d Decimal) DigitsValue() *big.Int {
+	return d.value
+}
+
 // Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp

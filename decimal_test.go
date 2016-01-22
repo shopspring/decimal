@@ -885,6 +885,13 @@ func TestDecimal_Scale(t *testing.T) {
 	}
 }
 
+func TestDecimal_DigitsValue(t *testing.T) {
+	a := New(1234, -3)
+	if a.DigitsValue().Int64() != 1234 {
+		t.Errorf("error")
+	}
+}
+
 func TestDecimal_Abs1(t *testing.T) {
 	a := New(-1234, -4)
 	b := New(1234, -4)

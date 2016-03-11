@@ -287,6 +287,12 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return ret
 }
 
+// Mod returns d % d2.
+func (d Decimal) Mod(d2 Decimal) Decimal {
+	quo := d.Div(d2).Truncate(0)
+	return d.Sub(d2.Mul(quo))
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2

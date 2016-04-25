@@ -140,7 +140,7 @@ func NewFromFloat(value float64) Decimal {
 	floor := math.Floor(value)
 
 	// fast path, where float is an int
-	if floor == value && !math.IsInf(value, 0) {
+	if floor == value && value <= math.MaxInt64 && value >= math.MinInt64 {
 		return New(int64(value), 0)
 	}
 
@@ -350,6 +350,12 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 	}
 }
 
+// Mod returns d % d2.
+func (d Decimal) Mod(d2 Decimal) Decimal {
+	quo := d.Div(d2).Truncate(0)
+	return d.Sub(d2.Mul(quo))
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2
@@ -357,6 +363,13 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 //     +1 if d >  d2
 //
 func (d Decimal) Cmp(d2 Decimal) int {
+	d.ensureInitialized()
+	d2.ensureInitialized()
+
+	if d.exp == d2.exp {
+		return d.value.Cmp(d2.value)
+	}
+
 	baseExp := min(d.exp, d2.exp)
 	rd := d.rescale(baseExp)
 	rd2 := d2.rescale(baseExp)
@@ -532,13 +545,29 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization.
 func (d *Decimal) Scan(value interface{}) error {
-	str, err := unquoteIfQuoted(value)
-	if err != nil {
+	// first try to see if the data is stored in database as a Numeric datatype
+	switch v := value.(type) {
+
+	case float64:
+		// numeric in sqlite3 sends us float64
+		*d = NewFromFloat(v)
+		return nil
+
+	case int64:
+		// at least in sqlite3 when the value is 0 in db, the data is sent
+		// to us as an int64 instead of a float64 ...
+		*d = New(v, 0)
+		return nil
+
+	default:
+		// default is trying to interpret value stored as string
+		str, err := unquoteIfQuoted(v)
+		if err != nil {
+			return err
+		}
+		*d, err = NewFromString(str)
 		return err
 	}
-	*d, err = NewFromString(str)
-
-	return err
 }
 
 // Value implements the driver.Valuer interface for database serialization.

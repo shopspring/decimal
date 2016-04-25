@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math"
-	"math/big"
+        "math/big"
+	"sort"
 	"strconv"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ var testTable = map[float64]string{
 	.1000000000000003:   "0.1000000000000003",
 	.1000000000000005:   "0.1000000000000005",
 	.1000000000000008:   "0.1000000000000008",
+	1e25:                "10000000000000000000000000",
 }
 
 var testTableScientificNotation = map[string]string{
@@ -941,6 +943,39 @@ func TestDecimal_DivRound2(t *testing.T) {
 	}
 }
 
+func TestDecimal_Mod(t *testing.T) {
+	type Inp struct {
+		a string
+		b string
+	}
+
+	inputs := map[Inp]string{
+		Inp{"3", "2"}:                     "1",
+		Inp{"3451204593", "2454495034"}:   "996709559",
+		Inp{"24544.95034", ".3451204593"}: "0.3283950433",
+		Inp{".1", ".1"}:                   "0",
+		Inp{"0", "1.001"}:                 "0",
+		Inp{"-7.5", "2"}:                  "-1.5",
+		Inp{"7.5", "-2"}:                  "1.5",
+		Inp{"-7.5", "-2"}:                 "-1.5",
+	}
+
+	for inp, res := range inputs {
+		a, err := NewFromString(inp.a)
+		if err != nil {
+			t.FailNow()
+		}
+		b, err := NewFromString(inp.b)
+		if err != nil {
+			t.FailNow()
+		}
+		c := a.Mod(b)
+		if c.String() != res {
+			t.Errorf("expected %s, got %s", res, c.String())
+		}
+	}
+}
+
 func TestDecimal_Overflow(t *testing.T) {
 	if !didPanic(func() { New(1, math.MinInt32).Mul(New(1, math.MinInt32)) }) {
 		t.Fatalf("should have gotten an overflow panic")
@@ -1071,6 +1106,67 @@ func TestDecimal_Max(t *testing.T) {
 	}
 }
 
+func TestDecimal_Scan(t *testing.T) {
+	// test the Scan method the implements the
+	// sql.Scanner interface
+	// check for the for different type of values
+	// that are possible to be received from the database
+	// drivers
+
+	// in normal operations the db driver (sqlite at least)
+	// will return an int64 if you specified a numeric format
+	a := Decimal{}
+	dbvalue := float64(54.33)
+	expected := NewFromFloat(dbvalue)
+
+	err := a.Scan(dbvalue)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(54.33) failed with message: %s", err)
+
+	} else {
+		// Scan suceeded... test resulting values
+		if !a.Equals(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	// at least SQLite returns an int64 when 0 is stored in the db
+	// and you specified a numeric format on the schema
+	dbvalue_int := int64(0)
+	expected = New(dbvalue_int, 0)
+
+	err = a.Scan(dbvalue_int)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(0) failed with message: %s", err)
+
+	} else {
+		// Scan suceeded... test resulting values
+		if !a.Equals(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	// in case you specified a varchar in your SQL schema,
+	// the database driver will return byte slice []byte
+	value_str := "535.666"
+	dbvalue_str := []byte(value_str)
+	expected, err = NewFromString(value_str)
+
+	err = a.Scan(dbvalue_str)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan('535.666') failed with message: %s", err)
+
+	} else {
+		// Scan suceeded... test resulting values
+		if !a.Equals(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+}
+
 // old tests after this line
 
 func TestDecimal_Scale(t *testing.T) {
@@ -1152,4 +1248,20 @@ func didPanic(f func()) bool {
 
 	return ret
 
+}
+
+type DecimalSlice []Decimal
+
+func (p DecimalSlice) Len() int           { return len(p) }
+func (p DecimalSlice) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p DecimalSlice) Less(i, j int) bool { return p[i].Cmp(p[j]) < 0 }
+func Benchmark_Cmp(b *testing.B) {
+	decimals := DecimalSlice([]Decimal{})
+	for i := 0; i < 1000000; i++ {
+		decimals = append(decimals, New(int64(i), 0))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sort.Sort(decimals)
+	}
 }

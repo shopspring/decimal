@@ -1,4 +1,4 @@
-# decimal [![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal)
+# decimal [![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal) [![BADGINATOR](https://badginator.herokuapp.com/shopspring/decimal.svg?image_analysis=1)](https://github.com/defunctzombie/badginator)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 

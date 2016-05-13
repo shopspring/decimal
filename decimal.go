@@ -638,15 +638,23 @@ func round(n float64) int64 {
 }
 
 func unquoteIfQuoted(value interface{}) (string, error) {
-	bytes, ok := value.([]byte)
-	if !ok {
-		return "", fmt.Errorf("Could not convert value '%+v' to byte array",
-			value)
+
+	switch v := value.(type) {
+
+		case string:
+			str := strings.Replace(v, `"`, ``, -1)
+			return str, nil
+
+		case []byte:
+			if len(v) > 2 && v[0] == '"' && v[len(v)-1] == '"' {
+				v = v[1 : len(v)-1]
+			}
+			return string(v), nil
+
+		default:
+			return "", fmt.Errorf("Could not convert value '%+v' to any type",
+				value)
+
 	}
 
-	// If the amount is quoted, strip the quotes
-	if len(bytes) > 2 && bytes[0] == '"' && bytes[len(bytes)-1] == '"' {
-		bytes = bytes[1 : len(bytes)-1]
-	}
-	return string(bytes), nil
 }

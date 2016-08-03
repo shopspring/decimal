@@ -849,7 +849,7 @@ func TestDecimal_Max(t *testing.T) {
 }
 
 func TestDecimal_Scan(t *testing.T) {
-	// test the Scan method the implements the
+	// test the Scan method that implements the
 	// sql.Scanner interface
 	// check for the for different type of values
 	// that are possible to be received from the database
@@ -895,12 +895,32 @@ func TestDecimal_Scan(t *testing.T) {
 	value_str := "535.666"
 	dbvalue_str := []byte(value_str)
 	expected, err = NewFromString(value_str)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	err = a.Scan(dbvalue_str)
 	if err != nil {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)
 
+	} else {
+		// Scan suceeded... test resulting values
+		if !a.Equals(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	// lib/pq can also return strings
+	expected, err = NewFromString(value_str)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = a.Scan(value_str)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan('535.666') failed with message: %s", err)
 	} else {
 		// Scan suceeded... test resulting values
 		if !a.Equals(expected) {

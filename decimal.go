@@ -638,8 +638,14 @@ func round(n float64) int64 {
 }
 
 func unquoteIfQuoted(value interface{}) (string, error) {
-	bytes, ok := value.([]byte)
-	if !ok {
+	var bytes []byte
+
+	switch v := value.(type) {
+	case string:
+		bytes = []byte(v)
+	case []byte:
+		bytes = v
+	default:
 		return "", fmt.Errorf("Could not convert value '%+v' to byte array",
 			value)
 	}

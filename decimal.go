@@ -508,7 +508,10 @@ func (d *Decimal) Scan(value interface{}) error {
 }
 
 // Value implements the driver.Valuer interface for database serialization.
-func (d Decimal) Value() (driver.Value, error) {
+func (d *Decimal) Value() (driver.Value, error) {
+	if d == nil {
+		return nil, nil
+	}
 	return d.String(), nil
 }
 

@@ -206,6 +206,7 @@ func TestJSON(t *testing.T) {
 			Amount Decimal `json:"amount"`
 		}
 		docStr := `{"amount":"` + s + `"}`
+		docStrNumber := `{"amount":` + s + `}`
 		err := json.Unmarshal([]byte(docStr), &doc)
 		if err != nil {
 			t.Errorf("error unmarshaling %s: %v", docStr, err)
@@ -221,6 +222,16 @@ func TestJSON(t *testing.T) {
 		} else if string(out) != docStr {
 			t.Errorf("expected %s, got %s", docStr, string(out))
 		}
+
+		// make sure unquoted marshalling works too
+		MarshalJSONWithoutQuotes = true
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStrNumber {
+			t.Errorf("expected %s, got %s", docStrNumber, string(out))
+		}
+		MarshalJSONWithoutQuotes = false
 	}
 }
 

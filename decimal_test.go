@@ -879,17 +879,17 @@ func TestDecimal_Value(t *testing.T) {
 	var decimalPtr *Decimal
 	value, err := decimalPtr.Value()
 	if err != nil {
-		t.Errorf("(*Decimal)(<nil>) failed with message: %s", err)
+		t.Errorf("(*Decimal)(<nil>).Value() failed with message: %s", err)
 	} else if value != nil {
 		t.Errorf("%v is not nil", value)
 	}
 
 	// check that normal case is handled appropriately
-	a := New(1234, 2)
-	expected := "123400"
+	a := New(1234, -2)
+	expected := "12.34"
 	value, err = a.Value()
 	if err != nil {
-		t.Errorf("Decimal(123400).Value() failed with message: %s", err)
+		t.Errorf("Decimal(12.34).Value() failed with message: %s", err)
 	} else if value.(string) != expected {
 		t.Errorf("%s does not equal to %s", a, expected)
 	}

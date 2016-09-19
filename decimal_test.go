@@ -1025,6 +1025,15 @@ func TestDecimal_Cmp2(t *testing.T) {
 	}
 }
 
+func TestPow(t *testing.T) {
+	a := New(4, 0)
+	b := New(2, 0)
+	x := a.Pow(b)
+	if x.String() != "16" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
 func didPanic(f func()) bool {
 	ret := false
 	func() {

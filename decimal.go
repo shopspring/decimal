@@ -301,6 +301,22 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 	return d.Sub(d2.Mul(quo))
 }
 
+// Pow returns d to the power d2
+func (d Decimal) Pow(d2 Decimal) Decimal {
+	var temp Decimal
+	if d2.IntPart() == 0 {
+		return NewFromFloat(1)
+	}
+	temp = d.Pow(d2.Div(NewFromFloat(2)))
+	if d2.IntPart()%2 == 0 {
+		return temp.Mul(temp)
+	}
+	if d2.IntPart() > 0 {
+		return temp.Mul(temp).Mul(d)
+	}
+	return temp.Mul(temp).Div(d)
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2

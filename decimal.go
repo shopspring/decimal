@@ -440,11 +440,10 @@ func (d Decimal) RoundFair(places int32) Decimal {
 
 	// First, truncate the number to see if there are trailing decimal places.
 	// If there are it can't end in 5.
-	exp := new(big.Int).Exp(tenInt, shift, zeroInt)
-	rounded := new(big.Int).Quo(d.value, exp)
-
 	tmp := new(big.Int)
-	if tmp.Mul(rounded, exp).Cmp(d.value) != 0 {
+	exp := new(big.Int).Exp(tenInt, shift, zeroInt)
+	rounded, _ := new(big.Int).QuoRem(d.value, exp, tmp)
+	if tmp.Cmp(zeroInt) != 0 {
 		return d.Round(places)
 	}
 

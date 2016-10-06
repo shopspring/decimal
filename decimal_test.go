@@ -3,6 +3,7 @@ package decimal
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"math"
 	"sort"
 	"strconv"
@@ -782,6 +783,36 @@ func TestDecimal_ExtremeValues(t *testing.T) {
 			t.Errorf("Error: got %s, expected %s", got, expected)
 		}
 	})
+}
+func TestRoundFair(t *testing.T) {
+	testCases := []struct {
+		original float64
+		rounded  float64
+		places   int32
+	}{
+		{-5.5, -6, 0},
+		{-6.5, -6, 0},
+		{0.5, 0, 0},
+		{-0.5, 0, 0},
+		{5.5, 6, 0},
+		{6.5, 6, 0},
+		{6.51, 7, 0},
+
+		{650, 650, 0},
+		{650, 650, -1},
+		{650, 600, -2},
+		{550, 600, -2},
+	}
+
+	for _, test := range testCases {
+		t.Run(fmt.Sprintf("(%.1f).RoundFair(%d)==%.0f", test.original, test.places, test.rounded), func(t *testing.T) {
+			got, _ := NewFromFloat(test.original).RoundFair(test.places).Float64()
+			expected := test.rounded
+			if got != expected {
+				t.Errorf("Error: got %.2f, expected %.2f", got, expected)
+			}
+		})
+	}
 }
 
 func TestIntPart(t *testing.T) {

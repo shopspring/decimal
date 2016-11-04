@@ -548,6 +548,18 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }
 
+// UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
+// is already used when encoding to text, this method stores that string as []byte
+func (d *Decimal) UnmarshalBinary(data []byte) error {
+	return d.UnmarshalText(data)
+}
+
+// MarshalBinary implements the encoding.BinaryMarshaler interface. As a string representation
+// is already used when encoding to text, this method restores that []byte-encoded string.
+func (d Decimal) MarshalBinary() (data []byte, err error) {
+	return d.MarshalText()
+}
+
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
 // StringScaled first scales the decimal then calls .String() on it.
 func (d Decimal) StringScaled(exp int32) string {

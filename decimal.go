@@ -692,5 +692,5 @@ func (d NullDecimal) Value() (driver.Value, error) {
 	if !d.Valid {
 		return nil, nil
 	}
-	return d.Decimal.String(), nil
+	return d.Decimal.Value()
 }

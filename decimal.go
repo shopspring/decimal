@@ -494,9 +494,12 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
-func (d *Decimal) Scan(value interface{}) error {
+func (d *Decimal) Scan(value interface{}) (err error) {
 	// first try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
+	case float32:
+		*d = NewFromFloat(float64(v))
+		return nil
 
 	case float64:
 		// numeric in sqlite3 sends us float64
@@ -662,8 +665,8 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	case []byte:
 		bytes = v
 	default:
-		return "", fmt.Errorf("Could not convert value '%+v' to byte array",
-			value)
+		return "", fmt.Errorf("Could not convert value '%+v' to byte array of type '%T'",
+			value, value)
 	}
 
 	// If the amount is quoted, strip the quotes

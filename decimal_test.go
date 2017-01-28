@@ -744,7 +744,7 @@ func TestDecimal_ExtremeValues(t *testing.T) {
 		t.Skip()
 	}
 
-	// NOTE(vadim): Seriously, the numbers invovled are so large that this
+	// NOTE(vadim): Seriously, the numbers involved are so large that this
 	// test will take way too long, so mark it as success if it takes over
 	// 1 second. The way this test typically fails (integer overflow) is that
 	// a wrong result appears quickly, so if it takes a long time then it is
@@ -878,7 +878,7 @@ func TestDecimal_Scan(t *testing.T) {
 		t.Errorf("a.Scan(54.33) failed with message: %s", err)
 
 	} else {
-		// Scan suceeded... test resulting values
+		// Scan succeeded... test resulting values
 		if !a.Equals(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
@@ -895,7 +895,7 @@ func TestDecimal_Scan(t *testing.T) {
 		t.Errorf("a.Scan(0) failed with message: %s", err)
 
 	} else {
-		// Scan suceeded... test resulting values
+		// Scan succeeded... test resulting values
 		if !a.Equals(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
@@ -916,7 +916,7 @@ func TestDecimal_Scan(t *testing.T) {
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)
 
 	} else {
-		// Scan suceeded... test resulting values
+		// Scan succeeded... test resulting values
 		if !a.Equals(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
@@ -933,7 +933,7 @@ func TestDecimal_Scan(t *testing.T) {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)
 	} else {
-		// Scan suceeded... test resulting values
+		// Scan succeeded... test resulting values
 		if !a.Equals(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}

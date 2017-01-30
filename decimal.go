@@ -611,6 +611,30 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }
 
+func Min(numbers ...Decimal) Decimal {
+    ans := Decimal{}
+    first := true
+    for _, item := range numbers {
+        if item.Cmp(ans) <= 0 || first {
+            ans = item
+            first = false
+        }
+    }
+    return ans
+}
+
+func Max(numbers ...Decimal) Decimal {
+    ans := Decimal{}
+    first := true
+    for _, item := range numbers {
+        if item.Cmp(ans) >= 0 || first {
+            ans = item
+            first = false
+        }
+    }
+    return ans
+}
+
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
 // StringScaled first scales the decimal then calls .String() on it.
 func (d Decimal) StringScaled(exp int32) string {

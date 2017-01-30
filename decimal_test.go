@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math"
+        "math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -643,7 +644,7 @@ func TestDecimal_Div(t *testing.T) {
 		Inp{"-4612301402398.4753343454", "23.5"}: "-196268144782.9138440146978723",
 	}
 
-	for inp, expected := range inputs {
+	for inp, expectedStr := range inputs {
 		num, err := NewFromString(inp.a)
 		if err != nil {
 			t.FailNow()
@@ -653,9 +654,14 @@ func TestDecimal_Div(t *testing.T) {
 			t.FailNow()
 		}
 		got := num.Div(denom)
-		if got.String() != expected {
-			t.Errorf("expected %s when dividing %v by %v, got %v",
+		expected, _ := NewFromString(expectedStr)
+		if !got.Equals(expected) {
+			t.Errorf("expected %v when dividing %v by %v, got %v",
 				expected, num, denom, got)
+		}
+		got2 := num.DivRound(denom, int32(DivisionPrecision))
+		if !got2.Equals(expected) {
+			t.Errorf("expected %v on DivRound (%v,%v), got %v", expected, num, denom, got2)
 		}
 	}
 
@@ -692,6 +698,258 @@ func TestDecimal_Div(t *testing.T) {
 						expected, num, denom, got)
 				}
 			}
+		}
+	}
+}
+
+func TestDecimal_QuoRem(t *testing.T) {
+	type Inp4 struct {
+		d   string
+		d2  string
+		exp int32
+		q   string
+		r   string
+	}
+	cases := []Inp4{
+		Inp4{"10", "1", 0, "10", "0"},
+		Inp4{"1", "10", 0, "0", "1"},
+		Inp4{"1", "4", 2, "0.25", "0"},
+		Inp4{"1", "8", 2, "0.12", "0.04"},
+		Inp4{"10", "3", 1, "3.3", "0.1"},
+		Inp4{"100", "3", 1, "33.3", "0.1"},
+		Inp4{"1000", "10", -3, "0", "1000"},
+		Inp4{"1e-3", "2e-5", 0, "50", "0"},
+		Inp4{"1e-3", "2e-3", 1, "0.5", "0"},
+		Inp4{"4e-3", "0.8", 4, "5e-3", "0"},
+		Inp4{"4.1e-3", "0.8", 3, "5e-3", "1e-4"},
+		Inp4{"-4", "-3", 0, "1", "-1"},
+		Inp4{"-4", "3", 0, "-1", "-1"},
+	}
+
+	for _, inp4 := range cases {
+		d, _ := NewFromString(inp4.d)
+		d2, _ := NewFromString(inp4.d2)
+		prec := inp4.exp
+		q, r := d.QuoRem(d2, prec)
+		expectedQ, _ := NewFromString(inp4.q)
+		expectedR, _ := NewFromString(inp4.r)
+		if !q.Equals(expectedQ) || !r.Equals(expectedR) {
+			t.Errorf("bad QuoRem division %s , %s , %d got %v, %v expected %s , %s",
+				inp4.d, inp4.d2, prec, q, r, inp4.q, inp4.r)
+		}
+		if !d.Equals(d2.Mul(q).Add(r)) {
+			t.Errorf("not fitting: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		if !q.Equals(q.Truncate(prec)) {
+			t.Errorf("quotient wrong precision: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		if r.Abs().Cmp(d2.Abs().Mul(New(1, -prec))) >= 0 {
+			t.Errorf("remainder too large: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		if r.value.Sign()*d.value.Sign() < 0 {
+			t.Errorf("signum of divisor and rest do not match: d=%v, d2= %v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+	}
+}
+
+type DivTestCase struct {
+	d    Decimal
+	d2   Decimal
+	prec int32
+}
+
+func createDivTestCases() []DivTestCase {
+	res := make([]DivTestCase, 0)
+	var n int32 = 5
+	a := []int{1, 2, 3, 6, 7, 10, 100, 14, 5, 400, 0, 1000000, 1000000 + 1, 1000000 - 1}
+	for s := -1; s < 2; s = s + 2 { // 2
+		for s2 := -1; s2 < 2; s2 = s2 + 2 { // 2
+			for e1 := -n; e1 <= n; e1++ { // 2n+1
+				for e2 := -n; e2 <= n; e2++ { // 2n+1
+					var prec int32
+					for prec = -n; prec <= n; prec++ { // 2n+1
+						for _, v1 := range a { // 11
+							for _, v2 := range a { // 11, even if 0 is skipped
+								sign1 := New(int64(s), 0)
+								sign2 := New(int64(s2), 0)
+								d := sign1.Mul(New(int64(v1), int32(e1)))
+								d2 := sign2.Mul(New(int64(v2), int32(e2)))
+								res = append(res, DivTestCase{d, d2, prec})
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return res
+}
+
+func TestDecimal_QuoRem2(t *testing.T) {
+	for _, tc := range createDivTestCases() {
+		d := tc.d
+		if sign(tc.d2) == 0 {
+			continue
+		}
+		d2 := tc.d2
+		prec := tc.prec
+		q, r := d.QuoRem(d2, prec)
+		// rule 1: d = d2*q +r
+		if !d.Equals(d2.Mul(q).Add(r)) {
+			t.Errorf("not fitting, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		// rule 2: q is integral multiple of 10^(-prec)
+		if !q.Equals(q.Truncate(prec)) {
+			t.Errorf("quotient wrong precision, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		// rule 3: abs(r)<abs(d) * 10^(-prec)
+		if r.Abs().Cmp(d2.Abs().Mul(New(1, -prec))) >= 0 {
+			t.Errorf("remainder too large, d=%v, d2=%v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+		// rule 4: r and d have the same sign
+		if r.value.Sign()*d.value.Sign() < 0 {
+			t.Errorf("signum of divisor and rest do not match, "+
+				"d=%v, d2=%v, prec=%d, q=%v, r=%v",
+				d, d2, prec, q, r)
+		}
+	}
+}
+
+// this is the old Div method from decimal
+// Div returns d / d2. If it doesn't divide exactly, the result will have
+// DivisionPrecision digits after the decimal point.
+func (d Decimal) DivOld(d2 Decimal, prec int) Decimal {
+	// NOTE(vadim): division is hard, use Rat to do it
+	ratNum := d.Rat()
+	ratDenom := d2.Rat()
+
+	quoRat := big.NewRat(0, 1).Quo(ratNum, ratDenom)
+
+	// HACK(vadim): converting from Rat to Decimal inefficiently for now
+	ret, err := NewFromString(quoRat.FloatString(prec))
+	if err != nil {
+		panic(err) // this should never happen
+	}
+	return ret
+}
+
+func Benchmark_DivideOriginal(b *testing.B) {
+	tcs := createDivTestCases()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range tcs {
+			d := tc.d
+			if sign(tc.d2) == 0 {
+				continue
+			}
+			d2 := tc.d2
+			prec := tc.prec
+			a := d.DivOld(d2, int(prec))
+			if sign(a) > 2 {
+				panic("dummy panic")
+			}
+		}
+	}
+}
+
+func Benchmark_DivideNew(b *testing.B) {
+	tcs := createDivTestCases()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, tc := range tcs {
+			d := tc.d
+			if sign(tc.d2) == 0 {
+				continue
+			}
+			d2 := tc.d2
+			prec := tc.prec
+			a := d.DivRound(d2, prec)
+			if sign(a) > 2 {
+				panic("dummy panic")
+			}
+		}
+	}
+}
+
+func sign(d Decimal) int {
+	return d.value.Sign()
+}
+
+// rules for rounded divide, rounded to integer
+// rounded_divide(d,d2) = q
+// sign q * sign (d/d2) >= 0
+// for d and d2 >0 :
+// q is already rounded
+// q = d/d2 + r , with r > -0.5 and r <= 0.5
+// thus q-d/d2 = r, with r > -0.5 and r <= 0.5
+// and d2 q -d = r d2 with r d2 > -d2/2 and r d2 <= d2/2
+// and 2 (d2 q -d) = x with x > -d2 and x <= d2
+// if we factor in precision then x > -d2 * 10^(-precision) and x <= d2 * 10(-precision)
+
+func TestDecimal_DivRound(t *testing.T) {
+	cases := []struct {
+		d      string
+		d2     string
+		prec   int32
+		result string
+	}{
+		{"2", "2", 0, "1"},
+		{"1", "2", 0, "1"},
+		{"-1", "2", 0, "-1"},
+		{"-1", "-2", 0, "1"},
+		{"1", "-2", 0, "-1"},
+		{"1", "-20", 1, "-0.1"},
+		{"1", "-20", 2, "-0.05"},
+		{"1", "20.0000000000000000001", 1, "0"},
+		{"1", "19.9999999999999999999", 1, "0.1"},
+	}
+	for _, s := range cases {
+		d, _ := NewFromString(s.d)
+		d2, _ := NewFromString(s.d2)
+		result, _ := NewFromString(s.result)
+		prec := s.prec
+		q := d.DivRound(d2, prec)
+		if sign(q)*sign(d)*sign(d2) < 0 {
+			t.Errorf("sign of quotient wrong, got: %v/%v is about %v", d, d2, q)
+		}
+		x := q.Mul(d2).Abs().Sub(d.Abs()).Mul(New(2, 0))
+		if x.Cmp(d2.Abs().Mul(New(1, -prec))) > 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
+		}
+		if x.Cmp(d2.Abs().Mul(New(-1, -prec))) <= 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
+		}
+		if !q.Equals(result) {
+			t.Errorf("rounded division wrong %s / %s scale %d = %s, got %v", s.d, s.d2, prec, s.result, q)
+		}
+	}
+}
+
+func TestDecimal_DivRound2(t *testing.T) {
+	for _, tc := range createDivTestCases() {
+		d := tc.d
+		if sign(tc.d2) == 0 {
+			continue
+		}
+		d2 := tc.d2
+		prec := tc.prec
+		q := d.DivRound(d2, prec)
+		if sign(q)*sign(d)*sign(d2) < 0 {
+			t.Errorf("sign of quotient wrong, got: %v/%v is about %v", d, d2, q)
+		}
+		x := q.Mul(d2).Abs().Sub(d.Abs()).Mul(New(2, 0))
+		if x.Cmp(d2.Abs().Mul(New(1, -prec))) > 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
+		}
+		if x.Cmp(d2.Abs().Mul(New(-1, -prec))) <= 0 {
+			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
 		}
 	}
 }

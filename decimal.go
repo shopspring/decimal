@@ -406,6 +406,12 @@ func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
+// DigitsValue returns the integer that represents the digits of the decimal.
+// This is the value of the decimal scaled by 10^Exponent().
+func (d Decimal) DigitsValue() *big.Int {
+	return d.value
+}
+
 // Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp
@@ -625,6 +631,16 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 // serialization.
 func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
+}
+
+// GobDecode implements the gob.GobDecoder interface for gob serialization.
+func (d *Decimal) GobDecode(data []byte) error {
+	return d.UnmarshalText(data)
+}
+
+// GobEncode implements the gob.GobEncoder interface for gob serialization.
+func (d Decimal) GobEncode() ([]byte, error) {
+	return d.MarshalText()
 }
 
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.

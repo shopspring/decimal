@@ -579,7 +579,14 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization.
 func (d *Decimal) Scan(value interface{}) error {
-	// first try to see if the data is stored in database as a Numeric datatype
+	// check to see if we have a nil value, return a zero value and exp
+	if value == nil {
+		d.value = zeroInt
+		d.exp = 0
+		return nil
+	}
+
+	// try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
 
 	case float64:

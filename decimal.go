@@ -385,9 +385,14 @@ func (d Decimal) Cmp(d2 Decimal) int {
 	return rd.value.Cmp(rd2.value)
 }
 
-// Equals returns whether the numbers represented by d and d2 are equal.
-func (d Decimal) Equals(d2 Decimal) bool {
+// Equal returns whether the numbers represented by d and d2 are equal.
+func (d Decimal) Equal(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
+}
+
+// Equals is deprecated, please use Equal method instead
+func (d Decimal) Equals(d2 Decimal) bool {
+	return d.Equal(d2)
 }
 
 // Exponent returns the exponent, or scale component of the decimal.

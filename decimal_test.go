@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"math"
-        "math/big"
+	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -360,7 +360,7 @@ func TestDecimal_Floor(t *testing.T) {
 		d, _ := NewFromString(test.input)
 		expected, _ := NewFromString(test.expected)
 		got := d.Floor()
-		if !got.Equals(expected) {
+		if !got.Equal(expected) {
 			t.Errorf("Floor(%s): got %s, expected %s", d, got, expected)
 		}
 	}
@@ -388,7 +388,7 @@ func TestDecimal_Ceil(t *testing.T) {
 		d, _ := NewFromString(test.input)
 		expected, _ := NewFromString(test.expected)
 		got := d.Ceil()
-		if !got.Equals(expected) {
+		if !got.Equal(expected) {
 			t.Errorf("Ceil(%s): got %s, expected %s", d, got, expected)
 		}
 	}
@@ -456,7 +456,7 @@ func TestDecimal_RoundAndStringFixed(t *testing.T) {
 			panic(err)
 		}
 		got := d.Round(test.places)
-		if !got.Equals(expected) {
+		if !got.Equal(expected) {
 			t.Errorf("Rounding %s to %d places, got %s, expected %s",
 				d, test.places, got, expected)
 		}
@@ -655,12 +655,12 @@ func TestDecimal_Div(t *testing.T) {
 		}
 		got := num.Div(denom)
 		expected, _ := NewFromString(expectedStr)
-		if !got.Equals(expected) {
+		if !got.Equal(expected) {
 			t.Errorf("expected %v when dividing %v by %v, got %v",
 				expected, num, denom, got)
 		}
 		got2 := num.DivRound(denom, int32(DivisionPrecision))
-		if !got2.Equals(expected) {
+		if !got2.Equal(expected) {
 			t.Errorf("expected %v on DivRound (%v,%v), got %v", expected, num, denom, got2)
 		}
 	}
@@ -733,15 +733,15 @@ func TestDecimal_QuoRem(t *testing.T) {
 		q, r := d.QuoRem(d2, prec)
 		expectedQ, _ := NewFromString(inp4.q)
 		expectedR, _ := NewFromString(inp4.r)
-		if !q.Equals(expectedQ) || !r.Equals(expectedR) {
+		if !q.Equal(expectedQ) || !r.Equal(expectedR) {
 			t.Errorf("bad QuoRem division %s , %s , %d got %v, %v expected %s , %s",
 				inp4.d, inp4.d2, prec, q, r, inp4.q, inp4.r)
 		}
-		if !d.Equals(d2.Mul(q).Add(r)) {
+		if !d.Equal(d2.Mul(q).Add(r)) {
 			t.Errorf("not fitting: d=%v, d2= %v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
-		if !q.Equals(q.Truncate(prec)) {
+		if !q.Equal(q.Truncate(prec)) {
 			t.Errorf("quotient wrong precision: d=%v, d2= %v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
@@ -799,12 +799,12 @@ func TestDecimal_QuoRem2(t *testing.T) {
 		prec := tc.prec
 		q, r := d.QuoRem(d2, prec)
 		// rule 1: d = d2*q +r
-		if !d.Equals(d2.Mul(q).Add(r)) {
+		if !d.Equal(d2.Mul(q).Add(r)) {
 			t.Errorf("not fitting, d=%v, d2=%v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
 		// rule 2: q is integral multiple of 10^(-prec)
-		if !q.Equals(q.Truncate(prec)) {
+		if !q.Equal(q.Truncate(prec)) {
 			t.Errorf("quotient wrong precision, d=%v, d2=%v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
@@ -926,7 +926,7 @@ func TestDecimal_DivRound(t *testing.T) {
 		if x.Cmp(d2.Abs().Mul(New(-1, -prec))) <= 0 {
 			t.Errorf("wrong rounding, got: %v/%v prec=%d is about %v", d, d2, prec, q)
 		}
-		if !q.Equals(result) {
+		if !q.Equal(result) {
 			t.Errorf("rounded division wrong %s / %s scale %d = %s, got %v", s.d, s.d2, prec, s.result, q)
 		}
 	}
@@ -1023,13 +1023,13 @@ func TestDecimal_ExtremeValues(t *testing.T) {
 
 	test(func() {
 		got := New(123, math.MinInt32).Floor()
-		if !got.Equals(NewFromFloat(0)) {
+		if !got.Equal(NewFromFloat(0)) {
 			t.Errorf("Error: got %s, expected 0", got)
 		}
 	})
 	test(func() {
 		got := New(123, math.MinInt32).Ceil()
-		if !got.Equals(NewFromFloat(1)) {
+		if !got.Equal(NewFromFloat(1)) {
 			t.Errorf("Error: got %s, expected 1", got)
 		}
 	})
@@ -1082,7 +1082,7 @@ func TestDecimal_Min(t *testing.T) {
 			decimalInput = append(decimalInput, d)
 		}
 		got := Min(decimalInput[0], decimalInput[1:]...)
-		if !got.Equals(expectedDecimal) {
+		if !got.Equal(expectedDecimal) {
 			t.Errorf("Expected %v, got %v, input=%+v", expectedDecimal, got,
 				decimalInput)
 		}
@@ -1110,7 +1110,7 @@ func TestDecimal_Max(t *testing.T) {
 			decimalInput = append(decimalInput, d)
 		}
 		got := Max(decimalInput[0], decimalInput[1:]...)
-		if !got.Equals(expectedDecimal) {
+		if !got.Equal(expectedDecimal) {
 			t.Errorf("Expected %v, got %v, input=%+v", expectedDecimal, got,
 				decimalInput)
 		}
@@ -1137,7 +1137,7 @@ func TestDecimal_Scan(t *testing.T) {
 
 	} else {
 		// Scan succeeded... test resulting values
-		if !a.Equals(expected) {
+		if !a.Equal(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
 	}
@@ -1154,7 +1154,7 @@ func TestDecimal_Scan(t *testing.T) {
 
 	} else {
 		// Scan succeeded... test resulting values
-		if !a.Equals(expected) {
+		if !a.Equal(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
 	}
@@ -1175,7 +1175,7 @@ func TestDecimal_Scan(t *testing.T) {
 
 	} else {
 		// Scan succeeded... test resulting values
-		if !a.Equals(expected) {
+		if !a.Equal(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
 	}
@@ -1192,7 +1192,7 @@ func TestDecimal_Scan(t *testing.T) {
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)
 	} else {
 		// Scan succeeded... test resulting values
-		if !a.Equals(expected) {
+		if !a.Equal(expected) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
 	}
@@ -1252,7 +1252,7 @@ func TestDecimal_Equal(t *testing.T) {
 	a := New(1234, 3)
 	b := New(1234, 3)
 
-	if !a.Equals(b) {
+	if !a.Equal(b) {
 		t.Errorf("%q should equal %q", a, b)
 	}
 }
@@ -1260,7 +1260,7 @@ func TestDecimal_Equal(t *testing.T) {
 func TestDecimal_ScalesNotEqual(t *testing.T) {
 	a := New(1234, 2)
 	b := New(1234, 3)
-	if a.Equals(b) {
+	if a.Equal(b) {
 		t.Errorf("%q should not equal %q", a, b)
 	}
 }

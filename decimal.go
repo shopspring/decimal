@@ -112,8 +112,10 @@ func NewFromString(value string) (Decimal, error) {
 		// an int
 		intString = value
 	} else if len(parts) == 2 {
-		intString = parts[0] + parts[1]
-		expInt := -len(parts[1])
+		// strip the insignificant digits for more accurate comparisons.
+		decimalPart := strings.TrimRight(parts[1], "0")
+		intString = parts[0] + decimalPart
+		expInt := -len(decimalPart)
 		exp += int64(expInt)
 	} else {
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)

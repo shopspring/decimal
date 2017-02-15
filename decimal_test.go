@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"math"
 	"math/big"
+	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -152,6 +153,34 @@ func TestNewFromStringErrs(t *testing.T) {
 
 		if err == nil {
 			t.Errorf("error expected when parsing %s", s)
+		}
+	}
+}
+
+func TestNewFromStringDeepEquals(t *testing.T) {
+	type StrCmp struct {
+		str1     string
+		str2     string
+		expected bool
+	}
+	tests := []StrCmp{
+		StrCmp{"1", "1", true},
+		StrCmp{"10", "10.0", true},
+		StrCmp{"1.1", "1.10", true},
+		StrCmp{"1.001", "1.01", false},
+	}
+
+	for _, cmp := range tests {
+		d1, err1 := NewFromString(cmp.str1)
+		d2, err2 := NewFromString(cmp.str2)
+
+		if err1 != nil || err2 != nil {
+			t.Errorf("error parsing strings to decimals")
+		}
+
+		if reflect.DeepEqual(d1, d2) != cmp.expected {
+			t.Errorf("comparison result is different from expected results for %s and %s",
+				cmp.str1, cmp.str2)
 		}
 	}
 }

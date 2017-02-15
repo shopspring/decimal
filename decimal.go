@@ -418,6 +418,11 @@ func (d Decimal) Exponent() int32 {
 	return d.exp
 }
 
+// Coefficient returns the coefficient of the decimal.  It is scaled by 10^Exponent()
+func (d Decimal) Coefficient() *big.Int {
+	return d.value
+}
+
 // IntPart returns the integer component of the decimal.
 func (d Decimal) IntPart() int64 {
 	scaledD := d.rescale(0)

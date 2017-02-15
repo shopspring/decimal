@@ -1338,6 +1338,14 @@ func didPanic(f func()) bool {
 
 }
 
+func TestDecimal_Coefficient(t *testing.T) {
+	d := New(123, 0)
+	co := d.Coefficient()
+	if co.Int64() != 123 {
+		t.Error("Coefficient should be 123; Got:", co)
+	}
+}
+
 type DecimalSlice []Decimal
 
 func (p DecimalSlice) Len() int           { return len(p) }

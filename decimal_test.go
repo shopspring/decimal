@@ -1226,6 +1226,12 @@ func TestDecimal_Scan(t *testing.T) {
 			t.Errorf("%s does not equal to %s", a, expected)
 		}
 	}
+
+	type foo struct{}
+	err = a.Scan(foo{})
+	if err == nil {
+		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
+	}
 }
 
 func TestDecimal_Value(t *testing.T) {
@@ -1280,6 +1286,11 @@ func TestDecimal_Equal(t *testing.T) {
 	b := New(1234, 3)
 
 	if !a.Equal(b) {
+		t.Errorf("%q should equal %q", a, b)
+	}
+
+	// note, this should be deprecated, here for backwards compatibility
+	if !a.Equals(b) {
 		t.Errorf("%q should equal %q", a, b)
 	}
 }

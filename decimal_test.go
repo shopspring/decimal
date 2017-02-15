@@ -1174,10 +1174,10 @@ func TestDecimal_Scan(t *testing.T) {
 
 	// at least SQLite returns an int64 when 0 is stored in the db
 	// and you specified a numeric format on the schema
-	dbvalue_int := int64(0)
-	expected = New(dbvalue_int, 0)
+	dbvalueInt := int64(0)
+	expected = New(dbvalueInt, 0)
 
-	err = a.Scan(dbvalue_int)
+	err = a.Scan(dbvalueInt)
 	if err != nil {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan(0) failed with message: %s", err)
@@ -1191,14 +1191,14 @@ func TestDecimal_Scan(t *testing.T) {
 
 	// in case you specified a varchar in your SQL schema,
 	// the database driver will return byte slice []byte
-	value_str := "535.666"
-	dbvalue_str := []byte(value_str)
-	expected, err = NewFromString(value_str)
+	valueStr := "535.666"
+	dbvalueStr := []byte(valueStr)
+	expected, err = NewFromString(valueStr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = a.Scan(dbvalue_str)
+	err = a.Scan(dbvalueStr)
 	if err != nil {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)
@@ -1211,12 +1211,12 @@ func TestDecimal_Scan(t *testing.T) {
 	}
 
 	// lib/pq can also return strings
-	expected, err = NewFromString(value_str)
+	expected, err = NewFromString(valueStr)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = a.Scan(value_str)
+	err = a.Scan(valueStr)
 	if err != nil {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan('535.666') failed with message: %s", err)

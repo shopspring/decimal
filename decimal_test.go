@@ -1428,7 +1428,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 		if !a.Valid {
 			t.Errorf("%s is null", a.Decimal)
 		} else if !a.Decimal.Equals(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
+			t.Errorf("%v does not equal %v", a, expected)
 		}
 	}
 
@@ -1451,7 +1451,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 		if !a.Valid {
 			t.Errorf("%s is null", a.Decimal)
 		} else if !a.Decimal.Equals(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
+			t.Errorf("%v does not equal %v", a, expected)
 		}
 	}
 
@@ -1470,7 +1470,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 		if !a.Valid {
 			t.Errorf("%s is null", a.Decimal)
 		} else if !a.Decimal.Equals(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
+			t.Errorf("%v does not equal %v", a, expected)
 		}
 	}
 }
@@ -1497,6 +1497,6 @@ func TestNullDecimal_Value(t *testing.T) {
 	if err != nil {
 		t.Errorf("NullDecimal(12.34).Value() failed with message: %s", err)
 	} else if value.(string) != expected {
-		t.Errorf("%s does not equal to %s", a, expected)
+		t.Errorf("%v does not equal %v", a, expected)
 	}
 }

@@ -413,6 +413,19 @@ func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Equal(d2)
 }
 
+// Sign returns:
+//
+//	-1 if d <  0
+//	 0 if d == 0
+//	+1 if d >  0
+//
+func (d Decimal) Sign() int {
+	if d.value == nil {
+		return 0
+	}
+	return d.value.Sign()
+}
+
 // Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp

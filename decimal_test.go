@@ -536,6 +536,9 @@ func TestDecimal_Uninitialized(t *testing.T) {
 	if a.Cmp(b) != 0 {
 		t.Errorf("a != b")
 	}
+	if a.Sign() != 0 {
+		t.Errorf("a.Sign() != 0")
+	}
 	if a.Exponent() != 0 {
 		t.Errorf("a.Exponent() != 0")
 	}
@@ -1327,6 +1330,22 @@ func TestPow(t *testing.T) {
 	x := a.Pow(b)
 	if x.String() != "16" {
 		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestDecimal_Sign(t *testing.T) {
+	if Zero.Sign() != 0 {
+		t.Errorf("%q should have sign 0", Zero)
+	}
+
+	one := New(1, 0)
+	if one.Sign() != 1 {
+		t.Errorf("%q should have sign 1", one)
+	}
+
+	mone := New(-1, 0)
+	if mone.Sign() != -1 {
+		t.Errorf("%q should have sign -1", mone)
 	}
 }
 

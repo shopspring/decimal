@@ -261,6 +261,15 @@ func (d Decimal) Sub(d2 Decimal) Decimal {
 	}
 }
 
+// Neg returns -d.
+func (d Decimal) Neg() Decimal {
+	val := new(big.Int).Neg(d.value)
+	return Decimal{
+		value: val,
+		exp:   d.exp,
+	}
+}
+
 // Mul returns d * d2.
 func (d Decimal) Mul(d2 Decimal) Decimal {
 	d.ensureInitialized()

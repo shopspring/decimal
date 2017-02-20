@@ -1519,3 +1519,29 @@ func TestNullDecimal_Value(t *testing.T) {
 		t.Errorf("%v does not equal %v", a, expected)
 	}
 }
+
+func TestBinary(t *testing.T) {
+	for x, _ := range testTable {
+
+		// Create the decimal
+		d1 := NewFromFloat(x)
+
+		// Encode to binary
+		b, err := d1.MarshalBinary()
+		if err != nil {
+			t.Errorf("error marshalling %v to binary: %v", d1, err)
+		}
+
+		// Restore from binary
+		var d2 Decimal
+		err = (&d2).UnmarshalBinary(b)
+		if err != nil {
+			t.Errorf("error unmarshalling from binary: %v", err)
+		}
+
+		// The restored decimal should equal the original
+		if !d1.Equals(d2) {
+			t.Errorf("expected %v when restoring, got %v", d1, d2)
+		}
+	}
+}

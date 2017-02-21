@@ -620,6 +620,27 @@ func TestDecimal_Sub(t *testing.T) {
 	}
 }
 
+func TestDecimal_Neg(t *testing.T) {
+	inputs := map[string]string{
+		"0":     "0",
+		"10":    "-10",
+		"5.56":  "-5.56",
+		"-10":   "10",
+		"-5.56": "5.56",
+	}
+
+	for inp, res := range inputs {
+		a, err := NewFromString(inp)
+		if err != nil {
+			t.FailNow()
+		}
+		b := a.Neg()
+		if b.String() != res {
+			t.Errorf("expected %s, got %s", res, b.String())
+		}
+	}
+}
+
 func TestDecimal_Mul(t *testing.T) {
 	type Inp struct {
 		a string

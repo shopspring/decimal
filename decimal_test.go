@@ -1175,6 +1175,23 @@ func TestDecimal_Scan(t *testing.T) {
 		}
 	}
 
+	// apparently MySQL 5.7.16 and returns these as float32 so we need
+	// to handle these as well
+	dbvalueFloat32 := float32(54.33)
+	expected = NewFromFloat(float64(dbvalueFloat32))
+
+	err = a.Scan(dbvalueFloat32)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(54.33) failed with message: %s", err)
+
+	} else {
+		// Scan succeeded... test resulting values
+		if !a.Equal(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
 	// at least SQLite returns an int64 when 0 is stored in the db
 	// and you specified a numeric format on the schema
 	dbvalueInt := int64(0)

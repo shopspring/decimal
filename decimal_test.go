@@ -1545,3 +1545,50 @@ func TestBinary(t *testing.T) {
 		}
 	}
 }
+
+func slicesEqual(a, b []byte) bool {
+	for i, val := range a {
+		if b[i] != val {
+			return false
+		}
+	}
+	return true
+}
+
+func TestGobEncode(t *testing.T) {
+	for x, _ := range testTable {
+		d1 := NewFromFloat(x)
+
+		b1, err := d1.GobEncode()
+		if err != nil {
+			t.Errorf("error encoding %v to binary: %v", d1, err)
+		}
+
+		d2 := NewFromFloat(x)
+
+		b2, err := d2.GobEncode()
+		if err != nil {
+			t.Errorf("error encoding %v to binary: %v", d2, err)
+		}
+
+		if !slicesEqual(b1, b2) {
+			t.Errorf("something about the gobencode is not working properly \n%v\n%v", b1, b2)
+		}
+
+		var d3 Decimal
+		err = d3.GobDecode(b1)
+		if err != nil {
+			t.Errorf("Error gobdecoding %v, got %v", b1, d3)
+		}
+		var d4 Decimal
+		err = d4.GobDecode(b2)
+		if err != nil {
+			t.Errorf("Error gobdecoding %v, got %v", b2, d4)
+		}
+
+		eq := d3.Equal(d4)
+		if eq != true {
+			t.Errorf("Encoding then decoding mutated Decimal")
+		}
+	}
+}

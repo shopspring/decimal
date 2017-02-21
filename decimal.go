@@ -678,6 +678,16 @@ func (d Decimal) MarshalText() (text []byte, err error) {
 	return []byte(d.String()), nil
 }
 
+// GobEncode implements the gob.GobEncoder interface for gob serialization.
+func (d Decimal) GobEncode() ([]byte, error) {
+	return d.MarshalBinary()
+}
+
+// GobDecode implements the gob.GobDecoder interface for gob serialization.
+func (d Decimal) GobDecode(data []byte) error {
+	return d.UnmarshalBinary(data)
+}
+
 // StringScaled first scales the decimal then calls .String() on it.
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
 func (d Decimal) StringScaled(exp int32) string {

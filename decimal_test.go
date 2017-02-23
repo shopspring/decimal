@@ -1371,6 +1371,15 @@ func TestPow(t *testing.T) {
 	}
 }
 
+func TestNegativePow(t *testing.T) {
+	a := New(4, 0)
+	b := New(-2, 0)
+	x := a.Pow(b)
+	if x.String() != "0.0625" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
 func TestDecimal_Sign(t *testing.T) {
 	if Zero.Sign() != 0 {
 		t.Errorf("%q should have sign 0", Zero)

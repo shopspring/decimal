@@ -697,7 +697,7 @@ func (d Decimal) GobEncode() ([]byte, error) {
 }
 
 // GobDecode implements the gob.GobDecoder interface for gob serialization.
-func (d Decimal) GobDecode(data []byte) error {
+func (d *Decimal) GobDecode(data []byte) error {
 	return d.UnmarshalBinary(data)
 }
 

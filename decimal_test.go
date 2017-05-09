@@ -1637,5 +1637,10 @@ func TestGobEncode(t *testing.T) {
 		if eq != true {
 			t.Errorf("Encoding then decoding mutated Decimal")
 		}
+
+		eq = d1.Equal(d3)
+		if eq != true {
+			t.Errorf("Error gobencoding/decoding %v, got %v", d1, d3)
+		}
 	}
 }

@@ -660,9 +660,12 @@ func (d Decimal) MarshalBinary() (data []byte, err error) {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
-func (d *Decimal) Scan(value interface{}) error {
+func (d *Decimal) Scan(value interface{}) (err error) {
 	// first try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
+	case float32:
+		*d = NewFromFloat(float64(v))
+		return nil
 
 	case float32:
 		*d = NewFromFloat(float64(v))

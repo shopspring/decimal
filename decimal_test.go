@@ -1171,6 +1171,21 @@ func TestDecimal_Max(t *testing.T) {
 	}
 }
 
+func TestDecimal_ScanNil(t *testing.T) {
+	a := Decimal{}
+	expected := Decimal{
+		value: zeroInt,
+		exp:   0,
+	}
+	err := a.Scan(nil)
+	if err != nil {
+		t.Error(err)
+	}
+	if !a.Equal(expected) {
+		t.Errorf("%s does not equal to %s", a, expected)
+	}
+}
+
 func TestDecimal_Scan(t *testing.T) {
 	// test the Scan method that implements the
 	// sql.Scanner interface

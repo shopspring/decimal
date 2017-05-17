@@ -443,7 +443,9 @@ func (d Decimal) Exponent() int32 {
 
 // Coefficient returns the coefficient of the decimal.  It is scaled by 10^Exponent()
 func (d Decimal) Coefficient() *big.Int {
-	return d.value
+	// we copy the coefficient so that mutating the result does not mutate the
+	// Decimal.
+	return big.NewInt(0).Set(d.value)
 }
 
 // IntPart returns the integer component of the decimal.

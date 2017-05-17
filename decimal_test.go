@@ -1421,6 +1421,10 @@ func TestDecimal_Coefficient(t *testing.T) {
 	if co.Int64() != 123 {
 		t.Error("Coefficient should be 123; Got:", co)
 	}
+	co.Set(big.NewInt(0))
+	if d.IntPart() != 123 {
+		t.Error("Modifying coefficient modified Decimal; Got:", d)
+	}
 }
 
 type DecimalSlice []Decimal

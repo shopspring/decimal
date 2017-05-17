@@ -1322,17 +1322,52 @@ func TestDecimal_Abs2(t *testing.T) {
 	}
 }
 
-func TestDecimal_Equal(t *testing.T) {
+func TestDecimal_Equalities(t *testing.T) {
 	a := New(1234, 3)
 	b := New(1234, 3)
+	c := New(1234, 4)
 
 	if !a.Equal(b) {
 		t.Errorf("%q should equal %q", a, b)
 	}
+	if a.Equal(c) {
+		t.Errorf("%q should not equal %q", a, c)
+	}
 
-	// note, this should be deprecated, here for backwards compatibility
+	// note, this block should be deprecated, here for backwards compatibility
 	if !a.Equals(b) {
 		t.Errorf("%q should equal %q", a, b)
+	}
+
+	if !c.GT(b) {
+		t.Errorf("%q should be greater than  %q", c, b)
+	}
+	if b.GT(c) {
+		t.Errorf("%q should not be greater than  %q", b, c)
+	}
+	if !a.GTE(b) {
+		t.Errorf("%q should be greater or equal %q", a, b)
+	}
+	if !c.GTE(b) {
+		t.Errorf("%q should be greater or equal %q", c, b)
+	}
+	if b.GTE(c) {
+		t.Errorf("%q should not be greater or equal %q", b, c)
+	}
+	if !b.LT(c) {
+		t.Errorf("%q should be less than %q", a, b)
+	}
+	if c.LT(b) {
+		t.Errorf("%q should not be less than  %q", a, b)
+	}
+	if !a.LTE(b) {
+		t.Errorf("%q should be less than or equal %q", a, b)
+	}
+	if !b.LTE(c) {
+		t.Errorf("%q should be less than or equal  %q", a, b)
+	}
+	if c.LTE(b) {
+		t.Errorf("%q should not be less than or equal %q", a, b)
 	}
 }
 

@@ -1339,34 +1339,34 @@ func TestDecimal_Equalities(t *testing.T) {
 		t.Errorf("%q should equal %q", a, b)
 	}
 
-	if !c.GT(b) {
+	if !c.GreaterThan(b) {
 		t.Errorf("%q should be greater than  %q", c, b)
 	}
-	if b.GT(c) {
+	if b.GreaterThan(c) {
 		t.Errorf("%q should not be greater than  %q", b, c)
 	}
-	if !a.GTE(b) {
+	if !a.GreaterThanOrEqual(b) {
 		t.Errorf("%q should be greater or equal %q", a, b)
 	}
-	if !c.GTE(b) {
+	if !c.GreaterThanOrEqual(b) {
 		t.Errorf("%q should be greater or equal %q", c, b)
 	}
-	if b.GTE(c) {
+	if b.GreaterThanOrEqual(c) {
 		t.Errorf("%q should not be greater or equal %q", b, c)
 	}
-	if !b.LT(c) {
+	if !b.LessThan(c) {
 		t.Errorf("%q should be less than %q", a, b)
 	}
-	if c.LT(b) {
+	if c.LessThan(b) {
 		t.Errorf("%q should not be less than  %q", a, b)
 	}
-	if !a.LTE(b) {
+	if !a.LessThanOrEqual(b) {
 		t.Errorf("%q should be less than or equal %q", a, b)
 	}
-	if !b.LTE(c) {
+	if !b.LessThanOrEqual(c) {
 		t.Errorf("%q should be less than or equal  %q", a, b)
 	}
-	if c.LTE(b) {
+	if c.LessThanOrEqual(b) {
 		t.Errorf("%q should not be less than or equal %q", a, b)
 	}
 }

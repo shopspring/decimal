@@ -424,23 +424,23 @@ func (d Decimal) Equals(d2 Decimal) bool {
 }
 
 // Greater Than (GT) returns true when d is greater than d2.
-func (d Decimal) GT(d2 Decimal) bool {
+func (d Decimal) GreaterThan(d2 Decimal) bool {
 	return d.Cmp(d2) == 1
 }
 
 // Greater Than or Equal (GTE) returns true when d is greater than or equal to d2.
-func (d Decimal) GTE(d2 Decimal) bool {
+func (d Decimal) GreaterThanOrEqual(d2 Decimal) bool {
 	cmp := d.Cmp(d2)
 	return cmp == 1 || cmp == 0
 }
 
 // Less Than (LT) returns true when d is less than d2.
-func (d Decimal) LT(d2 Decimal) bool {
+func (d Decimal) LessThan(d2 Decimal) bool {
 	return d.Cmp(d2) == -1
 }
 
 // Less Than or Equal (LTE) returns true when d is less than or equal to d2.
-func (d Decimal) LTE(d2 Decimal) bool {
+func (d Decimal) LessThanOrEqual(d2 Decimal) bool {
 	cmp := d.Cmp(d2)
 	return cmp == -1 || cmp == 0
 }

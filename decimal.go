@@ -81,6 +81,14 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
+// NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
+func NewFromBigInt(value *big.Int, exp int32) Decimal {
+	return Decimal{
+		value: big.NewInt(0).Set(value),
+		exp: exp,
+	}
+}
+
 // NewFromString returns a new Decimal from a string representation.
 //
 // Example:

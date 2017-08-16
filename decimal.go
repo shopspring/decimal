@@ -57,6 +57,7 @@ var Zero = New(0, 1)
 
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
+var twoInt = big.NewInt(2)
 var fiveInt = big.NewInt(5)
 var tenInt = big.NewInt(10)
 
@@ -568,6 +569,50 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
+// RoundFair rounds the decimal to places decimal places.
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Unlike Round(), in the case of a a tie where the resulting decimal place
+// equals 0.5, this function will round up for odd numbers and down for
+// even numbers. Negative values are treated symmetrically.
+//
+// Example:
+//
+// 	   NewFromFloat(5.5).Round(0).String() // output: "6"
+// 	   NewFromFloat(8.5).Round(0).String() // output: "8"
+//
+func (d Decimal) RoundFair(places int32) Decimal {
+	shift := big.NewInt(abs(int64(places)-int64(d.exp)) - 1)
+
+	// First, truncate the number to see if there are trailing decimal places.
+	// If there are it can't end in 5.
+	tmp := new(big.Int)
+	exp := new(big.Int).Exp(tenInt, shift, zeroInt)
+	rounded, _ := new(big.Int).QuoRem(d.value, exp, tmp)
+	if tmp.Cmp(zeroInt) != 0 {
+		return d.Round(places)
+	}
+
+	// If the last digit of the number isn't five, then do normal division.
+	if tmp.Mod(rounded, tenInt).Cmp(fiveInt) != 0 {
+		return d.Round(places)
+	}
+
+	ret := Decimal{
+		value: rounded.Quo(rounded, tenInt),
+		exp:   -places,
+	}
+
+	odd := new(big.Int).Mod(ret.value, twoInt).Cmp(zeroInt) == 1
+	if odd && ret.value.Sign() >= 0 {
+		ret.value.Add(ret.value, oneInt)
+	} else if odd && ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, oneInt)
+	}
+
+	return ret
+}
+
 // Floor returns the nearest integer value less than or equal to d.
 func (d Decimal) Floor() Decimal {
 	d.ensureInitialized()
@@ -826,6 +871,14 @@ func Max(first Decimal, rest ...Decimal) Decimal {
 		}
 	}
 	return ans
+}
+
+func abs(x int64) int64 {
+	if x < 0 {
+		return -x
+	}
+
+	return x
 }
 
 func min(x, y int32) int32 {

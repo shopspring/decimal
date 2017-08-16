@@ -85,7 +85,7 @@ func New(value int64, exp int32) Decimal {
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{
 		value: big.NewInt(0).Set(value),
-		exp: exp,
+		exp:   exp,
 	}
 }
 
@@ -615,6 +615,10 @@ func (d Decimal) Truncate(precision int32) Decimal {
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
+	if string(decimalBytes) == "null" {
+		return nil
+	}
+
 	str, err := unquoteIfQuoted(decimalBytes)
 	if err != nil {
 		return fmt.Errorf("Error decoding string '%s': %s", decimalBytes, err)

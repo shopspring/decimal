@@ -231,20 +231,19 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 	}
 }
 
-
 func TestNewFromBigIntWithExponent(t *testing.T) {
 	type Inp struct {
 		val *big.Int
-		exp   int32
+		exp int32
 	}
 	tests := map[Inp]string{
-		Inp{big.NewInt(123412345),-3}: "123412.345",
-		Inp{big.NewInt(2234),	  -1}:      "223.4",
-		Inp{big.NewInt(323412345), 1}: "3234123450",
+		Inp{big.NewInt(123412345), -3}: "123412.345",
+		Inp{big.NewInt(2234), -1}:      "223.4",
+		Inp{big.NewInt(323412345), 1}:  "3234123450",
 		Inp{big.NewInt(423412345), 0}:  "423412345",
 		Inp{big.NewInt(52341235), -5}:  "523.41235",
-		Inp{big.NewInt(623412345),-6}: "623.412345",
-		Inp{big.NewInt(723412345),-7}: "72.3412345",
+		Inp{big.NewInt(623412345), -6}: "623.412345",
+		Inp{big.NewInt(723412345), -7}: "72.3412345",
 	}
 
 	// add negatives
@@ -296,6 +295,21 @@ func TestJSON(t *testing.T) {
 			t.Errorf("expected %s, got %s", docStrNumber, string(out))
 		}
 		MarshalJSONWithoutQuotes = false
+	}
+}
+
+func TestUnmarshalJSONNull(t *testing.T) {
+	var doc struct {
+		Amount Decimal `json:"amount"`
+	}
+	docStr := `{"amount": null}`
+	err := json.Unmarshal([]byte(docStr), &doc)
+	if err != nil {
+		t.Errorf("error unmarshaling %s: %v", docStr, err)
+	} else if !doc.Amount.Equal(Zero) {
+		t.Errorf("expected Zero, got %s (%s, %d)",
+			doc.Amount.String(),
+			doc.Amount.value.String(), doc.Amount.exp)
 	}
 }
 

@@ -828,6 +828,23 @@ func Max(first Decimal, rest ...Decimal) Decimal {
 	return ans
 }
 
+// Sum returns the combined total of the provided first and rest Decimals
+func Sum(first Decimal, rest ...Decimal) Decimal {
+	total := first
+	for _, item := range rest {
+		total = total.Add(item)
+	}
+
+	return total
+}
+
+// Avg returns the average value of the provided first and rest Decimals
+func Avg(first Decimal, rest ...Decimal) Decimal {
+	count := New(int64(len(rest)+1), 0)
+	sum := Sum(first, rest...)
+	return sum.Div(count)
+}
+
 func min(x, y int32) int32 {
 	if x >= y {
 		return y

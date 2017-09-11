@@ -431,23 +431,23 @@ func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Equal(d2)
 }
 
-// Greater Than (GT) returns true when d is greater than d2.
+// GreaterThan (GT) returns true when d is greater than d2.
 func (d Decimal) GreaterThan(d2 Decimal) bool {
 	return d.Cmp(d2) == 1
 }
 
-// Greater Than or Equal (GTE) returns true when d is greater than or equal to d2.
+// GreaterThanOrEqual (GTE) returns true when d is greater than or equal to d2.
 func (d Decimal) GreaterThanOrEqual(d2 Decimal) bool {
 	cmp := d.Cmp(d2)
 	return cmp == 1 || cmp == 0
 }
 
-// Less Than (LT) returns true when d is less than d2.
+// LessThan (LT) returns true when d is less than d2.
 func (d Decimal) LessThan(d2 Decimal) bool {
 	return d.Cmp(d2) == -1
 }
 
-// Less Than or Equal (LTE) returns true when d is less than or equal to d2.
+// LessThanOrEqual (LTE) returns true when d is less than or equal to d2.
 func (d Decimal) LessThanOrEqual(d2 Decimal) bool {
 	cmp := d.Cmp(d2)
 	return cmp == -1 || cmp == 0
@@ -539,6 +539,24 @@ func (d Decimal) StringFixed(places int32) string {
 	return rounded.string(false)
 }
 
+// StringFixedBank returns a banker rounded fixed-point string with places digits
+// after the decimal point.
+//
+// Example:
+//
+// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixed(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.4"
+// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+//
+func (d Decimal) StringFixedBank(places int32) string {
+	rounded := d.RoundBank(places)
+	return rounded.string(false)
+}
+
 // Round rounds the decimal to places decimal places.
 // If places < 0, it will round the integer part to the nearest 10^(-places).
 //
@@ -566,6 +584,37 @@ func (d Decimal) Round(places int32) Decimal {
 	}
 
 	return ret
+}
+
+// RoundBank rounds the decimal to places decimal places.
+// If the final digit to round is equidistant from the nearest two integers the
+// rounded value is taken as the even number
+//
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Examples:
+//
+// 	   NewFromFloat(5.45).Round(1).String() // output: "5.4"
+// 	   NewFromFloat(545).Round(-1).String() // output: "540"
+// 	   NewFromFloat(5.46).Round(1).String() // output: "5.5"
+// 	   NewFromFloat(546).Round(-1).String() // output: "550"
+// 	   NewFromFloat(5.55).Round(1).String() // output: "5.6"
+// 	   NewFromFloat(555).Round(-1).String() // output: "560"
+//
+func (d Decimal) RoundBank(places int32) Decimal {
+
+	round := d.Round(places)
+	remainder := d.Sub(round).Abs()
+
+	if remainder.value.Cmp(fiveInt) == 0 && round.value.Bit(0) != 0 {
+		if round.value.Sign() < 0 {
+			round.value.Add(round.value, oneInt)
+		} else {
+			round.value.Sub(round.value, oneInt)
+		}
+	}
+
+	return round
 }
 
 // Floor returns the nearest integer value less than or equal to d.

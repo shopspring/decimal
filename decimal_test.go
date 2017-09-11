@@ -550,6 +550,90 @@ func TestDecimal_RoundAndStringFixed(t *testing.T) {
 	}
 }
 
+func TestDecimal_BankRoundAndStringFixed(t *testing.T) {
+	type testData struct {
+		input         string
+		places        int32
+		expected      string
+		expectedFixed string
+	}
+	tests := []testData{
+		{"1.454", 0, "1", ""},
+		{"1.454", 1, "1.5", ""},
+		{"1.454", 2, "1.45", ""},
+		{"1.454", 3, "1.454", ""},
+		{"1.454", 4, "1.454", "1.4540"},
+		{"1.454", 5, "1.454", "1.45400"},
+		{"1.554", 0, "2", ""},
+		{"1.554", 1, "1.6", ""},
+		{"1.554", 2, "1.55", ""},
+		{"0.554", 0, "1", ""},
+		{"0.454", 0, "0", ""},
+		{"0.454", 5, "0.454", "0.45400"},
+		{"0", 0, "0", ""},
+		{"0", 1, "0", "0.0"},
+		{"0", 2, "0", "0.00"},
+		{"0", -1, "0", ""},
+		{"5", 2, "5", "5.00"},
+		{"5", 1, "5", "5.0"},
+		{"5", 0, "5", ""},
+		{"500", 2, "500", "500.00"},
+		{"545", -2, "500", ""},
+		{"545", -3, "1000", ""},
+		{"545", -4, "0", ""},
+		{"499", -3, "0", ""},
+		{"499", -4, "0", ""},
+		{"1.45", 1, "1.4", ""},
+		{"1.55", 1, "1.6", ""},
+		{"1.65", 1, "1.6", ""},
+		{"545", -1, "540", ""},
+		{"565", -1, "560", ""},
+		{"555", -1, "560", ""},
+	}
+
+	// add negative number tests
+	for _, test := range tests {
+		expected := test.expected
+		if expected != "0" {
+			expected = "-" + expected
+		}
+		expectedStr := test.expectedFixed
+		if strings.ContainsAny(expectedStr, "123456789") && expectedStr != "" {
+			expectedStr = "-" + expectedStr
+		}
+		tests = append(tests,
+			testData{"-" + test.input, test.places, expected, expectedStr})
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			panic(err)
+		}
+
+		// test Round
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			panic(err)
+		}
+		got := d.RoundBank(test.places)
+		if !got.Equal(expected) {
+			t.Errorf("Bank Rounding %s to %d places, got %s, expected %s",
+				d, test.places, got, expected)
+		}
+
+		// test StringFixed
+		if test.expectedFixed == "" {
+			test.expectedFixed = test.expected
+		}
+		gotStr := d.StringFixedBank(test.places)
+		if gotStr != test.expectedFixed {
+			t.Errorf("(%s).StringFixed(%d): got %s, expected %s",
+				d, test.places, gotStr, test.expectedFixed)
+		}
+	}
+}
+
 func TestDecimal_Uninitialized(t *testing.T) {
 	a := Decimal{}
 	b := Decimal{}

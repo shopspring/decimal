@@ -928,8 +928,8 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	return string(bytes), nil
 }
 
-// NullDecimal represents a fixed-point decimal. It is immutable.
-// number = value * 10 ^ exp
+// NullDecimal represents a nullable decimal with compatibility for
+// scanning null values from the database.
 type NullDecimal struct {
 	Decimal Decimal
 	Valid   bool

@@ -928,8 +928,8 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	return string(bytes), nil
 }
 
-// NullDecimal represents a fixed-point decimal. It is immutable.
-// number = value * 10 ^ exp
+// NullDecimal represents a nullable decimal with compatibility for
+// scanning null values from the database.
 type NullDecimal struct {
 	Decimal Decimal
 	Valid   bool
@@ -951,4 +951,22 @@ func (d NullDecimal) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return d.Decimal.Value()
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+func (d *NullDecimal) UnmarshalJSON(decimalBytes []byte) error {
+	if string(decimalBytes) == "null" {
+		d.Valid = false
+		return nil
+	}
+	d.Valid = true
+	return d.Decimal.UnmarshalJSON(decimalBytes)
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (d NullDecimal) MarshalJSON() ([]byte, error) {
+	if !d.Valid {
+		return []byte("null"), nil
+	}
+	return d.Decimal.MarshalJSON()
 }

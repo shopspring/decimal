@@ -384,20 +384,22 @@ func TestNullDecimalJSON(t *testing.T) {
 			doc.Amount.Decimal.value.String(), doc.Amount.Decimal.exp)
 	}
 
+	expected := `{"amount":null}`
 	out, err := json.Marshal(&doc)
 	if err != nil {
 		t.Errorf("error marshaling %+v: %v", doc, err)
-	} else if string(out) != `{"amount":null}` {
-		t.Errorf("expected %s, got %s", "null", string(out))
+	} else if string(out) != expected {
+		t.Errorf("expected %s, got %s", expected, string(out))
 	}
 
 	// make sure unquoted marshalling works too
 	MarshalJSONWithoutQuotes = true
+	expectedUnquoted := `{"amount":null}`
 	out, err = json.Marshal(&doc)
 	if err != nil {
 		t.Errorf("error marshaling %+v: %v", doc, err)
-	} else if string(out) != `{"amount":null}` {
-		t.Errorf("expected %s, got %s", "null", string(out))
+	} else if string(out) != expectedUnquoted {
+		t.Errorf("expected %s, got %s", expectedUnquoted, string(out))
 	}
 	MarshalJSONWithoutQuotes = false
 }

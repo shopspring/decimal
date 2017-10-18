@@ -621,6 +621,10 @@ func (d Decimal) RoundBank(places int32) Decimal {
 func (d Decimal) Floor() Decimal {
 	d.ensureInitialized()
 
+	if d.exp >= 0 {
+		return d
+	}
+
 	exp := big.NewInt(10)
 
 	// NOTE(vadim): must negate after casting to prevent int32 overflow
@@ -633,6 +637,10 @@ func (d Decimal) Floor() Decimal {
 // Ceil returns the nearest integer value greater than or equal to d.
 func (d Decimal) Ceil() Decimal {
 	d.ensureInitialized()
+
+	if d.exp >= 0 {
+		return d
+	}
 
 	exp := big.NewInt(10)
 

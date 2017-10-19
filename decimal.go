@@ -25,6 +25,8 @@ import (
 	"math/big"
 	"strconv"
 	"strings"
+
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // DivisionPrecision is the number of decimal places in the result when it
@@ -681,6 +683,25 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	return nil
 }
 
+// UnmarshalDynamoDBAttributeValue implements the dynamodbattribute.Unmarshaler interface.
+func (d *Decimal) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	if av.N == nil {
+		return nil
+	}
+
+	str, err := unquoteIfQuoted(*av.N)
+	if err != nil {
+		return fmt.Errorf("Error decoding string '%s': %s", *av.N, err)
+	}
+
+	decimal, err := NewFromString(str)
+	*d = decimal
+	if err != nil {
+		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+	}
+	return nil
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	var str string
@@ -690,6 +711,18 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 		str = "\"" + d.String() + "\""
 	}
 	return []byte(str), nil
+}
+
+// MarshalDynamoDBAttributeValue implements the dynamodbattribute.Marshaler interface
+func (d *Decimal) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+	var str string
+	if MarshalJSONWithoutQuotes {
+		str = d.String()
+	} else {
+		str = "\"" + d.String() + "\""
+	}
+	av.N = &str
+	return nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation

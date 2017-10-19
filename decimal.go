@@ -46,14 +46,6 @@ import (
 //
 var DivisionPrecision = 16
 
-// MarshalJSONWithoutQuotes should be set to true if you want the decimal to
-// be JSON marshaled as a number, instead of as a string.
-// WARNING: this is dangerous for decimals with many digits, since many JSON
-// unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
-// double-precision floating point numbers, which means you can potentially
-// silently lose precision.
-var MarshalJSONWithoutQuotes = false
-
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
@@ -704,23 +696,15 @@ func (d *Decimal) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) e
 
 // MarshalJSON implements the json.Marshaler interface.
 func (d Decimal) MarshalJSON() ([]byte, error) {
-	var str string
-	if MarshalJSONWithoutQuotes {
-		str = d.String()
-	} else {
-		str = "\"" + d.String() + "\""
-	}
+	str := d.String()
+
 	return []byte(str), nil
 }
 
 // MarshalDynamoDBAttributeValue implements the dynamodbattribute.Marshaler interface
 func (d *Decimal) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
-	var str string
-	if MarshalJSONWithoutQuotes {
-		str = d.String()
-	} else {
-		str = "\"" + d.String() + "\""
-	}
+	str := d.String()
+
 	av.N = &str
 	return nil
 }

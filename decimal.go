@@ -55,10 +55,16 @@ var MarshalJSONWithoutQuotes = false
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
+// fiveDec used in Cash Rounding
+var fiveDec = New(5, 0)
+
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
+var twoInt = big.NewInt(2)
+var fourInt = big.NewInt(4)
 var fiveInt = big.NewInt(5)
 var tenInt = big.NewInt(10)
+var twentyInt = big.NewInt(20)
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -557,6 +563,13 @@ func (d Decimal) StringFixedBank(places int32) string {
 	return rounded.string(false)
 }
 
+// StringFixedCash returns a Swedish/Cash rounded fixed-point string. For
+// more details see the documentation at function RoundCash.
+func (d Decimal) StringFixedCash(interval uint8) string {
+	rounded := d.RoundCash(interval)
+	return rounded.string(false)
+}
+
 // Round rounds the decimal to places decimal places.
 // If places < 0, it will round the integer part to the nearest 10^(-places).
 //
@@ -615,6 +628,54 @@ func (d Decimal) RoundBank(places int32) Decimal {
 	}
 
 	return round
+}
+
+// RoundCash aka Cash/Penny/öre rounding rounds decimal to a specific
+// interval. The amount payable for a cash transaction is rounded to the nearest
+// multiple of the minimum currency unit available. The following intervals are
+// available: 5, 10, 15, 25, 50 and 100; any other number throws a panic.
+//	    5:   5 cent rounding 3.43 => 3.45
+// 	   10:  10 cent rounding 3.45 => 3.50 (5 gets rounded up)
+// 	   15:  10 cent rounding 3.45 => 3.40 (5 gets rounded down)
+// 	   25:  25 cent rounding 3.41 => 3.50
+// 	   50:  50 cent rounding 3.75 => 4.00
+// 	  100: 100 cent rounding 3.50 => 4.00
+// For more details: https://en.wikipedia.org/wiki/Cash_rounding
+func (d Decimal) RoundCash(interval uint8) Decimal {
+	var iVal *big.Int
+	switch interval {
+	case 5:
+		iVal = twentyInt
+	case 10:
+		iVal = tenInt
+	case 15:
+		if d.exp < 0 {
+			// TODO: optimize and reduce allocations
+			orgExp := d.exp
+			dOne := New(10^-int64(orgExp), orgExp)
+			d2 := d
+			d2.exp = 0
+			if d2.Mod(fiveDec).Equal(Zero) {
+				d2.exp = orgExp
+				d2 = d2.Sub(dOne)
+				d = d2
+			}
+		}
+		iVal = tenInt
+	case 25:
+		iVal = fourInt
+	case 50:
+		iVal = twoInt
+	case 100:
+		iVal = oneInt
+	default:
+		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 15, 25, 50, 100", interval))
+	}
+	dVal := Decimal{
+		value: iVal,
+	}
+	// TODO: optimize those calculations to reduce the high allocations (~29 allocs).
+	return d.Mul(dVal).Round(0).Div(dVal).Truncate(2)
 }
 
 // Floor returns the nearest integer value less than or equal to d.

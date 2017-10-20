@@ -1231,6 +1231,106 @@ func TestDecimal_DivRound2(t *testing.T) {
 	}
 }
 
+func TestDecimal_RoundCash(t *testing.T) {
+	tests := []struct {
+		d        string
+		interval uint8
+		result   string
+	}{
+		{"3.44", 5, "3.45"},
+		{"3.43", 5, "3.45"},
+		{"3.42", 5, "3.40"},
+		{"3.425", 5, "3.45"},
+		{"3.47", 5, "3.45"},
+		{"3.478", 5, "3.50"},
+		{"3.48", 5, "3.50"},
+		{"348", 5, "348"},
+
+		{"3.23", 10, "3.20"},
+		{"3.33", 10, "3.30"},
+		{"3.53", 10, "3.50"},
+		{"3.949", 10, "3.90"},
+		{"3.95", 10, "4.00"},
+		{"395", 10, "395"},
+
+		{"6.42", 15, "6.40"},
+		{"6.39", 15, "6.40"},
+		{"6.35", 15, "6.30"},
+		{"6.36", 15, "6.40"},
+		{"6.349", 15, "6.30"},
+		{"6.30", 15, "6.30"},
+		{"666", 15, "666"},
+
+		{"3.23", 25, "3.25"},
+		{"3.33", 25, "3.25"},
+		{"3.53", 25, "3.50"},
+		{"3.93", 25, "4.00"},
+		{"3.41", 25, "3.50"},
+
+		{"3.249", 50, "3.00"},
+		{"3.33", 50, "3.50"},
+		{"3.749999999", 50, "3.50"},
+		{"3.75", 50, "4.00"},
+		{"3.93", 50, "4.00"},
+		{"393", 50, "393"},
+
+		{"3.249", 100, "3.00"},
+		{"3.49999", 100, "3.00"},
+		{"3.50", 100, "4.00"},
+		{"3.75", 100, "4.00"},
+		{"3.93", 100, "4.00"},
+		{"393", 100, "393"},
+	}
+	for i, test := range tests {
+		d, _ := NewFromString(test.d)
+		haveRounded := d.RoundCash(test.interval)
+		result, _ := NewFromString(test.result)
+
+		if !haveRounded.Equal(result) {
+			t.Errorf("Index %d: Cash rounding for %q interval %d want %q, have %q", i, test.d, test.interval, test.result, haveRounded)
+		}
+	}
+}
+
+func TestDecimal_RoundCash_Panic(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			if have, ok := r.(string); ok {
+				const want = "Decimal does not support this Cash rounding interval `231`. Supported: 5, 10, 15, 25, 50, 100"
+				if want != have {
+					t.Errorf("\nWant: %q\nHave: %q", want, have)
+				}
+			} else {
+				t.Errorf("Panic should contain an error string but got:\n%+v", r)
+			}
+		} else {
+			t.Error("Expecting a panic but got nothing")
+		}
+	}()
+	d, _ := NewFromString("1")
+	d.RoundCash(231)
+}
+
+func BenchmarkDecimal_RoundCash_Five(b *testing.B) {
+	const want = "3.50"
+	for i := 0; i < b.N; i++ {
+		val := New(3478, -3)
+		if have := val.StringFixedCash(5); have != want {
+			b.Fatalf("\nHave: %q\nWant: %q", have, want)
+		}
+	}
+}
+
+func BenchmarkDecimal_RoundCash_Fifteen(b *testing.B) {
+	const want = "6.30"
+	for i := 0; i < b.N; i++ {
+		val := New(635, -2)
+		if have := val.StringFixedCash(15); have != want {
+			b.Fatalf("\nHave: %q\nWant: %q", have, want)
+		}
+	}
+}
+
 func TestDecimal_Mod(t *testing.T) {
 	type Inp struct {
 		a string

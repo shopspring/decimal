@@ -508,11 +508,17 @@ func TestDecimal_rescale(t *testing.T) {
 }
 
 func TestDecimal_Floor(t *testing.T) {
-	type testData struct {
+	assertFloor := func(input, expected Decimal) {
+		got := input.Floor()
+		if !got.Equal(expected) {
+			t.Errorf("Floor(%s): got %s, expected %s", input, got, expected)
+		}
+	}
+	type testDataString struct {
 		input    string
 		expected string
 	}
-	tests := []testData{
+	testsWithStrings := []testDataString{
 		{"1.999", "1"},
 		{"1", "1"},
 		{"1.01", "1"},
@@ -525,22 +531,66 @@ func TestDecimal_Floor(t *testing.T) {
 		{"-1.01", "-2"},
 		{"-1.999", "-2"},
 	}
-	for _, test := range tests {
-		d, _ := NewFromString(test.input)
+	for _, test := range testsWithStrings {
 		expected, _ := NewFromString(test.expected)
-		got := d.Floor()
-		if !got.Equal(expected) {
-			t.Errorf("Floor(%s): got %s, expected %s", d, got, expected)
-		}
+		input, _ := NewFromString(test.input)
+		assertFloor(input, expected)
+	}
+
+	type testDataDecimal struct {
+		input    Decimal
+		expected string
+	}
+	testsWithDecimals := []testDataDecimal{
+		{New(100, -1), "10"},
+		{New(10, 0), "10"},
+		{New(1, 1), "10"},
+		{New(1999, -3), "1"},
+		{New(101, -2), "1"},
+		{New(1, 0), "1"},
+		{New(0, 0), "0"},
+		{New(9, -1), "0"},
+		{New(1, -1), "0"},
+		{New(-1, -1), "-1"},
+		{New(-9, -1), "-1"},
+		{New(-1, 0), "-1"},
+		{New(-101, -2), "-2"},
+		{New(-1999, -3), "-2"},
+	}
+	for _, test := range testsWithDecimals {
+		expected, _ := NewFromString(test.expected)
+		assertFloor(test.input, expected)
+	}
+}
+
+func Benchmark_FloorFast(b *testing.B) {
+	input := New(200, 2)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		input.Floor()
+	}
+}
+
+func Benchmark_FloorRegular(b *testing.B) {
+	input := New(200, -2)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		input.Floor()
 	}
 }
 
 func TestDecimal_Ceil(t *testing.T) {
-	type testData struct {
+	assertCeil := func(input, expected Decimal) {
+		got := input.Ceil()
+		if !got.Equal(expected) {
+			t.Errorf("Ceil(%s): got %s, expected %s", input, got, expected)
+		}
+	}
+	type testDataString struct {
 		input    string
 		expected string
 	}
-	tests := []testData{
+	testsWithStrings := []testDataString{
 		{"1.999", "2"},
 		{"1", "1"},
 		{"1.01", "2"},
@@ -553,13 +603,35 @@ func TestDecimal_Ceil(t *testing.T) {
 		{"-1.01", "-1"},
 		{"-1.999", "-1"},
 	}
-	for _, test := range tests {
-		d, _ := NewFromString(test.input)
+	for _, test := range testsWithStrings {
 		expected, _ := NewFromString(test.expected)
-		got := d.Ceil()
-		if !got.Equal(expected) {
-			t.Errorf("Ceil(%s): got %s, expected %s", d, got, expected)
-		}
+		input, _ := NewFromString(test.input)
+		assertCeil(input, expected)
+	}
+
+	type testDataDecimal struct {
+		input    Decimal
+		expected string
+	}
+	testsWithDecimals := []testDataDecimal{
+		{New(100, -1), "10"},
+		{New(10, 0), "10"},
+		{New(1, 1), "10"},
+		{New(1999, -3), "2"},
+		{New(101, -2), "2"},
+		{New(1, 0), "1"},
+		{New(0, 0), "0"},
+		{New(9, -1), "1"},
+		{New(1, -1), "1"},
+		{New(-1, -1), "0"},
+		{New(-9, -1), "0"},
+		{New(-1, 0), "-1"},
+		{New(-101, -2), "-1"},
+		{New(-1999, -3), "-1"},
+	}
+	for _, test := range testsWithDecimals {
+		expected, _ := NewFromString(test.expected)
+		assertCeil(test.input, expected)
 	}
 }
 

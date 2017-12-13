@@ -34,7 +34,7 @@ func main() {
 		panic(err)
 	}
 
-	quantity := decimal.NewFromFloat(3)
+	quantity := decimal.NewFromInt(3)
 
 	fee, _ := decimal.NewFromString(".035")
 	taxRate, _ := decimal.NewFromString(".08875")

@@ -87,6 +87,32 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
+// NewFromInt converts a int64 to Decimal.
+//
+// Example:
+//
+//     NewFromInt(123).String() // output: "123"
+//     NewFromInt(-10).String() // output: "-10"
+func NewFromInt(value int64) Decimal {
+	return Decimal{
+		value: big.NewInt(value),
+		exp:   0,
+	}
+}
+
+// NewFromInt32 converts a int32 to Decimal.
+//
+// Example:
+//
+//     NewFromInt(123).String() // output: "123"
+//     NewFromInt(-10).String() // output: "-10"
+func NewFromInt32(value int32) Decimal {
+	return Decimal{
+		value: big.NewInt(int64(value)),
+		exp:   0,
+	}
+}
+
 // NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{

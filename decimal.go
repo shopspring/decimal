@@ -619,7 +619,8 @@ func (d Decimal) RoundBank(places int32) Decimal {
 	round := d.Round(places)
 	remainder := d.Sub(round).Abs()
 
-	if remainder.value.Cmp(fiveInt) == 0 && round.value.Bit(0) != 0 {
+	half := New(5, -places-1)
+	if remainder.Cmp(half) == 0 && round.value.Bit(0) != 0 {
 		if round.value.Sign() < 0 {
 			round.value.Add(round.value, oneInt)
 		} else {

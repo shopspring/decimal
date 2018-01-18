@@ -2108,3 +2108,24 @@ func TestAvg(t *testing.T) {
 		t.Errorf("Failed to calculate average, expected %s got %s", NewFromFloat(4.5).String(), avg.String())
 	}
 }
+
+func TestRoundBankAnomaly(t *testing.T) {
+	a := New(25, -1)
+	b := New(250, -2)
+
+	if !a.Equal(b) {
+		t.Errorf("Expected %s to equal %s", a, b)
+	}
+
+	expected := New(2, 0)
+
+	aRounded := a.RoundBank(0)
+	if !aRounded.Equal(expected) {
+		t.Errorf("Expected bank rounding %s to equal %s, but it was %s", a, expected, aRounded)
+	}
+
+	bRounded := b.RoundBank(0)
+	if !bRounded.Equal(expected) {
+		t.Errorf("Expected bank rounding %s to equal %s, but it was %s", b, expected, bRounded)
+	}
+}

@@ -188,15 +188,41 @@ func NewFromFloat(value float64) Decimal {
 //     NewFromFloatWithExponent(123.456, -2).String() // output: "123.46"
 //
 func NewFromFloatWithExponent(value float64, exp int32) Decimal {
-	mul := math.Pow(10, -float64(exp))
-	floatValue := value * mul
-	if math.IsNaN(floatValue) || math.IsInf(floatValue, 0) {
-		panic(fmt.Sprintf("Cannot create a Decimal from %v", floatValue))
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		panic(fmt.Sprintf("Cannot create a Decimal from %v", value))
 	}
-	dValue := big.NewInt(round(floatValue))
+
+	bits := math.Float64bits(value)
+	fmant := bits&(1<<52-1) | 1<<52
+	fexp := (bits >> 52) & (1<<11 - 1)
+	sign := bits >> 63
+
+	down := big.NewInt(1)
+	dMant := big.NewInt(int64(fmant) * (1 - int64(sign*2)))
+	dExp := big.NewInt(10)
+	if exp < 0 {
+		dExp = dExp.Exp(dExp, big.NewInt(-int64(exp)), nil)
+		dMant = dMant.Mul(dMant, dExp)
+	} else {
+		dExp = dExp.Exp(dExp, big.NewInt(int64(exp)), nil)
+		down = down.Mul(down, dExp)
+	}
+	shift := int(fexp) - 1023 - 52
+	if shift >= 0 {
+		dMant = dMant.Lsh(dMant, uint(shift))
+	} else {
+		down = down.Lsh(down, uint(-shift))
+	}
+	halfDown := new(big.Int).Rsh(down, 1)
+	if sign == 0 {
+		dMant = dMant.Add(dMant, halfDown)
+	} else {
+		dMant = dMant.Sub(dMant, halfDown)
+	}
+	dMant = dMant.Quo(dMant, down)
 
 	return Decimal{
-		value: dValue,
+		value: dMant,
 		exp:   exp,
 	}
 }

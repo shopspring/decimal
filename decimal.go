@@ -997,13 +997,6 @@ func min(x, y int32) int32 {
 	return x
 }
 
-func round(n float64) int64 {
-	if n < 0 {
-		return int64(n - 0.5)
-	}
-	return int64(n + 0.5)
-}
-
 func unquoteIfQuoted(value interface{}) (string, error) {
 	var bytes []byte
 

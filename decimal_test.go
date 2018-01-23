@@ -42,6 +42,7 @@ var testTable = []*testEnt{
 	{.1000000000000005, "0.1000000000000005", ""},
 	{.1000000000000008, "0.1000000000000008", ""},
 	{1e25, "10000000000000000000000000", ""},
+	{math.MaxInt64, strconv.FormatInt(math.MaxInt64, 10), ""},
 }
 
 var testTableScientificNotation = map[string]string{

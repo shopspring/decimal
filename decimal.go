@@ -162,13 +162,6 @@ func NewFromString(value string) (Decimal, error) {
 //
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat(value float64) Decimal {
-	floor := math.Floor(value)
-
-	// fast path, where float is an int
-	if floor == value && value <= math.MaxInt64 && value >= math.MinInt64 {
-		return New(int64(value), 0)
-	}
-
 	return NewFromFloatWithExponent(value, math.MinInt32)
 }
 

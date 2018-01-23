@@ -169,15 +169,7 @@ func NewFromFloat(value float64) Decimal {
 		return New(int64(value), 0)
 	}
 
-	// slow path: float is a decimal
-	// HACK(vadim): do this the slow hacky way for now because the logic to
-	// convert a base-2 float to base-10 properly is not trivial
-	str := strconv.FormatFloat(value, 'f', -1, 64)
-	dec, err := NewFromString(str)
-	if err != nil {
-		panic(err)
-	}
-	return dec
+	return NewFromFloatWithExponent(value, math.MinInt32)
 }
 
 // NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary

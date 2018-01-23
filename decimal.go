@@ -198,6 +198,10 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	sign := bits >> 63
 	shift := int32(fExp) - 1023 - 52
 
+	if fExp == 0 {
+		return Decimal{}
+	}
+
 	// maximum number of decimal digits to represent 2^(-N) exactly cannot be more than N
 	if exp < 0 && exp < shift {
 		if shift < 0 {

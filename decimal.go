@@ -193,14 +193,23 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	}
 
 	bits := math.Float64bits(value)
-	fMant := bits&(1<<52-1) | 1<<52
+	fMant := bits & (1<<52 - 1)
 	fExp := (bits >> 52) & (1<<11 - 1)
 	sign := bits >> 63
-	shift := int32(fExp) - 1023 - 52
 
 	if fExp == 0 {
-		return Decimal{}
+		if fMant == 0 {
+			return Decimal{}
+		} else {
+			// subnormal
+			fExp++
+		}
+	} else {
+		// normal
+		fMant |= 1 << 52
 	}
+
+	shift := int32(fExp) - 1023 - 52
 
 	// maximum number of decimal digits to represent 2^(-N) exactly cannot be more than N
 	if exp < 0 && exp < shift {

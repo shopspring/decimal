@@ -182,10 +182,11 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 
 	bits := math.Float64bits(value)
 	fMant := bits & (1<<52 - 1)
-	fExp := (bits >> 52) & (1<<11 - 1)
+	fExp := int32((bits >> 52) & (1<<11 - 1))
 	sign := bits >> 63
 
 	if fExp == 0 {
+		// specials
 		if fMant == 0 {
 			return Decimal{}
 		} else {
@@ -197,32 +198,51 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 		fMant |= 1 << 52
 	}
 
-	shift := int32(fExp) - 1023 - 52
+	fExp -= 1023 + 52
 
-	// maximum number of decimal digits to represent 2^(-N) exactly cannot be more than N
-	if exp < 0 && exp < shift {
-		if shift < 0 {
-			exp = shift
+	// maximum number of fractional decimal digits to represent 2^(-N) exactly cannot be more than N
+	if exp < 0 && exp < fExp {
+		if fExp < 0 {
+			exp = fExp
 		} else {
 			exp = 0
 		}
 	}
 
-	down := big.NewInt(1)
+	fiveExp := int32(0)
+	tenExp := exp
+
+	// cancelling 10^N * 2^-M to 10^(N-K) * 2^-(M-K) * 5^K where K = min(N, M)
+	// this should take about 30% less memory for exact conversions of numbers like 1e-300
+	if tenExp < 0 {
+		fiveExp = tenExp
+		fExp -= tenExp
+		tenExp = 0
+	}
+
+	var down *big.Int
 	dMant := big.NewInt(int64(fMant) * (1 - int64(sign*2)))
-	dExp := big.NewInt(10)
-	if exp < 0 {
-		dExp = dExp.Exp(dExp, big.NewInt(-int64(exp)), nil)
-		dMant = dMant.Mul(dMant, dExp)
+
+	if tenExp > 0 {
+		down = big.NewInt(int64(tenExp))
+		down = down.Exp(tenInt, down, nil)
 	} else {
-		dExp = dExp.Exp(dExp, big.NewInt(int64(exp)), nil)
-		down = down.Mul(down, dExp)
+		down = big.NewInt(1)
 	}
-	if shift >= 0 {
-		dMant = dMant.Lsh(dMant, uint(shift))
-	} else {
-		down = down.Lsh(down, uint(-shift))
+
+	if fiveExp < 0 {
+		fives := big.NewInt(-int64(fiveExp))
+		fives = fives.Exp(fiveInt, fives, nil)
+		dMant = dMant.Mul(dMant, fives)
 	}
+
+	if fExp > 0 {
+		dMant = dMant.Lsh(dMant, uint(fExp))
+	} else if fExp < 0 {
+		down = down.Lsh(down, uint(-fExp))
+	}
+
+	// rounding
 	halfDown := new(big.Int).Rsh(down, 1)
 	if sign == 0 {
 		dMant = dMant.Add(dMant, halfDown)

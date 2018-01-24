@@ -160,6 +160,9 @@ func NewFromString(value string) (Decimal, error) {
 //     NewFromFloat(123.45678901234567).String() // output: "123.4567890123456"
 //     NewFromFloat(.00000000000000001).String() // output: "0.00000000000000001"
 //
+// NOTE: some float64 numbers can take up about 300 bytes of memory in decimal representation.
+// Consider using NewFromFloatWithExponent if space is more important than precision.
+//
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat(value float64) Decimal {
 	return NewFromFloatWithExponent(value, math.MinInt32)

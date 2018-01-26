@@ -200,6 +200,11 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 
 	fExp -= 1023 + 52
 
+	for fMant&1 == 0 {
+		fMant = fMant >> 1
+		fExp++
+	}
+
 	// maximum number of fractional decimal digits to represent 2^(-N) exactly cannot be more than N
 	if exp < 0 && exp < fExp {
 		if fExp < 0 {
@@ -209,29 +214,21 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 		}
 	}
 
-	fiveExp := int32(0)
-	tenExp := exp
-
-	// cancelling 10^N * 2^-M to 10^(N-K) * 2^-(M-K) * 5^K where K = min(N, M)
-	// this should take about 30% less memory for exact conversions of numbers like 1e-300
-	if tenExp < 0 {
-		fiveExp = tenExp
-		fExp -= tenExp
-		tenExp = 0
-	}
+	// representing 10^M * 2^N as 5^M * 2^(M+N)
+	fExp -= exp
 
 	var down *big.Int
-	dMant := big.NewInt(int64(fMant) * (1 - int64(sign*2)))
+	dMant := big.NewInt(int64(fMant))
 
-	if tenExp > 0 {
-		down = big.NewInt(int64(tenExp))
-		down = down.Exp(tenInt, down, nil)
+	if exp > 0 {
+		down = big.NewInt(int64(exp))
+		down = down.Exp(fiveInt, down, nil)
 	} else {
 		down = big.NewInt(1)
 	}
 
-	if fiveExp < 0 {
-		fives := big.NewInt(-int64(fiveExp))
+	if exp < 0 {
+		fives := big.NewInt(-int64(exp))
 		fives = fives.Exp(fiveInt, fives, nil)
 		dMant = dMant.Mul(dMant, fives)
 	}
@@ -244,12 +241,12 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 
 	// rounding
 	halfDown := new(big.Int).Rsh(down, 1)
-	if sign == 0 {
-		dMant = dMant.Add(dMant, halfDown)
-	} else {
-		dMant = dMant.Sub(dMant, halfDown)
-	}
+	dMant = dMant.Add(dMant, halfDown)
 	dMant = dMant.Quo(dMant, down)
+
+	if sign == 1 {
+		dMant = dMant.Neg(dMant)
+	}
 
 	return Decimal{
 		value: dMant,

@@ -181,68 +181,70 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	}
 
 	bits := math.Float64bits(value)
-	fMant := bits & (1<<52 - 1)
-	fExp := int32((bits >> 52) & (1<<11 - 1))
+	mant := bits & (1<<52 - 1)
+	exp2 := int32((bits >> 52) & (1<<11 - 1))
 	sign := bits >> 63
 
-	if fExp == 0 {
+	if exp2 == 0 {
 		// specials
-		if fMant == 0 {
+		if mant == 0 {
 			return Decimal{}
 		} else {
 			// subnormal
-			fExp++
+			exp2++
 		}
 	} else {
 		// normal
-		fMant |= 1 << 52
+		mant |= 1 << 52
 	}
 
-	fExp -= 1023 + 52
+	exp2 -= 1023 + 52
 
-	for fMant&1 == 0 {
-		fMant = fMant >> 1
-		fExp++
+	// normalizing base-2 values
+	for mant&1 == 0 {
+		mant = mant >> 1
+		exp2++
 	}
 
-	// maximum number of fractional decimal digits to represent 2^(-N) exactly cannot be more than N
-	if exp < 0 && exp < fExp {
-		if fExp < 0 {
-			exp = fExp
+	// maximum number of fractional base-10 digits to represent 2^N exactly cannot be more than -N if N<0
+	if exp < 0 && exp < exp2 {
+		if exp2 < 0 {
+			exp = exp2
 		} else {
 			exp = 0
 		}
 	}
 
 	// representing 10^M * 2^N as 5^M * 2^(M+N)
-	fExp -= exp
+	exp2 -= exp
 
-	var down *big.Int
-	dMant := big.NewInt(int64(fMant))
+	temp := big.NewInt(1)
+	dMant := big.NewInt(int64(mant))
 
+	// applying 5^M
 	if exp > 0 {
-		down = big.NewInt(int64(exp))
-		down = down.Exp(fiveInt, down, nil)
-	} else {
-		down = big.NewInt(1)
+		temp = temp.SetInt64(int64(exp))
+		temp = temp.Exp(fiveInt, temp, nil)
+	} else if exp < 0 {
+		temp = temp.SetInt64(-int64(exp))
+		temp = temp.Exp(fiveInt, temp, nil)
+		dMant = dMant.Mul(dMant, temp)
+		temp = temp.SetUint64(1)
 	}
 
-	if exp < 0 {
-		fives := big.NewInt(-int64(exp))
-		fives = fives.Exp(fiveInt, fives, nil)
-		dMant = dMant.Mul(dMant, fives)
+	// applying 2^(M+N)
+	if exp2 > 0 {
+		dMant = dMant.Lsh(dMant, uint(exp2))
+	} else if exp2 < 0 {
+		temp = temp.Lsh(temp, uint(-exp2))
 	}
 
-	if fExp > 0 {
-		dMant = dMant.Lsh(dMant, uint(fExp))
-	} else if fExp < 0 {
-		down = down.Lsh(down, uint(-fExp))
+	// rounding and downscaling
+	if exp > 0 || exp2 < 0 {
+		halfDown := new(big.Int).Rsh(temp, 1)
+		dMant = dMant.Add(dMant, halfDown)
+		dMant = dMant.Quo(dMant, temp)
 	}
-
-	// rounding
-	halfDown := new(big.Int).Rsh(down, 1)
-	dMant = dMant.Add(dMant, halfDown)
-	dMant = dMant.Quo(dMant, down)
 
 	if sign == 1 {
 		dMant = dMant.Neg(dMant)

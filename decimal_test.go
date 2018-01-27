@@ -43,6 +43,7 @@ var testTable = []*testEnt{
 	{.1000000000000008, "0.1000000000000008", ""},
 	{1e25, "10000000000000000000000000", ""},
 	{math.MaxInt64, strconv.FormatInt(math.MaxInt64, 10), ""},
+	{1.29067116156722e-309, "0", ""},
 }
 
 var testTableScientificNotation = map[string]string{
@@ -62,7 +63,7 @@ var testTableScientificNotation = map[string]string{
 
 func init() {
 	for _, s := range testTable {
-		s.exact = strconv.FormatFloat(s.float, 'f', 300, 64)
+		s.exact = strconv.FormatFloat(s.float, 'f', 1500, 64)
 		if strings.ContainsRune(s.exact, '.') {
 			s.exact = strings.TrimRight(s.exact, "0")
 			s.exact = strings.TrimRight(s.exact, ".")
@@ -72,7 +73,7 @@ func init() {
 	// add negatives
 	withNeg := testTable[:]
 	for _, s := range testTable {
-		if s.float > 0 {
+		if s.float > 0 && s.short != "0" && s.exact != "0" {
 			withNeg = append(withNeg, &testEnt{-s.float, "-" + s.short, "-" + s.exact})
 		}
 	}

@@ -160,24 +160,12 @@ func NewFromString(value string) (Decimal, error) {
 //     NewFromFloat(123.45678901234567).String() // output: "123.4567890123456"
 //     NewFromFloat(.00000000000000001).String() // output: "0.00000000000000001"
 //
+// NOTE: some float64 numbers can take up about 300 bytes of memory in decimal representation.
+// Consider using NewFromFloatWithExponent if space is more important than precision.
+//
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat(value float64) Decimal {
-	floor := math.Floor(value)
-
-	// fast path, where float is an int
-	if floor == value && value <= math.MaxInt64 && value >= math.MinInt64 {
-		return New(int64(value), 0)
-	}
-
-	// slow path: float is a decimal
-	// HACK(vadim): do this the slow hacky way for now because the logic to
-	// convert a base-2 float to base-10 properly is not trivial
-	str := strconv.FormatFloat(value, 'f', -1, 64)
-	dec, err := NewFromString(str)
-	if err != nil {
-		panic(err)
-	}
-	return dec
+	return NewFromFloatWithExponent(value, math.MinInt32)
 }
 
 // NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary

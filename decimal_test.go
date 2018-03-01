@@ -239,6 +239,41 @@ func TestNewFromStringDeepEquals(t *testing.T) {
 	}
 }
 
+func TestRequireFromString(t *testing.T) {
+	s := "1.23"
+	defer func() {
+		err := recover()
+		if err != nil {
+			t.Errorf("error while parsing %s", s)
+		}
+	}()
+
+	d := RequireFromString(s)
+	if d.String() != s {
+		t.Errorf("expected %s, got %s (%s, %d)",
+			s, d.String(),
+			d.value.String(), d.exp)
+	}
+}
+
+func TestRequireFromStringErrs(t *testing.T) {
+	s := "qwert"
+	var d Decimal
+	var err interface{}
+
+	func() {
+		defer func() {
+			err = recover()
+		}()
+
+		d = RequireFromString(s)
+	}()
+
+	if err == nil {
+		t.Errorf("panic expected when parsing %s", s)
+	}
+}
+
 func TestNewFromFloatWithExponent(t *testing.T) {
 	type Inp struct {
 		float float64

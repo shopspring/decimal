@@ -1017,6 +1017,14 @@ func TestDecimal_Neg(t *testing.T) {
 	}
 }
 
+func TestDecimal_NegFromEmpty(t *testing.T) {
+	a := Decimal{}
+	b := a.Neg()
+	if b.String() != "0" {
+		t.Errorf("expected %s, got %s", "0", b)
+	}
+}
+
 func TestDecimal_Mul(t *testing.T) {
 	type Inp struct {
 		a string

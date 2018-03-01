@@ -333,6 +333,7 @@ func (d Decimal) Sub(d2 Decimal) Decimal {
 
 // Neg returns -d.
 func (d Decimal) Neg() Decimal {
+	d.ensureInitialized()
 	val := new(big.Int).Neg(d.value)
 	return Decimal{
 		value: val,

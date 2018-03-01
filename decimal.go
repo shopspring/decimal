@@ -188,15 +188,82 @@ func NewFromFloat(value float64) Decimal {
 //     NewFromFloatWithExponent(123.456, -2).String() // output: "123.46"
 //
 func NewFromFloatWithExponent(value float64, exp int32) Decimal {
-	mul := math.Pow(10, -float64(exp))
-	floatValue := value * mul
-	if math.IsNaN(floatValue) || math.IsInf(floatValue, 0) {
-		panic(fmt.Sprintf("Cannot create a Decimal from %v", floatValue))
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		panic(fmt.Sprintf("Cannot create a Decimal from %v", value))
 	}
-	dValue := big.NewInt(round(floatValue))
+
+	bits := math.Float64bits(value)
+	mant := bits & (1<<52 - 1)
+	exp2 := int32((bits >> 52) & (1<<11 - 1))
+	sign := bits >> 63
+
+	if exp2 == 0 {
+		// specials
+		if mant == 0 {
+			return Decimal{}
+		} else {
+			// subnormal
+			exp2++
+		}
+	} else {
+		// normal
+		mant |= 1 << 52
+	}
+
+	exp2 -= 1023 + 52
+
+	// normalizing base-2 values
+	for mant&1 == 0 {
+		mant = mant >> 1
+		exp2++
+	}
+
+	// maximum number of fractional base-10 digits to represent 2^N exactly cannot be more than -N if N<0
+	if exp < 0 && exp < exp2 {
+		if exp2 < 0 {
+			exp = exp2
+		} else {
+			exp = 0
+		}
+	}
+
+	// representing 10^M * 2^N as 5^M * 2^(M+N)
+	exp2 -= exp
+
+	temp := big.NewInt(1)
+	dMant := big.NewInt(int64(mant))
+
+	// applying 5^M
+	if exp > 0 {
+		temp = temp.SetInt64(int64(exp))
+		temp = temp.Exp(fiveInt, temp, nil)
+	} else if exp < 0 {
+		temp = temp.SetInt64(-int64(exp))
+		temp = temp.Exp(fiveInt, temp, nil)
+		dMant = dMant.Mul(dMant, temp)
+		temp = temp.SetUint64(1)
+	}
+
+	// applying 2^(M+N)
+	if exp2 > 0 {
+		dMant = dMant.Lsh(dMant, uint(exp2))
+	} else if exp2 < 0 {
+		temp = temp.Lsh(temp, uint(-exp2))
+	}
+
+	// rounding and downscaling
+	if exp > 0 || exp2 < 0 {
+		halfDown := new(big.Int).Rsh(temp, 1)
+		dMant = dMant.Add(dMant, halfDown)
+		dMant = dMant.Quo(dMant, temp)
+	}
+
+	if sign == 1 {
+		dMant = dMant.Neg(dMant)
+	}
 
 	return Decimal{
-		value: dValue,
+		value: dMant,
 		exp:   exp,
 	}
 }
@@ -970,13 +1037,6 @@ func min(x, y int32) int32 {
 		return y
 	}
 	return x
-}
-
-func round(n float64) int64 {
-	if n < 0 {
-		return int64(n - 0.5)
-	}
-	return int64(n + 0.5)
 }
 
 func unquoteIfQuoted(value interface{}) (string, error) {

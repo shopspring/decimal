@@ -925,6 +925,7 @@ func TestDecimal_Uninitialized(t *testing.T) {
 		a.Add(b),
 		a.Sub(b),
 		a.Mul(b),
+		a.Shift(0),
 		a.Div(New(1, -1)),
 		a.Round(2),
 		a.Floor(),
@@ -1093,6 +1094,34 @@ func TestDecimal_Mul(t *testing.T) {
 	c := New(1234, 5).Mul(New(45, -1))
 	if c.String() != "555300000" {
 		t.Errorf("Expected %s, got %s", "555300000", c.String())
+	}
+}
+
+func TestDecimal_Shift(t *testing.T) {
+	type Inp struct {
+		a string
+		b int32
+	}
+
+	inputs := map[Inp]string{
+		Inp{"6", 3}:                         "6000",
+		Inp{"10", -2}:                       "0.1",
+		Inp{"2.2", 1}:                       "22",
+		Inp{"-2.2", -1}:                     "-0.22",
+		Inp{"12.88", 5}:                     "1288000",
+		Inp{"-10234274355545544493", -3}:    "-10234274355545544.493",
+		Inp{"-4612301402398.4753343454", 5}: "-461230140239847533.43454",
+	}
+
+	for inp, expectedStr := range inputs {
+		num, _ := NewFromString(inp.a)
+
+		got := num.Shift(inp.b)
+		expected, _ := NewFromString(expectedStr)
+		if !got.Equal(expected) {
+			t.Errorf("expected %v when shifting %v by %v, got %v",
+				expected, num, inp.b, got)
+		}
 	}
 }
 

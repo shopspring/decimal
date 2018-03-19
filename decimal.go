@@ -376,6 +376,18 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 	}
 }
 
+// Shift shifts the decimal in base 10.
+// It shifts left when shift is positive and right if shift is negative.
+// In simpler terms, the given value for shift is added to the exponent
+// of the decimal.
+func (d Decimal) Shift(shift int32) Decimal {
+	d.ensureInitialized()
+	return Decimal{
+		value: new(big.Int).Set(d.value),
+		exp:   d.exp + shift,
+	}
+}
+
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {

@@ -46,6 +46,14 @@ import (
 //
 var DivisionPrecision = 16
 
+// MarshalJSONWithoutQuotes should be set to true if you want the decimal to
+// be JSON marshaled as a number, instead of as a string.
+// WARNING: this is dangerous for decimals with many digits, since many JSON
+// unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
+// double-precision floating point numbers, which means you can potentially
+// silently lose precision.
+var MarshalJSONWithoutQuotes = false
+
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
@@ -675,6 +683,13 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	return nil
 }
 
+// MarshalJSON implements the json.Marshaler interface.
+func (d Decimal) MarshalJSON() ([]byte, error) {
+	str := d.String()
+
+	return []byte(str), nil
+}
+
 // UnmarshalDynamoDBAttributeValue implements the dynamodbattribute.Unmarshaler interface.
 func (d *Decimal) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	if av.N == nil {
@@ -694,19 +709,22 @@ func (d *Decimal) UnmarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) e
 	return nil
 }
 
-// MarshalJSON implements the json.Marshaler interface.
-func (d Decimal) MarshalJSON() ([]byte, error) {
-	str := d.String()
-
-	return []byte(str), nil
-}
-
 // MarshalDynamoDBAttributeValue implements the dynamodbattribute.Marshaler interface
-func (d *Decimal) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
+func (d Decimal) MarshalDynamoDBAttributeValue(av *dynamodb.AttributeValue) error {
 	str := d.String()
 
 	av.N = &str
 	return nil
+}
+
+func (d *Decimal) UnmarshalDynamo(av *dynamodb.AttributeValue) error {
+	return d.UnmarshalDynamoDBAttributeValue(av)
+}
+
+func (d Decimal) MarshalDynamo() (*dynamodb.AttributeValue, error) {
+	av := dynamodb.AttributeValue{}
+	err := d.MarshalDynamoDBAttributeValue(&av)
+	return &av, err
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation

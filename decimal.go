@@ -556,6 +556,33 @@ func (d Decimal) Sign() int {
 	return d.value.Sign()
 }
 
+// IsPositive return
+//
+//	true if d > 0
+//	false if d == 0
+//	false if d < 0
+func (d Decimal) IsPositive() bool {
+	return d.Sign() == 1
+}
+
+// IsNegative return
+//
+//	true if d < 0
+//	false if d == 0
+//	false if d > 0
+func (d Decimal) IsNegative() bool {
+	return d.Sign() == -1
+}
+
+// IsZero return
+//
+//	true if d == 0
+//	false if d > 0
+//	false if d < 0
+func (d Decimal) IsZero() bool {
+	return d.Sign() == 0
+}
+
 // Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp

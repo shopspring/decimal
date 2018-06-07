@@ -1117,3 +1117,55 @@ func (d NullDecimal) MarshalJSON() ([]byte, error) {
 	}
 	return d.Decimal.MarshalJSON()
 }
+
+// Trig functions
+
+// Atan returns the arctangent, in radians, of x.
+//
+// Special cases are:
+//      Atan(±0) = ±0
+//      Atan(±Inf) = ±Pi/2
+func (x Decimal) Atan() Decimal {
+	if x == NewFromFloat(0.0) {
+		return x
+	}
+	if x.GreaterThan(NewFromFloat(0.0)) {
+		return x.satan()
+	}
+	return x.Neg().satan().Neg()
+}
+
+func (x Decimal) xatan() Decimal {
+	P0 := NewFromFloat(-8.750608600031904122785e-01)
+	P1 := NewFromFloat(-1.615753718733365076637e+01)
+	P2 := NewFromFloat(-7.500855792314704667340e+01)
+	P3 := NewFromFloat(-1.228866684490136173410e+02)
+	P4 := NewFromFloat(-6.485021904942025371773e+01)
+	Q0 := NewFromFloat(2.485846490142306297962e+01)
+	Q1 := NewFromFloat(1.650270098316988542046e+02)
+	Q2 := NewFromFloat(4.328810604912902668951e+02)
+	Q3 := NewFromFloat(4.853903996359136964868e+02)
+	Q4 := NewFromFloat(1.945506571482613964425e+02)
+	z := x.Mul(x)
+	b1 := P0.Mul(z).Add(P1).Mul(z).Add(P2).Mul(z).Add(P3).Mul(z).Add(P4).Mul(z)
+	b2 := z.Add(Q0).Mul(z).Add(Q1).Mul(z).Add(Q2).Mul(z).Add(Q3).Mul(z).Add(Q4)
+	z = b1.Div(b2)
+	z = x.Mul(z).Add(x)
+	return z
+}
+
+// satan reduces its argument (known to be positive)
+// to the range [0, 0.66] and calls xatan.
+func (x Decimal) satan() Decimal {
+	Morebits := NewFromFloat(6.123233995736765886130e-17) // pi/2 = PIO2 + Morebits
+	Tan3pio8 := NewFromFloat(2.41421356237309504880)      // tan(3*pi/8)
+	pi := NewFromFloat(3.14159265358979323846264338327950288419716939937510582097494459)
+
+	if x.LessThanOrEqual(NewFromFloat(0.66)) {
+		return x.xatan()
+	}
+	if x.GreaterThan(Tan3pio8) {
+		return pi.Div(NewFromFloat(2.0)).Sub(NewFromFloat(1.0).Div(x).xatan()).Add(Morebits)
+	}
+	return pi.Div(NewFromFloat(4.0)).Add((x.Sub(NewFromFloat(1.0)).Div(x.Add(NewFromFloat(1.0)))).xatan()).Add(NewFromFloat(0.5).Mul(Morebits))
+}

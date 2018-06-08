@@ -1232,7 +1232,7 @@ func (d Decimal) satan() Decimal {
   	NewFromFloat(4.16666666666665929218E-2),   // 0x3fa555555555554b
   }
 
-	// Sin returns the sine of the radian argument x.
+	// Cos returns the cosine of the radian argument x.
   func (d Decimal) Cos() Decimal {
 
 		PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
@@ -1278,7 +1278,6 @@ func (d Decimal) satan() Decimal {
   	}
   	return y
   }
-
 
 	var _tanP = [...]Decimal{
   	NewFromFloat(-1.30936939181383777646E+4), // 0xc0c992d8d24f3f38

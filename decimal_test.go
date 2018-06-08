@@ -261,13 +261,13 @@ func TestRequireFromStringErrs(t *testing.T) {
 	var d Decimal
 	var err interface{}
 
-	func() {
+	func(d Decimal) {
 		defer func() {
 			err = recover()
 		}()
 
 		d = RequireFromString(s)
-	}()
+	}(d)
 
 	if err == nil {
 		t.Errorf("panic expected when parsing %s", s)

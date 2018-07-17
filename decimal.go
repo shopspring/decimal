@@ -390,6 +390,15 @@ func (d Decimal) Abs() Decimal {
 
 // Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
+	if d.exp == d2.exp {
+		d.ensureInitialized()
+		d2.ensureInitialized()
+		return Decimal{
+			value: new(big.Int).Add(d.value, d2.value),
+			exp:   d.exp,
+		}
+	}
+
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
 	rd2 := d2.rescale(baseScale)
@@ -403,6 +412,15 @@ func (d Decimal) Add(d2 Decimal) Decimal {
 
 // Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
+	if d.exp == d2.exp {
+		d.ensureInitialized()
+		d2.ensureInitialized()
+		return Decimal{
+			value: new(big.Int).Sub(d.value, d2.value),
+			exp:   d.exp,
+		}
+	}
+
 	baseScale := min(d.exp, d2.exp)
 	rd := d.rescale(baseScale)
 	rd2 := d2.rescale(baseScale)

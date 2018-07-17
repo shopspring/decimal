@@ -7,7 +7,7 @@ go:
   - tip
 
 install:
-  - go build .
+  - go build -tags $(go version | awk '{ print $3 }') .
 
 script:
-  - go test -v
+  - go test -v -tags $(go version | awk '{ print $3 }')

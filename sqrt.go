@@ -12,6 +12,9 @@ func (d Decimal) Sqrt() Decimal {
 // SqrtRound returns the square root of d, the result will have
 // precision digits after the decimal point. The bool precise returns whether the precision was reached
 func (d Decimal) SqrtRound(precision int32) (Decimal, bool) {
+	if d.LessThanOrEqualZero() {
+		return Zero, false
+	}
 	cutoff := New(1, -precision)
 	lo := Zero
 	hi := d

@@ -42,6 +42,33 @@ var Nine = New(9, 0)
 // Ten defines value 10 in decimal format
 var Ten = New(10, 0)
 
+// Eleven defines value 11 in decimal format
+var Eleven = New(11, 0)
+
+// Twelve defines value 12 in decimal format
+var Twelve = New(12, 0)
+
+// Thirteen defines value 13 in decimal format
+var Thirteen = New(13, 0)
+
+// Fourteen defines value 14 in decimal format
+var Fourteen = New(14, 0)
+
+// Fifteen defines value 15 in decimal format
+var Fifteen = New(15, 0)
+
+// Sixteen defines value 16 in decimal format
+var Sixteen = New(16, 0)
+
+// Seventeen defines value 17 in decimal format
+var Seventeen = New(17, 0)
+
+// Eighteen defines value 18 in decimal format
+var Eighteen = New(18, 0)
+
+// Nineteen defines value 19 in decimal format
+var Nineteen = New(19, 0)
+
 // Twenty defines value 20 in decimal format
 var Twenty = New(20, 0)
 

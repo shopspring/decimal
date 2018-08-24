@@ -1,7 +1,13 @@
 # decimal
 
+## This fork
+
+This fork changes:
+* adds MarshalBSON and UnmarshalBSON (for official mongo dirver)
+* sets MarshalJSONWithoutQuotes=true
+
 [![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
-[![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) 
+[![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal)
 [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
@@ -10,17 +16,17 @@ _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digi
 
 ## Features
 
- * The zero-value is 0, and is safe to use without initialization
- * Addition, subtraction, multiplication with no loss of precision
- * Division with specified precision
- * Database/sql serialization/deserialization
- * JSON and XML serialization/deserialization
+* The zero-value is 0, and is safe to use without initialization
+* Addition, subtraction, multiplication with no loss of precision
+* Division with specified precision
+* Database/sql serialization/deserialization
+* JSON and XML serialization/deserialization
 
 ## Install
 
 Run `go get github.com/shopspring/decimal`
 
-## Requirements 
+## Requirements
 
 Decimal library requires Go version `>=1.7`
 

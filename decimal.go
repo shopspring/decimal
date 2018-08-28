@@ -361,11 +361,11 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 //
 func (d Decimal) rescale(exp int32) Decimal {
 	d.ensureInitialized()
-	// NOTE(vadim): must convert exps to float64 before - to prevent overflow
-	diff := math.Abs(float64(exp) - float64(d.exp))
+	// NOTE(vadim): must convert exps to int64 before - to prevent overflow
+	diff := abs64(int64(exp) - int64(d.exp))
 	value := new(big.Int).Set(d.value)
 
-	expScale := new(big.Int).Exp(tenInt, big.NewInt(int64(diff)), nil)
+	expScale := new(big.Int).Exp(tenInt, big.NewInt(diff), nil)
 	if exp > d.exp {
 		value = value.Quo(value, expScale)
 	} else if exp < d.exp {
@@ -376,6 +376,11 @@ func (d Decimal) rescale(exp int32) Decimal {
 		value: value,
 		exp:   exp,
 	}
+}
+
+func abs64(n int64) int64 {
+	y := n >> 63
+	return (n ^ y) - y
 }
 
 // Abs returns the absolute value of the decimal.

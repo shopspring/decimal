@@ -378,6 +378,10 @@ func (d Decimal) rescale(exp int32) Decimal {
 	}
 }
 
+// abs64 returns the absolute value of int64
+// except the lowest possible int64 value -9223372036854775808
+// that has no positive counterpart in int64 range
+// and it is returned unchanged
 func abs64(n int64) int64 {
 	y := n >> 63
 	return (n ^ y) - y

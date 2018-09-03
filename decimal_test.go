@@ -200,6 +200,7 @@ func TestNewFromFloat32Quick(t *testing.T) {
 }
 
 func BenchmarkNewFromFloatWithExponent(b *testing.B) {
+	b.StopTimer()
 	rng := rand.New(rand.NewSource(0xdead1337))
 	in := make([]float64, b.N)
 	for i := range in {
@@ -208,12 +209,12 @@ func BenchmarkNewFromFloatWithExponent(b *testing.B) {
 	b.ReportAllocs()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		in := rng.NormFloat64() * 10e20
-		_ = NewFromFloatWithExponent(in, math.MinInt32)
+		_ = NewFromFloatWithExponent(in[i], math.MinInt32)
 	}
 }
 
 func BenchmarkNewFromFloat(b *testing.B) {
+	b.StopTimer()
 	rng := rand.New(rand.NewSource(0xdead1337))
 	in := make([]float64, b.N)
 	for i := range in {
@@ -227,6 +228,7 @@ func BenchmarkNewFromFloat(b *testing.B) {
 }
 
 func BenchmarkNewFromStringFloat(b *testing.B) {
+	b.StopTimer()
 	rng := rand.New(rand.NewSource(0xdead1337))
 	in := make([]float64, b.N)
 	for i := range in {

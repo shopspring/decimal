@@ -910,6 +910,60 @@ func (d Decimal) Truncate(precision int32) Decimal {
 	return d
 }
 
+// RoundToSignificantFigures returns a copy of a decimal rounded to specified number of significant figures.
+// For negative or zero figures the function returns zero.
+// Result is normalized without trailing zeros.
+//
+// Example:
+//
+//     NewFromString("5.45").RoundToSignificantFigures(2).String() // output: "5.5"
+//     NewFromString("545").RoundToSignificantFigures(2).String() // output: "550"
+//
+func (d Decimal) RoundToSignificantFigures(figures int32) Decimal {
+	if figures <= 0 {
+		return Zero
+	}
+	d = d.Normalize()
+	twoMant := big.NewInt(0).Set(d.value)
+	twoMant.Abs(twoMant)
+	twoMant.Mul(twoMant, twoInt)
+	upper := big.NewInt(int64(figures))
+	upper.Exp(tenInt, upper, nil)
+	upper.Mul(upper, twoInt)
+	upper.Sub(upper, oneInt)
+	m := int64(0)
+	for twoMant.Cmp(upper) >= 0 {
+		upper.Mul(upper, tenInt)
+		m++
+	}
+	if int64(d.exp)+m > int64(math.MaxInt32) {
+		panic(fmt.Sprintf("exponent %d overflows an int32", int64(d.exp)+m))
+	}
+	return d.Round(-d.exp - int32(m)).Normalize()
+}
+
+// Normalize normalizes decimal value.
+// It strips all the trailing zeros.
+// More specifically if a mantissa is representable as m*10^n it returns a decimal with a mantissa m and its exponent incremented by n.
+func (d Decimal) Normalize() Decimal {
+	d.ensureInitialized()
+	quo := big.NewInt(0).Set(d.value)
+	prevQuo := big.NewInt(0).Set(d.value)
+	rem := big.NewInt(0)
+	n := int64(0)
+	for {
+		quo.QuoRem(quo, tenInt, rem)
+		if rem.Cmp(zeroInt) != 0 || quo.Cmp(zeroInt) == 0 {
+			if int64(d.exp)+n > int64(math.MaxInt32) {
+				panic(fmt.Sprintf("exponent %d overflows an int32", int64(d.exp)+n))
+			}
+			return Decimal{value: prevQuo, exp: d.exp + int32(n)}
+		}
+		prevQuo.Set(quo)
+		n++
+	}
+}
+
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 	if string(decimalBytes) == "null" {

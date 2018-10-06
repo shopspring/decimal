@@ -650,6 +650,25 @@ func (d Decimal) IsZero() bool {
 	return d.Sign() == 0
 }
 
+// IfThen checks if decimal is equal to d2, if they
+// are equal, d3 will be returned as the new decimal
+// value, if not, the old decimal will be returned.
+func (d Decimal) IfThen(d2, d3 Decimal) Decimal {
+	if d.Equal(d2) {
+		return d3
+	}
+
+	return d
+}
+
+// NoZero checks if decimal is equal to zero,
+// if it's equal to zero, one will be returned in
+// its place, if it's not equal to zero, its
+// old value will be returned.
+func (d Decimal) NoZero() Decimal {
+	return d.IfThen(Zero, New(1, 0))
+}
+
 // Exponent returns the exponent, or scale component of the decimal.
 func (d Decimal) Exponent() int32 {
 	return d.exp

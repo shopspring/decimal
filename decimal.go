@@ -777,6 +777,30 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
+// RoundStep rounds the decimal to the nearest step value.
+// Doesn't matter if step parameter is positive or negative,
+// the result is the same.
+// If lower is set to true, value will be rounded to the lower
+// step value.
+//
+// Example:
+//
+//     NewFromFloat(0.43).RoundStep(NewFromFloat(0.5), false).String() // output: "0.5"
+//     NewFromFloat(0.43).RoundStep(NewFromFloat(0.5), true).String() // output: "0"
+// 	   NewFromFloat(0.000355666).RoundStep(NewFromFloat(0.0005), false).String() // output: "0.0005"
+// 	   NewFromFloat(0.000355666).Round(NewFromFloat(0.0005), true).String() // output: "0"
+// 	   NewFromFloat(0.000355666).Round(NewFromFloat(0.0001), false).String() // output: "0.0004"
+// 	   NewFromFloat(0.000355666).Round(NewFromFloat(0.0001), true).String() // output: "0.0003"
+//
+func (d Decimal) RoundStep(step Decimal, lower bool) Decimal {
+	step = step.Abs()
+	if lower {
+		return d.Div(step).Floor().Mul(step)
+	}
+
+	return d.Div(step).Round(0).Mul(step)
+}
+
 // RoundBank rounds the decimal to places decimal places.
 // If the final digit to round is equidistant from the nearest two integers the
 // rounded value is taken as the even number

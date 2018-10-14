@@ -54,7 +54,7 @@ var MarshalJSONWithoutQuotes = false
 
 // If Set to True, returns rounded fixed-point string with places digits after the decimal point
 var MarshalJSONWithDecimalPlaces = false
-var MarshalJSONDecimalPlaces = 0
+var MarshalJSONDecimalPlaces int32 = 0
 
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)

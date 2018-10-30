@@ -389,16 +389,15 @@ func TestRequireFromString(t *testing.T) {
 
 func TestRequireFromStringErrs(t *testing.T) {
 	s := "qwert"
-	var d Decimal
 	var err interface{}
 
-	func(d Decimal) {
+	func() {
 		defer func() {
 			err = recover()
 		}()
 
-		d = RequireFromString(s)
-	}(d)
+		RequireFromString(s)
+	}()
 
 	if err == nil {
 		t.Errorf("panic expected when parsing %s", s)
@@ -2174,10 +2173,8 @@ func TestNullDecimal_Scan(t *testing.T) {
 	if err != nil {
 		// Scan failed... no need to test result value
 		t.Errorf("a.Scan(nil) failed with message: %s", err)
-	} else {
-		if a.Valid {
-			t.Errorf("%s is not null", a.Decimal)
-		}
+	} else if a.Valid {
+		t.Errorf("%s is not null", a.Decimal)
 	}
 
 	dbvalue := float64(54.33)

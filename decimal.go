@@ -186,7 +186,7 @@ func NewFromFloat(value float64) Decimal {
 	return newFromFloat(value, math.Float64bits(value), &float64info)
 }
 
-// NewFromFloat converts a float32 to Decimal.
+// NewFromFloat32 converts a float32 to Decimal.
 //
 // The converted number will contain the number of significant digits that can be
 // represented in a float with reliable roundtrip.
@@ -272,10 +272,9 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 		// specials
 		if mant == 0 {
 			return Decimal{}
-		} else {
-			// subnormal
-			exp2++
 		}
+		// subnormal
+		exp2++
 	} else {
 		// normal
 		mant |= 1 << 52
@@ -291,11 +290,7 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 
 	// maximum number of fractional base-10 digits to represent 2^N exactly cannot be more than -N if N<0
 	if exp < 0 && exp < exp2 {
-		if exp2 < 0 {
-			exp = exp2
-		} else {
-			exp = 0
-		}
+		exp = min(0, exp2)
 	}
 
 	// representing 10^M * 2^N as 5^M * 2^(M+N)
@@ -1214,15 +1209,15 @@ func (d NullDecimal) MarshalJSON() ([]byte, error) {
 
 // Trig functions
 
-// Atan returns the arctangent, in radians, of x.
-func (x Decimal) Atan() Decimal {
-	if x.Equal(NewFromFloat(0.0)) {
-		return x
+// Atan returns the arctangent, in radians, of d.
+func (d Decimal) Atan() Decimal {
+	if d.Equal(NewFromFloat(0.0)) {
+		return d
 	}
-	if x.GreaterThan(NewFromFloat(0.0)) {
-		return x.satan()
+	if d.GreaterThan(NewFromFloat(0.0)) {
+		return d.satan()
 	}
-	return x.Neg().satan().Neg()
+	return d.Neg().satan().Neg()
 }
 
 func (d Decimal) xatan() Decimal {
@@ -1270,7 +1265,7 @@ var _sin = [...]Decimal{
 	NewFromFloat(-1.66666666666666307295E-1), // 0xbfc5555555555548
 }
 
-// Sin returns the sine of the radian argument x.
+// Sin returns the sine of the radian argument d.
 func (d Decimal) Sin() Decimal {
 	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
 	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
@@ -1287,8 +1282,8 @@ func (d Decimal) Sin() Decimal {
 		sign = true
 	}
 
-	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of d/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of d/(Pi/4), as float
 
 	// map zeros to origin
 	if j&1 == 1 {
@@ -1326,7 +1321,7 @@ var _cos = [...]Decimal{
 	NewFromFloat(4.16666666666665929218E-2),   // 0x3fa555555555554b
 }
 
-// Cos returns the cosine of the radian argument x.
+// Cos returns the cosine of the radian argument d.
 func (d Decimal) Cos() Decimal {
 
 	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
@@ -1340,8 +1335,8 @@ func (d Decimal) Cos() Decimal {
 		d = d.Neg()
 	}
 
-	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of d/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of d/(Pi/4), as float
 
 	// map zeros to origin
 	if j&1 == 1 {
@@ -1386,7 +1381,7 @@ var _tanQ = [...]Decimal{
 	NewFromFloat(-5.38695755929454629881E+7), //0xc189afe03cbe5a31
 }
 
-// Tan returns the tangent of the radian argument x.
+// Tan returns the tangent of the radian argument d.
 func (d Decimal) Tan() Decimal {
 
 	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
@@ -1405,8 +1400,8 @@ func (d Decimal) Tan() Decimal {
 		sign = true
 	}
 
-	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of d/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of d/(Pi/4), as float
 
 	// map zeros to origin
 	if j&1 == 1 {

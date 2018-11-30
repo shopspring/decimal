@@ -823,7 +823,7 @@ func (d *Decimal) Scan(value interface{}) error {
 
 // Value implements the driver.Valuer interface for database serialization.
 func (d Decimal) Value() (driver.Value, error) {
-	return d.String(), nil
+	return d.string(false), nil
 }
 
 // UnmarshalText implements the encoding.TextUnmarshaler interface for XML

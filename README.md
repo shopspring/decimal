@@ -1,6 +1,6 @@
 # decimal
 
-[![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal) [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
+[![Build Status](https://travis-ci.org/dexon-foundation/decimal.png?branch=master)](https://travis-ci.org/dexon-foundation/decimal) [![GoDoc](https://godoc.org/github.com/dexon-foundation/decimal?status.svg)](https://godoc.org/github.com/dexon-foundation/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/dexon-foundation/decimal)](https://goreportcard.com/report/github.com/dexon-foundation/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
@@ -16,7 +16,7 @@ NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decim
 
 ## Install
 
-Run `go get github.com/shopspring/decimal`
+Run `go get github.com/dexon-foundation/decimal`
 
 ## Usage
 
@@ -25,7 +25,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/shopspring/decimal"
+	"github.com/dexon-foundation/decimal"
 )
 
 func main() {
@@ -55,12 +55,7 @@ func main() {
 
 ## Documentation
 
-http://godoc.org/github.com/shopspring/decimal
-
-## Production Usage
-
-* [Spring](https://shopspring.com/), since August 14, 2014.
-* If you are using this in production, please let us know!
+https://godoc.org/github.com/dexon-foundation/decimal
 
 ## FAQ
 
@@ -69,7 +64,7 @@ http://godoc.org/github.com/shopspring/decimal
 Because float64s (or any binary floating point type, actually) can't represent
 numbers such as 0.1 exactly.
 
-Consider this code: http://play.golang.org/p/TQBd4yJe6B You might expect that
+Consider this code: https://play.golang.org/p/TQBd4yJe6B You might expect that
 it prints out `10`, but it actually prints `9.999999999999831`. Over time,
 these small errors can really add up!
 
@@ -84,7 +79,7 @@ out, the string output has to stop somewhere (let's say it stops at 3 decimal
 digits, for simplicity), so you'll get 0.333, 0.333, and 0.333. But where did
 the other 0.001 go?
 
-Here's the above example as code: http://play.golang.org/p/lCZZs0w9KE
+Here's the above example as code: https://play.golang.org/p/lCZZs0w9KE
 
 With Decimal, the strings being printed out represent the number exactly. So,
 if you have `x = y = 1/3` (with precision 3), they will actually be equal to
@@ -123,4 +118,4 @@ than performance.
 
 The MIT License (MIT)
 
-This is a heavily modified fork of [fpd.Decimal](https://github.com/oguzbilgic/fpd), which was also released under the MIT License.
+This is a fork of [shopspring/decimal](https://github.com/shopspring/decimal), which was also released under the MIT License.

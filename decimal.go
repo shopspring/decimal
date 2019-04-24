@@ -982,6 +982,26 @@ func (d *Decimal) Scan(value interface{}) error {
 		*d = NewFromFloat(v)
 		return nil
 
+	case int:
+		// also better to implement to support all type of int.
+		// profitable to create another abstract layer for testing
+		// data access with no depends on real RDBMS.
+
+		*d = New(int64(v), 0)
+		return nil
+
+	case int8:
+		*d = New(int64(v), 0)
+		return nil
+
+	case int16:
+		*d = New(int64(v), 0)
+		return nil
+
+	case int32:
+		*d = New(int64(v), 0)
+		return nil
+
 	case int64:
 		// at least in sqlite3 when the value is 0 in db, the data is sent
 		// to us as an int64 instead of a float64 ...

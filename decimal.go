@@ -524,7 +524,7 @@ func (d Decimal) Float64() (f float64, exact bool) {
 //     -12.345
 //
 func (d Decimal) String() string {
-	return d.string(true)
+	return d.string(false)
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after

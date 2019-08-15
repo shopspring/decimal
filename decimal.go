@@ -728,13 +728,13 @@ func (d Decimal) StringFixed(places int32) string {
 //
 // Example:
 //
-// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
-// 	   NewFromFloat(0).StringFixed(0) // output: "0"
-// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
-// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.4"
-// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
-// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
-// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+// 	   NewFromFloat(0).StringFixedBank(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixedBank(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixedBank(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixedBank(1) // output: "5.4"
+// 	   NewFromFloat(5.45).StringFixedBank(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixedBank(-1) // output: "540"
 //
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)

@@ -1037,7 +1037,7 @@ func (d *Decimal) GobDecode(data []byte) error {
 // StringScaled first scales the decimal then calls .String() on it.
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
 func (d Decimal) StringScaled(exp int32) string {
-	return d.rescale(exp).String()
+	return d.rescale(exp).string(false)
 }
 
 func (d Decimal) string(trimTrailingZeros bool) string {

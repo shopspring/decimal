@@ -130,6 +130,9 @@ func NewFromString(value string) (Decimal, error) {
 		// strip the insignificant digits for more accurate comparisons.
 		decimalPart := strings.TrimRight(parts[1], "0")
 		intString = parts[0] + decimalPart
+		if intString == "" && parts[1] != "" {
+			intString = "0"
+		}
 		expInt := -len(decimalPart)
 		exp += int64(expInt)
 	} else {

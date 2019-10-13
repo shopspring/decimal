@@ -2094,6 +2094,129 @@ func TestNegativePow(t *testing.T) {
 	}
 }
 
+func TestFactorial(t *testing.T) {
+	tests := [][2]string{
+		{"0", "1"},
+		{"1", "1"},
+		{"2", "2"},
+		{"3", "6"},
+		{"4", "24"},
+	}
+
+	for _, test := range tests {
+		in, out := RequireFromString(test[0]), RequireFromString(test[1])
+		if f := in.factorial(); !f.Equal(out) {
+			t.Errorf("!%v should be %v, got %v", in, out, f)
+		}
+	}
+}
+
+func TestCombination(t *testing.T) {
+	tests := [][3]string{
+		{"4", "1", "4"},
+		{"4", "2", "6"},
+		{"4", "3", "4"},
+		{"4", "4", "1"},
+	}
+
+	for _, test := range tests {
+		n, r, out := RequireFromString(test[0]), RequireFromString(test[1]), RequireFromString(test[2])
+		if c := n.combination(r); !c.Equal(out) {
+			t.Errorf("C(%v,%v) should be %v, got %v", n, r, out, c)
+		}
+	}
+}
+
+func TestRootDigitGroups(t *testing.T) {
+	rng := rand.New(rand.NewSource(0xdead1337))
+	for i := 0; i < 5e4; i++ {
+		dIV, dIE := rng.Int63n(1e7), rng.Int31n(10)
+		if rng.Intn(2) == 0 {
+			dIE = -dIE
+		}
+
+		d := New(dIV, dIE)
+		n := New(rng.Int63n(3)+1, 0)
+		nI := int(n.IntPart())
+		dStr := d.String()
+		dStrSplit := strings.Split(dStr, ".")
+
+		var left, right string
+		left = dStrSplit[0]
+		if len(dStrSplit) == 2 {
+			right = dStrSplit[1]
+		}
+
+		var expLeft, expRight []Decimal
+		for left != "" && left != "0" {
+			if len(left) < nI {
+				expLeft = append(expLeft, RequireFromString(left))
+				left = ""
+			} else {
+				part := left[len(left)-nI:]
+				expLeft = append(expLeft, RequireFromString(part))
+				left = left[:len(left)-nI]
+			}
+		}
+		reverseDecimalSlice(expLeft)
+
+		for right != "" {
+			if len(right) < nI {
+				right += strings.Repeat("0", nI-len(right))
+				expRight = append(expRight, RequireFromString(right))
+				right = ""
+			} else {
+				part := right[:nI]
+				expRight = append(expRight, RequireFromString(part))
+				right = right[nI:]
+			}
+		}
+
+		gotLeft, gotRight := d.rootDigitGroups(n)
+		fatalStr := "(%v).rootDigitGroups(%v)\nexpLeft:%v\ngotLeft:%v\nexpRight:%v\ngotRight:%v"
+		fatalArgs := []interface{}{d, n, expLeft, gotLeft, expRight, gotRight}
+
+		if len(expLeft) != len(gotLeft) || len(expRight) != len(gotRight) {
+			t.Fatalf(fatalStr, fatalArgs...)
+		}
+
+		for j := range expLeft {
+			if !expLeft[j].Equal(gotLeft[j]) {
+				t.Fatalf(fatalStr, fatalArgs...)
+			}
+		}
+
+		for j := range expRight {
+			if !expRight[j].Equal(gotRight[j]) {
+				t.Fatalf(fatalStr, fatalArgs...)
+			}
+		}
+	}
+}
+
+func TestRoot(t *testing.T) {
+	rng := rand.New(rand.NewSource(0xdead1337))
+	for i := 0; i < 2e3; i++ {
+		rootIV, rootIE := rng.Int63n(1e7), rng.Int31n(10)
+		if rng.Intn(2) == 0 {
+			rootIE = -rootIE
+		}
+
+		root := New(rootIV, rootIE)
+		n := New(rng.Int63n(3)+2, 0) // TODO +1, not +2
+
+		d := root
+		for i := int64(1); i < n.IntPart(); i++ {
+			d = d.Mul(root)
+		}
+
+		gotRoot := d.RootRound(n, 32)
+		if !strings.HasPrefix(gotRoot.String(), root.String()) {
+			t.Fatalf("%v root of %v\nexpected:%v\n     got:%v", n, d, root, gotRoot)
+		}
+	}
+}
+
 func TestDecimal_Sign(t *testing.T) {
 	if Zero.Sign() != 0 {
 		t.Errorf("%q should have sign 0", Zero)

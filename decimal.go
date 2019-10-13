@@ -44,6 +44,10 @@ import (
 //
 var DivisionPrecision = 16
 
+// RootPrecision is the number of decimal places in the result from the Root
+// method.
+var RootPrecision = 16
+
 // MarshalJSONWithoutQuotes should be set to true if you want the decimal to
 // be JSON marshaled as a number, instead of as a string.
 // WARNING: this is dangerous for decimals with many digits, since many JSON
@@ -55,8 +59,14 @@ var MarshalJSONWithoutQuotes = false
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
+// oneDec used for incrementing/decrementing
+var oneDec = New(1, 0)
+
 // fiveDec used in Cash Rounding
 var fiveDec = New(5, 0)
+
+// used for shifting digits
+var tenDec = New(10, 0)
 
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
@@ -555,6 +565,133 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 		return temp.Mul(temp).Mul(d)
 	}
 	return temp.Mul(temp).Div(d)
+}
+
+// factorial assumes d is a positive whole number
+func (d Decimal) factorial() Decimal {
+	out := oneDec
+	for i := New(2, 0); i.LessThanOrEqual(d); i = i.Add(oneDec) {
+		out = out.Mul(i)
+	}
+	return out
+}
+
+func (d Decimal) combination(r Decimal) Decimal {
+	top := d.factorial()
+	bottom := r.factorial().Mul(d.Sub(r).factorial())
+	return top.Div(bottom)
+}
+
+func reverseDecimalSlice(slice []Decimal) {
+	for i := len(slice)/2 - 1; i >= 0; i-- {
+		opp := len(slice) - 1 - i
+		slice[i], slice[opp] = slice[opp], slice[i]
+	}
+}
+
+// returns groups of n digits from the original Decimal, centered and split on
+// the position of the decimal place, for purpose of computing the nth root via
+// the shifting nth root algo.
+//
+// 0.303     (n:2) -> [], [30, 30]
+// 1000      (n:2) -> [10, 00], []
+// 2310.0241 (n:3) -> [2, 310], [024, 100]
+func (d Decimal) rootDigitGroups(n Decimal) (left, right []Decimal) {
+	e := tenDec.Pow(n)
+
+	dLeft := d.rescale(0)
+	for {
+		if dLeft.Equal(Zero) {
+			break
+		}
+		next := dLeft.Div(e).rescale(0)
+		left = append(left, dLeft.Sub(next.Mul(e)))
+		dLeft = next
+	}
+	reverseDecimalSlice(left)
+
+	dRight := d.Sub(d.rescale(0))
+	for {
+		if dRight.Equal(Zero) {
+			break
+		}
+		dRightE := dRight.Mul(e)
+		dRightETrunc := dRightE.rescale(0)
+		right = append(right, dRightETrunc)
+		dRight = dRightE.Sub(dRightETrunc)
+	}
+
+	return left, right
+}
+
+// Root returns the nth root of d.
+func (d Decimal) Root(n Decimal) Decimal {
+	return d.RootRound(n, int32(RootPrecision))
+}
+
+// RootRound returns the nth root of d. If the result is not a whole number then
+// the given precision determines the number of decimal places to calculate the
+// result to.
+func (d Decimal) RootRound(n Decimal, prec int32) Decimal {
+	// The nth root is calculated via the shifting root algorithm, which was
+	// chosen for being definitely correct up to an arbitrary precision, and not
+	// because it's particularly fast.
+	//
+	// https://en.wikipedia.org/wiki/Shifting_nth_root_algorithm
+	// https://www.wikihow.com/Find-Nth-Roots-by-Hand
+
+	leftGroups, rightGroups := d.rootDigitGroups(n)
+	numLeftGroups := len(leftGroups)
+
+	answer, answerNoDecimal, target := Zero, Zero, Zero
+	var numDigits int32
+	for {
+		if numDigits-int32(numLeftGroups) >= prec {
+			break
+		}
+
+		group := Zero
+		if len(leftGroups) > 0 {
+			group, leftGroups = leftGroups[0], leftGroups[1:]
+		} else if len(rightGroups) > 0 {
+			group, rightGroups = rightGroups[0], rightGroups[1:]
+		}
+		target = target.Mul(tenDec.Pow(n)).Add(group)
+
+		nextDigit, nextSub := oneDec, Zero
+		for ; nextDigit.LessThan(tenDec); nextDigit = nextDigit.Add(oneDec) {
+			tryNextSub := Zero
+			for i := Zero; i.LessThan(n); i = i.Add(oneDec) {
+				sumStep := n.combination(i.Add(oneDec))
+				sumStep = sumStep.Mul(nextDigit.Pow(i))
+				sumStep = sumStep.Mul(answerNoDecimal.Mul(tenDec).Pow(n.Sub(i).Sub(oneDec)))
+				tryNextSub = tryNextSub.Add(sumStep)
+			}
+			tryNextSub = tryNextSub.Mul(nextDigit)
+			if tryNextSub.GreaterThan(target) {
+				break
+			}
+			nextSub = tryNextSub
+		}
+		nextDigit = nextDigit.Sub(oneDec)
+
+		answerNoDecimal = answerNoDecimal.Mul(tenDec).Add(nextDigit)
+		if numDigits < int32(numLeftGroups) {
+			answer = answerNoDecimal
+		} else {
+			shift := tenDec.Pow(New(int64(numDigits)-int64(numLeftGroups)+1, 0))
+			answer = answer.Add(nextDigit.DivRound(shift, prec))
+		}
+
+		target = target.Sub(nextSub)
+		if target.Equal(Zero) && len(leftGroups) == 0 && len(rightGroups) == 0 {
+			break
+		}
+
+		numDigits++
+	}
+
+	return answer
 }
 
 // Cmp compares the numbers represented by d and d2 and returns:

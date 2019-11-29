@@ -477,6 +477,56 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 	}
 }
 
+func TestNewFromInt(t *testing.T) {
+	tests := map[int64]string{
+		0:                   "0",
+		1:                   "1",
+		323412345:           "323412345",
+		9223372036854775807: "9223372036854775807",
+	}
+
+	// add negatives
+	for p, s := range tests {
+		if p > 0 {
+			tests[-p] = "-" + s
+		}
+	}
+
+	for input, s := range tests {
+		d := NewFromInt(input)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
+		}
+	}
+}
+
+func TestNewFromInt32(t *testing.T) {
+	tests := map[int32]string{
+		0:          "0",
+		1:          "1",
+		323412345:  "323412345",
+		2147483647: "2147483647",
+	}
+
+	// add negatives
+	for p, s := range tests {
+		if p > 0 {
+			tests[-p] = "-" + s
+		}
+	}
+
+	for input, s := range tests {
+		d := NewFromInt32(input)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
+		}
+	}
+}
+
 func TestNewFromBigIntWithExponent(t *testing.T) {
 	type Inp struct {
 		val *big.Int

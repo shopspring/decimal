@@ -44,6 +44,10 @@ import (
 //
 var DivisionPrecision = 16
 
+// RootPrecision is the number of decimal places in the result from the Root
+// method.
+var RootPrecision = 16
+
 // MarshalJSONWithoutQuotes should be set to true if you want the decimal to
 // be JSON marshaled as a number, instead of as a string.
 // WARNING: this is dangerous for decimals with many digits, since many JSON
@@ -55,8 +59,14 @@ var MarshalJSONWithoutQuotes = false
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
+// oneDec used for incrementing/decrementing
+var oneDec = New(1, 0)
+
 // fiveDec used in Cash Rounding
 var fiveDec = New(5, 0)
+
+// used for shifting digits
+var tenDec = New(10, 0)
 
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
@@ -584,6 +594,133 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 		return temp.Mul(temp).Mul(d)
 	}
 	return temp.Mul(temp).Div(d)
+}
+
+// factorial assumes d is a positive whole number
+func (d Decimal) factorial() Decimal {
+	out := oneDec
+	for i := New(2, 0); i.LessThanOrEqual(d); i = i.Add(oneDec) {
+		out = out.Mul(i)
+	}
+	return out
+}
+
+func (d Decimal) combination(r Decimal) Decimal {
+	top := d.factorial()
+	bottom := r.factorial().Mul(d.Sub(r).factorial())
+	return top.Div(bottom)
+}
+
+func reverseDecimalSlice(slice []Decimal) {
+	for i := len(slice)/2 - 1; i >= 0; i-- {
+		opp := len(slice) - 1 - i
+		slice[i], slice[opp] = slice[opp], slice[i]
+	}
+}
+
+// returns groups of n digits from the original Decimal, centered and split on
+// the position of the decimal place, for purpose of computing the nth root via
+// the shifting nth root algo.
+//
+// 0.303     (n:2) -> [], [30, 30]
+// 1000      (n:2) -> [10, 00], []
+// 2310.0241 (n:3) -> [2, 310], [024, 100]
+func (d Decimal) rootDigitGroups(n Decimal) (left, right []Decimal) {
+	e := tenDec.Pow(n)
+
+	dLeft := d.rescale(0)
+	for {
+		if dLeft.Equal(Zero) {
+			break
+		}
+		next := dLeft.Div(e).rescale(0)
+		left = append(left, dLeft.Sub(next.Mul(e)))
+		dLeft = next
+	}
+	reverseDecimalSlice(left)
+
+	dRight := d.Sub(d.rescale(0))
+	for {
+		if dRight.Equal(Zero) {
+			break
+		}
+		dRightE := dRight.Mul(e)
+		dRightETrunc := dRightE.rescale(0)
+		right = append(right, dRightETrunc)
+		dRight = dRightE.Sub(dRightETrunc)
+	}
+
+	return left, right
+}
+
+// Root returns the nth root of d.
+func (d Decimal) Root(n Decimal) Decimal {
+	return d.RootRound(n, int32(RootPrecision))
+}
+
+// RootRound returns the nth root of d. If the result is not a whole number then
+// the given precision determines the number of decimal places to calculate the
+// result to.
+func (d Decimal) RootRound(n Decimal, prec int32) Decimal {
+	// The nth root is calculated via the shifting root algorithm, which was
+	// chosen for being definitely correct up to an arbitrary precision, and not
+	// because it's particularly fast.
+	//
+	// https://en.wikipedia.org/wiki/Shifting_nth_root_algorithm
+	// https://www.wikihow.com/Find-Nth-Roots-by-Hand
+
+	leftGroups, rightGroups := d.rootDigitGroups(n)
+	numLeftGroups := len(leftGroups)
+
+	answer, answerNoDecimal, target := Zero, Zero, Zero
+	var numDigits int32
+	for {
+		if numDigits-int32(numLeftGroups) >= prec {
+			break
+		}
+
+		group := Zero
+		if len(leftGroups) > 0 {
+			group, leftGroups = leftGroups[0], leftGroups[1:]
+		} else if len(rightGroups) > 0 {
+			group, rightGroups = rightGroups[0], rightGroups[1:]
+		}
+		target = target.Mul(tenDec.Pow(n)).Add(group)
+
+		nextDigit, nextSub := oneDec, Zero
+		for ; nextDigit.LessThan(tenDec); nextDigit = nextDigit.Add(oneDec) {
+			tryNextSub := Zero
+			for i := Zero; i.LessThan(n); i = i.Add(oneDec) {
+				sumStep := n.combination(i.Add(oneDec))
+				sumStep = sumStep.Mul(nextDigit.Pow(i))
+				sumStep = sumStep.Mul(answerNoDecimal.Mul(tenDec).Pow(n.Sub(i).Sub(oneDec)))
+				tryNextSub = tryNextSub.Add(sumStep)
+			}
+			tryNextSub = tryNextSub.Mul(nextDigit)
+			if tryNextSub.GreaterThan(target) {
+				break
+			}
+			nextSub = tryNextSub
+		}
+		nextDigit = nextDigit.Sub(oneDec)
+
+		answerNoDecimal = answerNoDecimal.Mul(tenDec).Add(nextDigit)
+		if numDigits < int32(numLeftGroups) {
+			answer = answerNoDecimal
+		} else {
+			shift := tenDec.Pow(New(int64(numDigits)-int64(numLeftGroups)+1, 0))
+			answer = answer.Add(nextDigit.DivRound(shift, prec))
+		}
+
+		target = target.Sub(nextSub)
+		if target.Equal(Zero) && len(leftGroups) == 0 && len(rightGroups) == 0 {
+			break
+		}
+
+		numDigits++
+	}
+
+	return answer
 }
 
 // Cmp compares the numbers represented by d and d2 and returns:
@@ -1291,174 +1428,174 @@ func (d Decimal) satan() Decimal {
 }
 
 // sin coefficients
-  var _sin = [...]Decimal{
-  	NewFromFloat(1.58962301576546568060E-10), // 0x3de5d8fd1fd19ccd
-  	NewFromFloat(-2.50507477628578072866E-8), // 0xbe5ae5e5a9291f5d
-  	NewFromFloat(2.75573136213857245213E-6),  // 0x3ec71de3567d48a1
-  	NewFromFloat(-1.98412698295895385996E-4), // 0xbf2a01a019bfdf03
-  	NewFromFloat(8.33333333332211858878E-3),  // 0x3f8111111110f7d0
-  	NewFromFloat(-1.66666666666666307295E-1), // 0xbfc5555555555548
-  }
+var _sin = [...]Decimal{
+	NewFromFloat(1.58962301576546568060E-10), // 0x3de5d8fd1fd19ccd
+	NewFromFloat(-2.50507477628578072866E-8), // 0xbe5ae5e5a9291f5d
+	NewFromFloat(2.75573136213857245213E-6),  // 0x3ec71de3567d48a1
+	NewFromFloat(-1.98412698295895385996E-4), // 0xbf2a01a019bfdf03
+	NewFromFloat(8.33333333332211858878E-3),  // 0x3f8111111110f7d0
+	NewFromFloat(-1.66666666666666307295E-1), // 0xbfc5555555555548
+}
 
 // Sin returns the sine of the radian argument x.
-  func (d Decimal) Sin() Decimal {
-		PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-		PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-		PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
-		M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+func (d Decimal) Sin() Decimal {
+	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
-  	if d.Equal(NewFromFloat(0.0)) {
-			return d
-		}
-  	// make argument positive but save the sign
-  	sign := false
-  	if d.LessThan(NewFromFloat(0.0)) {
-  		d = d.Neg()
-  		sign = true
-  	}
+	if d.Equal(NewFromFloat(0.0)) {
+		return d
+	}
+	// make argument positive but save the sign
+	sign := false
+	if d.LessThan(NewFromFloat(0.0)) {
+		d = d.Neg()
+		sign = true
+	}
 
-		j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-  	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
 
-  	// map zeros to origin
-  	if j&1 == 1 {
-  		j++
-  		y = y.Add(NewFromFloat(1.0))
-  	}
-  	j &= 7 // octant modulo 2Pi radians (360 degrees)
-  	// reflect in x axis
-  	if j > 3 {
-  		sign = !sign
-  		j -= 4
-  	}
-		z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
-  	zz := z.Mul(z)
+	// map zeros to origin
+	if j&1 == 1 {
+		j++
+		y = y.Add(NewFromFloat(1.0))
+	}
+	j &= 7 // octant modulo 2Pi radians (360 degrees)
+	// reflect in x axis
+	if j > 3 {
+		sign = !sign
+		j -= 4
+	}
+	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
+	zz := z.Mul(z)
 
-  	if j == 1 || j == 2 {
-			w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
-			y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
-  	} else {
-			y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
-  	}
-  	if sign {
-  		y = y.Neg()
-  	}
-  	return y
-  }
+	if j == 1 || j == 2 {
+		w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
+		y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
+	} else {
+		y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
+	}
+	if sign {
+		y = y.Neg()
+	}
+	return y
+}
 
-	// cos coefficients
-  var _cos = [...]Decimal{
-  	NewFromFloat(-1.13585365213876817300E-11), // 0xbda8fa49a0861a9b
-  	NewFromFloat(2.08757008419747316778E-9),   // 0x3e21ee9d7b4e3f05
-  	NewFromFloat(-2.75573141792967388112E-7),  // 0xbe927e4f7eac4bc6
-  	NewFromFloat(2.48015872888517045348E-5),   // 0x3efa01a019c844f5
-  	NewFromFloat(-1.38888888888730564116E-3),  // 0xbf56c16c16c14f91
-  	NewFromFloat(4.16666666666665929218E-2),   // 0x3fa555555555554b
-  }
+// cos coefficients
+var _cos = [...]Decimal{
+	NewFromFloat(-1.13585365213876817300E-11), // 0xbda8fa49a0861a9b
+	NewFromFloat(2.08757008419747316778E-9),   // 0x3e21ee9d7b4e3f05
+	NewFromFloat(-2.75573141792967388112E-7),  // 0xbe927e4f7eac4bc6
+	NewFromFloat(2.48015872888517045348E-5),   // 0x3efa01a019c844f5
+	NewFromFloat(-1.38888888888730564116E-3),  // 0xbf56c16c16c14f91
+	NewFromFloat(4.16666666666665929218E-2),   // 0x3fa555555555554b
+}
 
-	// Cos returns the cosine of the radian argument x.
-  func (d Decimal) Cos() Decimal {
+// Cos returns the cosine of the radian argument x.
+func (d Decimal) Cos() Decimal {
 
-		PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-		PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-		PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
-		M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
-  	// make argument positive
-		sign := false
-  	if d.LessThan(NewFromFloat(0.0)) {
-  		d = d.Neg()
-  	}
+	// make argument positive
+	sign := false
+	if d.LessThan(NewFromFloat(0.0)) {
+		d = d.Neg()
+	}
 
-		j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-  	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
 
-  	// map zeros to origin
-  	if j&1 == 1 {
-  		j++
-  		y = y.Add(NewFromFloat(1.0))
-  	}
-  	j &= 7 // octant modulo 2Pi radians (360 degrees)
-  	// reflect in x axis
-  	if j > 3 {
-  		sign = !sign
-  		j -= 4
-  	}
-		if j > 1 {
-  		sign = !sign
-  	}
+	// map zeros to origin
+	if j&1 == 1 {
+		j++
+		y = y.Add(NewFromFloat(1.0))
+	}
+	j &= 7 // octant modulo 2Pi radians (360 degrees)
+	// reflect in x axis
+	if j > 3 {
+		sign = !sign
+		j -= 4
+	}
+	if j > 1 {
+		sign = !sign
+	}
 
-		z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
-  	zz := z.Mul(z)
+	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
+	zz := z.Mul(z)
 
-  	if j == 1 || j == 2 {
-			y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
-  	} else {
-			w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
-			y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
-  	}
-  	if sign {
-  		y = y.Neg()
-  	}
-  	return y
-  }
+	if j == 1 || j == 2 {
+		y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
+	} else {
+		w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
+		y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
+	}
+	if sign {
+		y = y.Neg()
+	}
+	return y
+}
 
-	var _tanP = [...]Decimal{
-  	NewFromFloat(-1.30936939181383777646E+4), // 0xc0c992d8d24f3f38
-  	NewFromFloat(1.15351664838587416140E+6),  // 0x413199eca5fc9ddd
-  	NewFromFloat(-1.79565251976484877988E+7), // 0xc1711fead3299176
-  }
-  var _tanQ = [...]Decimal{
-  	NewFromFloat(1.00000000000000000000E+0),
-  	NewFromFloat(1.36812963470692954678E+4),  //0x40cab8a5eeb36572
-  	NewFromFloat(-1.32089234440210967447E+6), //0xc13427bc582abc96
-  	NewFromFloat(2.50083801823357915839E+7),  //0x4177d98fc2ead8ef
-  	NewFromFloat(-5.38695755929454629881E+7), //0xc189afe03cbe5a31
-  }
+var _tanP = [...]Decimal{
+	NewFromFloat(-1.30936939181383777646E+4), // 0xc0c992d8d24f3f38
+	NewFromFloat(1.15351664838587416140E+6),  // 0x413199eca5fc9ddd
+	NewFromFloat(-1.79565251976484877988E+7), // 0xc1711fead3299176
+}
+var _tanQ = [...]Decimal{
+	NewFromFloat(1.00000000000000000000E+0),
+	NewFromFloat(1.36812963470692954678E+4),  //0x40cab8a5eeb36572
+	NewFromFloat(-1.32089234440210967447E+6), //0xc13427bc582abc96
+	NewFromFloat(2.50083801823357915839E+7),  //0x4177d98fc2ead8ef
+	NewFromFloat(-5.38695755929454629881E+7), //0xc189afe03cbe5a31
+}
 
-  // Tan returns the tangent of the radian argument x.
-  func (d Decimal) Tan() Decimal {
+// Tan returns the tangent of the radian argument x.
+func (d Decimal) Tan() Decimal {
 
-		PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-		PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-		PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
-		M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
-		if d.Equal(NewFromFloat(0.0)) {
-			return d
-		}
+	if d.Equal(NewFromFloat(0.0)) {
+		return d
+	}
 
-  	// make argument positive but save the sign
-  	sign := false
-  	if d.LessThan(NewFromFloat(0.0)) {
-  		d = d.Neg()
-  		sign = true
-  	}
+	// make argument positive but save the sign
+	sign := false
+	if d.LessThan(NewFromFloat(0.0)) {
+		d = d.Neg()
+		sign = true
+	}
 
-		j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
-  	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
+	j := d.Mul(M4PI).IntPart()    // integer part of x/(Pi/4), as integer for tests on the phase angle
+	y := NewFromFloat(float64(j)) // integer part of x/(Pi/4), as float
 
-  	// map zeros to origin
-  	if j&1 == 1 {
-  		j++
-  		y = y.Add(NewFromFloat(1.0))
-  	}
+	// map zeros to origin
+	if j&1 == 1 {
+		j++
+		y = y.Add(NewFromFloat(1.0))
+	}
 
-		z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
-  	zz := z.Mul(z)
+	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
+	zz := z.Mul(z)
 
-  	if zz.GreaterThan(NewFromFloat(1e-14)) {
-			w := zz.Mul(_tanP[0].Mul(zz).Add(_tanP[1]).Mul(zz).Add(_tanP[2]))
-			x := zz.Add(_tanQ[1]).Mul(zz).Add(_tanQ[2]).Mul(zz).Add(_tanQ[3]).Mul(zz).Add(_tanQ[4])
-			y = z.Add(z.Mul(w.Div(x)))
-  	} else {
-  		y = z
-  	}
-  	if j&2 == 2 {
-			y = NewFromFloat(-1.0).Div(y)
-  	}
-  	if sign {
-  		y = y.Neg()
-  	}
-  	return y
-  }
+	if zz.GreaterThan(NewFromFloat(1e-14)) {
+		w := zz.Mul(_tanP[0].Mul(zz).Add(_tanP[1]).Mul(zz).Add(_tanP[2]))
+		x := zz.Add(_tanQ[1]).Mul(zz).Add(_tanQ[2]).Mul(zz).Add(_tanQ[3]).Mul(zz).Add(_tanQ[4])
+		y = z.Add(z.Mul(w.Div(x)))
+	} else {
+		y = z
+	}
+	if j&2 == 2 {
+		y = NewFromFloat(-1.0).Div(y)
+	}
+	if sign {
+		y = y.Neg()
+	}
+	return y
+}

@@ -2629,6 +2629,105 @@ func TestTan(t *testing.T) {
 	}
 }
 
+func TestNormalize(t *testing.T) {
+	tbl := []struct {
+		inp Decimal
+		res Decimal
+	}{
+		{New(0, 0), New(0, 0)},
+		{New(10, 0), New(1, 1)},
+		{New(100, 0), New(1, 2)},
+		{New(11, 0), New(11, 0)},
+		{New(111, 0), New(111, 0)},
+		{New(-10, 0), New(-1, 1)},
+		{New(-100, 0), New(-1, 2)},
+		{New(-11, 0), New(-11, 0)},
+		{New(-111, 0), New(-111, 0)},
+		{New(0, 5), New(0, 0)},
+		{New(10, 5), New(1, 6)},
+		{New(100, 5), New(1, 7)},
+		{New(11, 5), New(11, 5)},
+		{New(111, 5), New(111, 5)},
+		{New(-10, 5), New(-1, 6)},
+		{New(-100, 5), New(-1, 7)},
+		{New(-11, 5), New(-11, 5)},
+		{New(-111, 5), New(-111, 5)},
+		{New(0, -5), New(0, 0)},
+		{New(10, -5), New(1, -4)},
+		{New(100, -5), New(1, -3)},
+		{New(11, -5), New(11, -5)},
+		{New(111, -5), New(111, -5)},
+		{New(-10, -5), New(-1, -4)},
+		{New(-100, -5), New(-1, -3)},
+		{New(-11, -5), New(-11, -5)},
+		{New(-111, -5), New(-111, -5)},
+	}
+	for _, i := range tbl {
+		if norm := i.inp.Normalize(); norm.Cmp(i.res) != 0 {
+			t.Errorf("unexpected normalization result, expected: %v, got: %v", i.res, norm)
+		}
+	}
+}
+
+func TestRoundToSignificantFigures(t *testing.T) {
+	type testData struct {
+		inp Decimal
+		fig int32
+		res Decimal
+	}
+	strtbl := []struct {
+		inp string
+		fig int32
+		res string
+	}{
+		{"5.45", 2, "5.5"},
+		{"545", 2, "550"},
+		{"0", 0, "0"},
+		{"0", 1, "0"},
+		{"0", -1, "0"},
+		{"1", 0, "0"},
+		{"1", 1, "1"},
+		{"1", 2, "1"},
+		{"1", -1, "0"},
+		{"10", 1, "10"},
+		{"10", 0, "0"},
+		{"100", 1, "100"},
+		{"110", 1, "100"},
+		{"110", 2, "110"},
+		{"995", 1, "1000"},
+		{"995", 2, "1000"},
+		{"994", 2, "990"},
+		{"995", 3, "995"},
+		{"995", 4, "995"},
+		{"0.995", 1, "1"},
+		{"0.995", 2, "1"},
+		{"0.994", 2, "0.99"},
+		{"0.995", 3, "0.995"},
+		{"0.995", 4, "0.995"},
+		{"994.99999999999999999999999999", 2, "990"},
+		{"994.999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999", 2, "990"},
+		{"995.999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999", 2, "1000"},
+		{"0.101", 1, "0.1"},
+		{"0.101", 2, "0.1"},
+		{"0.101", 3, "0.101"},
+	}
+	tbl := []testData{{Decimal{}, 1, Decimal{}}}
+	for _, x := range strtbl {
+		tbl = append(tbl, testData{RequireFromString(x.inp), x.fig, RequireFromString(x.res)})
+		// Symmetric negative tests
+		if x.inp != "0" {
+			x.inp = "-" + x.inp
+			x.res = "-" + x.res
+			tbl = append(tbl, testData{RequireFromString(x.inp), x.fig, RequireFromString(x.res)})
+		}
+	}
+	for _, x := range tbl {
+		if rnd := x.inp.RoundToSignificantFigures(x.fig); rnd.Cmp(x.res) != 0 {
+			t.Errorf("unexpected rounding to significant figures result, expected: %s, got: %v", x.res, rnd)
+		}
+	}
+}
+
 func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(123.123123123123).String())
 	fmt.Println(NewFromFloat32(.123123123123123).String())

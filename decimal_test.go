@@ -310,8 +310,9 @@ func TestNewFromStringDeepEquals(t *testing.T) {
 	}
 	tests := []StrCmp{
 		{"1", "1", true},
-		{"10", "10.0", true},
-		{"1.1", "1.10", true},
+		{"1.0", "1.0", true},
+		{"10", "10.0", false},
+		{"1.1", "1.10", false},
 		{"1.001", "1.01", false},
 	}
 
@@ -2485,6 +2486,27 @@ func TestTan(t *testing.T) {
 		a := d.Tan()
 		if !a.Equal(s) {
 			t.Errorf("expected %s, got %s", s, a)
+		}
+	}
+}
+
+func TestRemoveInsignificantDigits(t *testing.T) {
+	cases := []struct {
+		input			Decimal
+		expectedResult	Decimal
+	}{
+		{New(1, 0), New(1, 0)},
+		{New(10, 0), New(1, 1)},
+		{New(10, -1), New(1, 0)},
+		{New(10, 1), New(10, 1)},
+	}
+	for _, s := range cases {
+		actualResult := s.input.RemoveInsignificantDigits()
+		if !reflect.DeepEqual(s.expectedResult, actualResult) {
+			t.Errorf("with %se%d, expected %se%d, got %se%d",
+				s.input.value, s.input.exp,
+				s.expectedResult.value, s.expectedResult.exp,
+				actualResult.value, actualResult.exp)
 		}
 	}
 }

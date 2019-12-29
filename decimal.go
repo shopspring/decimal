@@ -427,7 +427,7 @@ func (d Decimal) Abs() Decimal {
 
 // Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
-	rd, rd2 := RescaleBoth(d, d2)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Add(rd.value, rd2.value)
 	return Decimal{
@@ -438,7 +438,7 @@ func (d Decimal) Add(d2 Decimal) Decimal {
 
 // Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
-	rd, rd2 := RescaleBoth(d, d2)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Sub(rd.value, rd2.value)
 	return Decimal{
@@ -604,7 +604,7 @@ func (d Decimal) Cmp(d2 Decimal) int {
 		return d.value.Cmp(d2.value)
 	}
 
-	rd, rd2 := RescaleBoth(d, d2)
+	rd, rd2 := RescalePair(d, d2)
 
 	return rd.value.Cmp(rd2.value)
 }
@@ -1174,7 +1174,8 @@ func Avg(first Decimal, rest ...Decimal) Decimal {
 	return sum.Div(count)
 }
 
-func RescaleBoth(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
+// Rescale two decimals to common exponential value (minimal exp of both decimals)
+func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
 	d1.ensureInitialized()
 	d2.ensureInitialized()
 

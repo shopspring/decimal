@@ -390,6 +390,14 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 //
 func (d Decimal) rescale(exp int32) Decimal {
 	d.ensureInitialized()
+
+	if d.exp == exp {
+		return Decimal{
+			new(big.Int).Set(d.value),
+			d.exp,
+		}
+	}
+
 	// NOTE(vadim): must convert exps to float64 before - to prevent overflow
 	diff := math.Abs(float64(exp) - float64(d.exp))
 	value := new(big.Int).Set(d.value)
@@ -419,27 +427,23 @@ func (d Decimal) Abs() Decimal {
 
 // Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
-	baseScale := min(d.exp, d2.exp)
-	rd := d.rescale(baseScale)
-	rd2 := d2.rescale(baseScale)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Add(rd.value, rd2.value)
 	return Decimal{
 		value: d3Value,
-		exp:   baseScale,
+		exp:   rd.exp,
 	}
 }
 
 // Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
-	baseScale := min(d.exp, d2.exp)
-	rd := d.rescale(baseScale)
-	rd2 := d2.rescale(baseScale)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Sub(rd.value, rd2.value)
 	return Decimal{
 		value: d3Value,
-		exp:   baseScale,
+		exp:   rd.exp,
 	}
 }
 
@@ -600,9 +604,7 @@ func (d Decimal) Cmp(d2 Decimal) int {
 		return d.value.Cmp(d2.value)
 	}
 
-	baseExp := min(d.exp, d2.exp)
-	rd := d.rescale(baseExp)
-	rd2 := d2.rescale(baseExp)
+	rd, rd2 := RescalePair(d, d2)
 
 	return rd.value.Cmp(rd2.value)
 }
@@ -1170,6 +1172,22 @@ func Avg(first Decimal, rest ...Decimal) Decimal {
 	count := New(int64(len(rest)+1), 0)
 	sum := Sum(first, rest...)
 	return sum.Div(count)
+}
+
+// Rescale two decimals to common exponential value (minimal exp of both decimals)
+func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
+	d1.ensureInitialized()
+	d2.ensureInitialized()
+
+	if d1.exp == d2.exp {
+		return d1, d2
+	}
+
+	baseScale := min(d1.exp, d2.exp)
+	if baseScale != d1.exp {
+		return d1.rescale(baseScale), d2
+	}
+	return d1, d2.rescale(baseScale)
 }
 
 func min(x, y int32) int32 {

@@ -859,20 +859,6 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 		iVal = twentyInt
 	case 10:
 		iVal = tenInt
-	case 15:
-		if d.exp < 0 {
-			// TODO: optimize and reduce allocations
-			orgExp := d.exp
-			dOne := New(10^-int64(orgExp), orgExp)
-			d2 := d
-			d2.exp = 0
-			if d2.Mod(fiveDec).Equal(Zero) {
-				d2.exp = orgExp
-				d2 = d2.Sub(dOne)
-				d = d2
-			}
-		}
-		iVal = tenInt
 	case 25:
 		iVal = fourInt
 	case 50:

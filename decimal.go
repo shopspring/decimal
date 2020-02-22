@@ -844,10 +844,9 @@ func (d Decimal) RoundBank(places int32) Decimal {
 // RoundCash aka Cash/Penny/öre rounding rounds decimal to a specific
 // interval. The amount payable for a cash transaction is rounded to the nearest
 // multiple of the minimum currency unit available. The following intervals are
-// available: 5, 10, 15, 25, 50 and 100; any other number throws a panic.
+// available: 5, 10, 25, 50 and 100; any other number throws a panic.
 //	    5:   5 cent rounding 3.43 => 3.45
 // 	   10:  10 cent rounding 3.45 => 3.50 (5 gets rounded up)
-// 	   15:  10 cent rounding 3.45 => 3.40 (5 gets rounded down)
 // 	   25:  25 cent rounding 3.41 => 3.50
 // 	   50:  50 cent rounding 3.75 => 4.00
 // 	  100: 100 cent rounding 3.50 => 4.00

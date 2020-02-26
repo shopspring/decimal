@@ -1565,14 +1565,6 @@ func TestDecimal_RoundCash(t *testing.T) {
 		{"3.95", 10, "4.00"},
 		{"395", 10, "395"},
 
-		{"6.42", 15, "6.40"},
-		{"6.39", 15, "6.40"},
-		{"6.35", 15, "6.30"},
-		{"6.36", 15, "6.40"},
-		{"6.349", 15, "6.30"},
-		{"6.30", 15, "6.30"},
-		{"666", 15, "666"},
-
 		{"3.23", 25, "3.25"},
 		{"3.33", 25, "3.25"},
 		{"3.53", 25, "3.50"},
@@ -1608,7 +1600,7 @@ func TestDecimal_RoundCash_Panic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			if have, ok := r.(string); ok {
-				const want = "Decimal does not support this Cash rounding interval `231`. Supported: 5, 10, 15, 25, 50, 100"
+				const want = "Decimal does not support this Cash rounding interval `231`. Supported: 5, 10, 25, 50, 100"
 				if want != have {
 					t.Errorf("\nWant: %q\nHave: %q", want, have)
 				}

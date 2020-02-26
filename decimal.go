@@ -844,10 +844,9 @@ func (d Decimal) RoundBank(places int32) Decimal {
 // RoundCash aka Cash/Penny/öre rounding rounds decimal to a specific
 // interval. The amount payable for a cash transaction is rounded to the nearest
 // multiple of the minimum currency unit available. The following intervals are
-// available: 5, 10, 15, 25, 50 and 100; any other number throws a panic.
+// available: 5, 10, 25, 50 and 100; any other number throws a panic.
 //	    5:   5 cent rounding 3.43 => 3.45
 // 	   10:  10 cent rounding 3.45 => 3.50 (5 gets rounded up)
-// 	   15:  10 cent rounding 3.45 => 3.40 (5 gets rounded down)
 // 	   25:  25 cent rounding 3.41 => 3.50
 // 	   50:  50 cent rounding 3.75 => 4.00
 // 	  100: 100 cent rounding 3.50 => 4.00
@@ -859,20 +858,6 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 		iVal = twentyInt
 	case 10:
 		iVal = tenInt
-	case 15:
-		if d.exp < 0 {
-			// TODO: optimize and reduce allocations
-			orgExp := d.exp
-			dOne := New(10^-int64(orgExp), orgExp)
-			d2 := d
-			d2.exp = 0
-			if d2.Mod(fiveDec).Equal(Zero) {
-				d2.exp = orgExp
-				d2 = d2.Sub(dOne)
-				d = d2
-			}
-		}
-		iVal = tenInt
 	case 25:
 		iVal = fourInt
 	case 50:
@@ -880,7 +865,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	case 100:
 		iVal = oneInt
 	default:
-		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 15, 25, 50, 100", interval))
+		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 25, 50, 100", interval))
 	}
 	dVal := Decimal{
 		value: iVal,

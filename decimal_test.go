@@ -1600,7 +1600,7 @@ func TestDecimal_RoundCash_Panic(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
 			if have, ok := r.(string); ok {
-				const want = "Decimal does not support this Cash rounding interval `231`. Supported: 5, 10, 15, 25, 50, 100"
+				const want = "Decimal does not support this Cash rounding interval `231`. Supported: 5, 10, 25, 50, 100"
 				if want != have {
 					t.Errorf("\nWant: %q\nHave: %q", want, have)
 				}

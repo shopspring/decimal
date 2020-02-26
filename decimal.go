@@ -865,7 +865,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	case 100:
 		iVal = oneInt
 	default:
-		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 15, 25, 50, 100", interval))
+		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 25, 50, 100", interval))
 	}
 	dVal := Decimal{
 		value: iVal,

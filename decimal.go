@@ -847,7 +847,6 @@ func (d Decimal) RoundBank(places int32) Decimal {
 // 	  100: 100 cent rounding 3.50 => 4.00
 // For more details: https://en.wikipedia.org/wiki/Cash_rounding
 func (d Decimal) RoundCash(interval uint8) Decimal {
-	iD := d.RemoveInsignificantDigits()
 	var iVal *big.Int
 	switch interval {
 	case 5:
@@ -868,7 +867,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	}
 
 	// TODO: optimize those calculations to reduce the high allocations (~29 allocs).
-	return iD.Mul(dVal).Round(0).Div(dVal).Truncate(2)
+	return d.Mul(dVal).Round(0).Div(dVal).Truncate(2)
 }
 
 // Floor returns the nearest integer value less than or equal to d.

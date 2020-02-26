@@ -2490,27 +2490,6 @@ func TestTan(t *testing.T) {
 	}
 }
 
-func TestRemoveInsignificantDigits(t *testing.T) {
-	cases := []struct {
-		input			Decimal
-		expectedResult	Decimal
-	}{
-		{New(1, 0), New(1, 0)},
-		{New(10, 0), New(1, 1)},
-		{New(10, -1), New(1, 0)},
-		{New(10, 1), New(10, 1)},
-	}
-	for _, s := range cases {
-		actualResult := s.input.RemoveInsignificantDigits()
-		if !reflect.DeepEqual(s.expectedResult, actualResult) {
-			t.Errorf("with %se%d, expected %se%d, got %se%d",
-				s.input.value, s.input.exp,
-				s.expectedResult.value, s.expectedResult.exp,
-				actualResult.value, actualResult.exp)
-		}
-	}
-}
-
 func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(123.123123123123).String())
 	fmt.Println(NewFromFloat32(.123123123123123).String())

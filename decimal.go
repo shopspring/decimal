@@ -153,13 +153,8 @@ func NewFromString(value string) (Decimal, error) {
 		// an int
 		intString = value
 	} else if len(parts) == 2 {
-		// strip the insignificant digits for more accurate comparisons.
-		decimalPart := strings.TrimRight(parts[1], "0")
-		intString = parts[0] + decimalPart
-		if intString == "" && parts[1] != "" {
-			intString = "0"
-		}
-		expInt := -len(decimalPart)
+		intString = parts[0] + parts[1]
+		expInt := -len(parts[1])
 		exp += int64(expInt)
 	} else {
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
@@ -870,6 +865,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	dVal := Decimal{
 		value: iVal,
 	}
+
 	// TODO: optimize those calculations to reduce the high allocations (~29 allocs).
 	return d.Mul(dVal).Round(0).Div(dVal).Truncate(2)
 }

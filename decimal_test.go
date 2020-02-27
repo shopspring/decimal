@@ -310,8 +310,9 @@ func TestNewFromStringDeepEquals(t *testing.T) {
 	}
 	tests := []StrCmp{
 		{"1", "1", true},
-		{"10", "10.0", true},
-		{"1.1", "1.10", true},
+		{"1.0", "1.0", true},
+		{"10", "10.0", false},
+		{"1.1", "1.10", false},
 		{"1.001", "1.01", false},
 	}
 

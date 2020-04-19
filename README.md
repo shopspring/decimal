@@ -18,6 +18,10 @@ NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decim
 
 Run `go get github.com/shopspring/decimal`
 
+## Requirements 
+
+Decimal library requires Go version `>=1.7`
+
 ## Usage
 
 ```go

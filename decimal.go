@@ -695,6 +695,22 @@ func (d Decimal) IntPart() int64 {
 	return scaledD.value.Int64()
 }
 
+// BigInt returns integer component of the decimal as a BigInt.
+func (d Decimal) BigInt() *big.Int {
+	scaledD := d.rescale(0)
+	i := &big.Int{}
+	i.SetString(scaledD.String(), 10)
+	return i
+}
+
+// BigFloat returns decimal as BigFloat.
+// Be aware that casting decimal to BigFloat might cause a loss of precision.
+func (d Decimal) BigFloat() *big.Float {
+	f := &big.Float{}
+	f.SetString(d.String())
+	return f
+}
+
 // Rat returns a rational number representation of the decimal.
 func (d Decimal) Rat() *big.Rat {
 	d.ensureInitialized()

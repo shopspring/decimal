@@ -1,11 +1,5 @@
 // Package decimal implements an arbitrary precision fixed-point decimal.
 //
-// To use as part of a struct:
-//
-//     type Struct struct {
-//         Number Decimal
-//     }
-//
 // The zero-value of a Decimal is 0, as you would expect.
 //
 // The best way to create a new Decimal is to use decimal.NewFromString, ex:
@@ -13,8 +7,13 @@
 //     n, err := decimal.NewFromString("-123.4567")
 //     n.String() // output: "-123.4567"
 //
-// NOTE: This can "only" represent numbers with a maximum of 2^31 digits
-// after the decimal point.
+// To use Decimal as part of a struct:
+//
+//     type Struct struct {
+//         Number Decimal
+//     }
+//
+// Note: This can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
 package decimal
 
 import (
@@ -53,6 +52,7 @@ var DivisionPrecision = 16
 var MarshalJSONWithoutQuotes = false
 
 // Zero constant, to make computations faster.
+// Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
 var Zero = New(0, 1)
 
 // fiveDec used in Cash Rounding
@@ -122,11 +122,13 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 }
 
 // NewFromString returns a new Decimal from a string representation.
+// Trailing zeroes are not trimmed.
 //
 // Example:
 //
 //     d, err := NewFromString("-123.45")
 //     d2, err := NewFromString(".0001")
+//     d3, err := NewFromString("1.47000")
 //
 func NewFromString(value string) (Decimal, error) {
 	originalInput := value
@@ -210,7 +212,7 @@ func NewFromFloat(value float64) Decimal {
 	return newFromFloat(value, math.Float64bits(value), &float64info)
 }
 
-// NewFromFloat converts a float32 to Decimal.
+// NewFromFloat32 converts a float32 to Decimal.
 //
 // The converted number will contain the number of significant digits that can be
 // represented in a float with reliable roundtrip.
@@ -771,13 +773,13 @@ func (d Decimal) StringFixed(places int32) string {
 //
 // Example:
 //
-// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
-// 	   NewFromFloat(0).StringFixed(0) // output: "0"
-// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
-// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.4"
-// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
-// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
-// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+// 	   NewFromFloat(0).StringFixedBank(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixedBank(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixedBank(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixedBank(1) // output: "5.4"
+// 	   NewFromFloat(5.45).StringFixedBank(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixedBank(-1) // output: "540"
 //
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)
@@ -1171,7 +1173,7 @@ func Avg(first Decimal, rest ...Decimal) Decimal {
 	return sum.Div(count)
 }
 
-// Rescale two decimals to common exponential value (minimal exp of both decimals)
+// RescalePair rescales two decimals to common exponential value (minimal exp of both decimals)
 func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
 	d1.ensureInitialized()
 	d2.ensureInitialized()

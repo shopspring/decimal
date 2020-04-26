@@ -55,9 +55,6 @@ var MarshalJSONWithoutQuotes = false
 // Zero constant, to make computations faster.
 var Zero = New(0, 1)
 
-// fiveDec used in Cash Rounding
-var fiveDec = New(5, 0)
-
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
 var twoInt = big.NewInt(2)
@@ -296,10 +293,9 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 		// specials
 		if mant == 0 {
 			return Decimal{}
-		} else {
-			// subnormal
-			exp2++
 		}
+		// subnormal
+		exp2++
 	} else {
 		// normal
 		mant |= 1 << 52
@@ -947,13 +943,13 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 
 	str, err := unquoteIfQuoted(decimalBytes)
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", decimalBytes, err)
+		return fmt.Errorf("error decoding string '%s': %s", decimalBytes, err)
 	}
 
 	decimal, err := NewFromString(str)
 	*d = decimal
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %s", str, err)
 	}
 	return nil
 }
@@ -1041,7 +1037,7 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 	dec, err := NewFromString(str)
 	*d = dec
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %s", str, err)
 	}
 
 	return nil
@@ -1203,7 +1199,7 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	case []byte:
 		bytes = v
 	default:
-		return "", fmt.Errorf("Could not convert value '%+v' to byte array of type '%T'",
+		return "", fmt.Errorf("could not convert value '%+v' to byte array of type '%T'",
 			value, value)
 	}
 
@@ -1260,14 +1256,14 @@ func (d NullDecimal) MarshalJSON() ([]byte, error) {
 // Trig functions
 
 // Atan returns the arctangent, in radians, of x.
-func (x Decimal) Atan() Decimal {
-	if x.Equal(NewFromFloat(0.0)) {
-		return x
+func (d Decimal) Atan() Decimal {
+	if d.Equal(NewFromFloat(0.0)) {
+		return d
 	}
-	if x.GreaterThan(NewFromFloat(0.0)) {
-		return x.satan()
+	if d.GreaterThan(NewFromFloat(0.0)) {
+		return d.satan()
 	}
-	return x.Neg().satan().Neg()
+	return d.Neg().satan().Neg()
 }
 
 func (d Decimal) xatan() Decimal {

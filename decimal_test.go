@@ -358,7 +358,7 @@ func TestRequireFromStringErrs(t *testing.T) {
 			err = recover()
 		}()
 
-		d = RequireFromString(s)
+		RequireFromString(s)
 	}(d)
 
 	if err == nil {

@@ -31,14 +31,14 @@ import (
 //
 // Example:
 //
-//     d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
+//     d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //     d1.String() // output: "0.6666666666666667"
-//     d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000)
+//     d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000))
 //     d2.String() // output: "0.0000666666666667"
-//     d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3)
+//     d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3))
 //     d3.String() // output: "6666.6666666666666667"
 //     decimal.DivisionPrecision = 3
-//     d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
+//     d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //     d4.String() // output: "0.667"
 //
 var DivisionPrecision = 16

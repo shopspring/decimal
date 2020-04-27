@@ -358,7 +358,7 @@ func TestRequireFromStringErrs(t *testing.T) {
 			err = recover()
 		}()
 
-		d = RequireFromString(s)
+		RequireFromString(s)
 	}(d)
 
 	if err == nil {
@@ -1404,8 +1404,8 @@ func createDivTestCases() []DivTestCase {
 							for _, v2 := range a { // 11, even if 0 is skipped
 								sign1 := New(int64(s), 0)
 								sign2 := New(int64(s2), 0)
-								d := sign1.Mul(New(int64(v1), int32(e1)))
-								d2 := sign2.Mul(New(int64(v2), int32(e2)))
+								d := sign1.Mul(New(int64(v1), e1))
+								d2 := sign2.Mul(New(int64(v2), e2))
 								res = append(res, DivTestCase{d, d2, prec})
 							}
 						}
@@ -1842,7 +1842,7 @@ func TestDecimal_Scan(t *testing.T) {
 	// in normal operations the db driver (sqlite at least)
 	// will return an int64 if you specified a numeric format
 	a := Decimal{}
-	dbvalue := float64(54.33)
+	dbvalue := 54.33
 	expected := NewFromFloat(dbvalue)
 
 	err := a.Scan(dbvalue)
@@ -2146,7 +2146,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 		}
 	}
 
-	dbvalue := float64(54.33)
+	dbvalue := 54.33
 	expected := NewFromFloat(dbvalue)
 
 	err = a.Scan(dbvalue)

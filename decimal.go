@@ -583,6 +583,33 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 	return temp.Mul(temp).Div(d)
 }
 
+// IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.
+func (d Decimal) IsInteger() bool {
+	// The most typical case, all decimal with exponent higher or equal 0 can be represented as integer
+	if d.exp >= 0 {
+		return true
+	}
+	// When the exponent is negative we have to check every number after the decimal place
+	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
+	var r big.Int
+	q := big.NewInt(0).Set(d.value)
+	for z := abs(d.exp); z > 0; z-- {
+		q.QuoRem(q, tenInt, &r)
+		if r.Cmp(zeroInt) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Abs calculates absolute value of any int32. Used for calculating absolute value of decimal's exponent.
+func abs(n int32) int32 {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2

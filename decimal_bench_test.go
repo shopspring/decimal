@@ -173,3 +173,13 @@ func Benchmark_decimal_Decimal_Sub_same_precision(b *testing.B) {
 		d1.Add(d2)
 	}
 }
+
+func BenchmarkDecimal_IsInteger(b *testing.B) {
+	d := RequireFromString("12.000")
+
+	b.ReportAllocs()
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		d.IsInteger()
+	}
+}

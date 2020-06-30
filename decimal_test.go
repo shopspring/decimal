@@ -2076,6 +2076,34 @@ func TestNegativePow(t *testing.T) {
 	}
 }
 
+func TestDecimal_IsInteger(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec       string
+		IsInteger bool
+	}{
+		{"0", true},
+		{"0.0000", true},
+		{"0.01", false},
+		{"0.01010101010000", false},
+		{"12.0", true},
+		{"12.00000000000000", true},
+		{"12.10000", false},
+		{"9999.0000", true},
+		{"99999999.000000000", true},
+		{"-656323444.0000000000000", true},
+		{"-32768.01234", false},
+		{"-32768.0123423562623600000", false},
+	} {
+		d, err := NewFromString(testCase.Dec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if d.IsInteger() != testCase.IsInteger {
+			t.Errorf("expect %t, got %t, for %s", testCase.IsInteger, d.IsInteger(), testCase.Dec)
+		}
+	}
+}
+
 func TestDecimal_Sign(t *testing.T) {
 	if Zero.Sign() != 0 {
 		t.Errorf("%q should have sign 0", Zero)

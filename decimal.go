@@ -853,12 +853,12 @@ func (d Decimal) Round(places int32) Decimal {
 //
 // Examples:
 //
-// 	   NewFromFloat(5.45).Round(1).String() // output: "5.4"
-// 	   NewFromFloat(545).Round(-1).String() // output: "540"
-// 	   NewFromFloat(5.46).Round(1).String() // output: "5.5"
-// 	   NewFromFloat(546).Round(-1).String() // output: "550"
-// 	   NewFromFloat(5.55).Round(1).String() // output: "5.6"
-// 	   NewFromFloat(555).Round(-1).String() // output: "560"
+// 	   NewFromFloat(5.45).RoundBank(1).String() // output: "5.4"
+// 	   NewFromFloat(545).RoundBank(-1).String() // output: "540"
+// 	   NewFromFloat(5.46).RoundBank(1).String() // output: "5.5"
+// 	   NewFromFloat(546).RoundBank(-1).String() // output: "550"
+// 	   NewFromFloat(5.55).RoundBank(1).String() // output: "5.6"
+// 	   NewFromFloat(555).RoundBank(-1).String() // output: "560"
 //
 func (d Decimal) RoundBank(places int32) Decimal {
 

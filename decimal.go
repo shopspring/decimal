@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -174,6 +175,30 @@ func NewFromString(value string) (Decimal, error) {
 		value: dValue,
 		exp:   int32(exp),
 	}, nil
+}
+
+// NewFromFormattedString returns a new Decimal from a formatted string representation.
+// The second argument - replRegexp, is a regular expression that is used to find characters that should be
+// removed from given decimal string representation. All matched characters will be replaced with an empty string.
+//
+// Example:
+//
+//     r := regexp.MustCompile("[$,]")
+//     d1, err := NewFromFormattedString("$5,125.99", r)
+//
+//     r2 := regexp.MustCompile("[_]")
+//     d2, err := NewFromFormattedString("1_000_000", r2)
+//
+//     r3 := regexp.MustCompile("[USD\\s]")
+//     d3, err := NewFromFormattedString("5000 USD", r3)
+//
+func NewFromFormattedString(value string, replRegexp *regexp.Regexp) (Decimal, error) {
+	parsedValue := replRegexp.ReplaceAllString(value, "")
+	d, err := NewFromString(parsedValue)
+	if err != nil {
+		return Decimal{}, err
+	}
+	return d, nil
 }
 
 // RequireFromString returns a new Decimal from a string representation

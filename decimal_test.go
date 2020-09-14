@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"math/rand"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -240,6 +241,35 @@ func TestNewFromString(t *testing.T) {
 	}
 }
 
+func TestNewFromFormattedString(t *testing.T) {
+	for _, testCase := range []struct {
+		Formatted string
+		Expected  string
+		ReplRegex *regexp.Regexp
+	}{
+		{"$10.99", "10.99", regexp.MustCompile("[$]")},
+		{"$ 12.1", "12.1", regexp.MustCompile("[$\\s]")},
+		{"$61,690.99", "61690.99", regexp.MustCompile("[$,]")},
+		{"1_000_000.00", "1000000.00", regexp.MustCompile("[_]")},
+		{"41,410.00", "41410.00", regexp.MustCompile("[,]")},
+		{"5200 USD", "5200", regexp.MustCompile("[USD\\s]")},
+	} {
+		dFormatted, err := NewFromFormattedString(testCase.Formatted, testCase.ReplRegex)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dExact, err := NewFromString(testCase.Expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !dFormatted.Equal(dExact) {
+			t.Errorf("expect %s, got %s", dExact, dFormatted)
+		}
+	}
+}
+
 func TestFloat64(t *testing.T) {
 	for _, x := range testTable {
 		if x.inexact == "" || x.inexact == "-" {
@@ -294,6 +324,11 @@ func TestNewFromStringErrs(t *testing.T) {
 		"123.456Easdf",
 		"123.456e" + strconv.FormatInt(math.MinInt64, 10),
 		"123.456e" + strconv.FormatInt(math.MinInt32, 10),
+		"512.99 USD",
+		"$99.99",
+		"51,850.00",
+		"20_000_000.00",
+		"$20_000_000.00",
 	}
 
 	for _, s := range tests {

@@ -1381,6 +1381,33 @@ func (d NullDecimal) MarshalJSON() ([]byte, error) {
 	return d.Decimal.MarshalJSON()
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface for XML
+// deserialization
+func (d *NullDecimal) UnmarshalText(text []byte) error {
+	str := string(text)
+
+	// check for empty XML or XML without body e.g., <tag></tag>
+	if str == "" {
+		d.Valid = false
+		return nil
+	}
+	if err := d.Decimal.UnmarshalText(text); err != nil {
+		d.Valid = false
+		return err
+	}
+	d.Valid = true
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for XML
+// serialization.
+func (d NullDecimal) MarshalText() (text []byte, err error) {
+	if !d.Valid {
+		return []byte{}, nil
+	}
+	return d.Decimal.MarshalText()
+}
+
 // Trig functions
 
 // Atan returns the arctangent, in radians, of x.

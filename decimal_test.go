@@ -2427,6 +2427,44 @@ func TestAvg(t *testing.T) {
 	}
 }
 
+func TestRoundStep(t *testing.T) {
+	res := NewFromFloat(0.43).RoundStep(NewFromFloat(0.5), false)
+	exp := NewFromFloat(0.5)
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+
+	res = NewFromFloat(0.43).RoundStep(NewFromFloat(0.5), true)
+	exp = Zero
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+
+	res = NewFromFloat(0.000355666).RoundStep(NewFromFloat(0.0005), false)
+	exp = NewFromFloat(0.0005)
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+
+	res = NewFromFloat(0.000355666).RoundStep(NewFromFloat(0.0005), true)
+	exp = Zero
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+
+	res = NewFromFloat(0.000355666).RoundStep(NewFromFloat(0.0001), false)
+	exp = NewFromFloat(0.0004)
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+
+	res = NewFromFloat(0.000355666).RoundStep(NewFromFloat(0.0001), true)
+	exp = NewFromFloat(0.0003)
+	if !res.Equal(exp) {
+		t.Errorf("Failed to round by step, expected %s got %s", exp.String(), res.String())
+	}
+}
+
 func TestRoundBankAnomaly(t *testing.T) {
 	a := New(25, -1)
 	b := New(250, -2)

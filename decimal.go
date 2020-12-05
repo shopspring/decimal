@@ -903,15 +903,14 @@ func (d Decimal) RoundBank(places int32) Decimal {
 }
 
 // RoundUp rounds decimal number towards positive infinite
-// RoundUp(1.1, 0) => 1
-// RoundUp(1.52, 1) => 1.6
-// RoundUp(1.1001, 2) => 1.11
+// (1.1).RoundUp(0) => 1
+// (1.52).RoundUp(1) => 1.6
+// (1.1001).RoundUp(2) => 1.11
 func (d Decimal) RoundUp(places int32) Decimal {
 	factor := NewFromFloat(10).Pow(NewFromInt(int64(places)))
 	m := d.Mul(factor)
 	n := m.Ceil()
 	o := n.Div(factor)
-	println("value =", d.String(), "places =", places, "factor =", factor.String(), "m =", m.String(), "n =", n.String(), "o =", o.String())
 	return o
 }
 

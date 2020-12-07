@@ -907,10 +907,11 @@ func (d Decimal) RoundBank(places int32) Decimal {
 // (1.52).RoundUp(1) => 1.6
 // (1.1001).RoundUp(2) => 1.11
 func (d Decimal) RoundUp(places int32) Decimal {
-	factor := NewFromFloat(10).Pow(NewFromInt(int64(places)))
-	m := d.Mul(factor)
+	p := math.Pow(10, float64(places))
+	f := NewFromFloat(p)
+	m := d.Mul(f)
 	n := m.Ceil()
-	o := n.Div(factor)
+	o := n.Div(f)
 	return o
 }
 

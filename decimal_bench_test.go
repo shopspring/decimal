@@ -119,6 +119,12 @@ func BenchmarkDecimal_RoundCash_Five(b *testing.B) {
 	}
 }
 
+func BenchmarkDecimal_RoundUp(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		NewFromFloat(10.0012).RoundUp(3)
+	}
+}
+
 func Benchmark_Cmp(b *testing.B) {
 	decimals := DecimalSlice([]Decimal{})
 	for i := 0; i < 1000000; i++ {

@@ -1022,6 +1022,10 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
 // is already used when encoding to text, this method stores that string as []byte
 func (d *Decimal) UnmarshalBinary(data []byte) error {
+	if len(data) < 4 {
+		return fmt.Errorf("error decoding binary %v: too short", data)
+	}
+
 	// Extract the exponent
 	d.exp = int32(binary.BigEndian.Uint32(data[:4]))
 

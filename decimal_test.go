@@ -2344,6 +2344,19 @@ func TestBinary(t *testing.T) {
 	}
 }
 
+func TestBadBinary(t *testing.T) {
+	for _, testData := range [][]byte{
+		{1, 2},
+		{},
+	} {
+		var amount Decimal
+		err := amount.UnmarshalBinary(testData)
+		if err == nil {
+			t.Errorf("expected error, got %+v", amount)
+		}
+	}
+}
+
 func slicesEqual(a, b []byte) bool {
 	for i, val := range a {
 		if b[i] != val {

@@ -870,6 +870,48 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
+// RoundUp rounds the decimal towards +infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundUp(-2).String()   // output: "600"
+//     NewFromFloat(1.1001).RoundUp(2).String() // output: "1.11"
+//     NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.4"
+//
+func (d Decimal) RoundUp(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.value.Sign() > 0 {
+		rescaled.value.Add(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundDown rounds the decimal towards -infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundDown(-2).String()   // output: "500"
+//     NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
+//     NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.5"
+//
+func (d Decimal) RoundDown(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.value.Sign() < 0 {
+		rescaled.value.Sub(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
 // RoundBank rounds the decimal to places decimal places.
 // If the final digit to round is equidistant from the nearest two integers the
 // rounded value is taken as the even number

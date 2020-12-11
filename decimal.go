@@ -876,7 +876,7 @@ func (d Decimal) Round(places int32) Decimal {
 //
 //     NewFromFloat(545).RoundUp(-2).String()   // output: "600"
 //     NewFromFloat(1.1001).RoundUp(2).String() // output: "1.11"
-// 	   NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.4"
+//     NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.4"
 //
 func (d Decimal) RoundUp(places int32) Decimal {
 	if d.exp >= -places {
@@ -897,7 +897,7 @@ func (d Decimal) RoundUp(places int32) Decimal {
 //
 //     NewFromFloat(545).RoundDown(-2).String()   // output: "500"
 //     NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
-// 	   NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.5"
+//     NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.5"
 //
 func (d Decimal) RoundDown(places int32) Decimal {
 	if d.exp >= -places {

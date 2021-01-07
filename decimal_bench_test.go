@@ -204,3 +204,23 @@ func BenchmarkDecimal_NewFromString(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkDecimal_NewFromString_large_number(b *testing.B) {
+	count := 72
+	prices := make([]string, 0, count)
+	for i := 1; i <= count; i++ {
+		prices = append(prices, "9323372036854775807.9223372036854775807")
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, p := range prices {
+			d, err := NewFromString(p)
+			if err != nil {
+				b.Log(d)
+				b.Error(err)
+			}
+		}
+	}
+}

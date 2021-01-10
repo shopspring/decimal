@@ -147,23 +147,45 @@ func NewFromString(value string) (Decimal, error) {
 		exp = expInt
 	}
 
-	parts := strings.Split(value, ".")
-	if len(parts) == 1 {
+	pIndex := -1
+	vLen := len(value)
+	for i := 0; i < vLen; i++ {
+		if value[i] == '.' {
+			if pIndex > -1 {
+				return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
+			}
+			pIndex = i
+		}
+	}
+
+	if pIndex == -1 {
 		// There is no decimal point, we can just parse the original string as
 		// an int
 		intString = value
-	} else if len(parts) == 2 {
-		intString = parts[0] + parts[1]
-		expInt := -len(parts[1])
-		exp += int64(expInt)
 	} else {
-		return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
+		if pIndex+1 < vLen {
+			intString = value[:pIndex] + value[pIndex+1:]
+		} else {
+			intString = value[:pIndex]
+		}
+		expInt := -len(value[pIndex+1:])
+		exp += int64(expInt)
 	}
 
-	dValue := new(big.Int)
-	_, ok := dValue.SetString(intString, 10)
-	if !ok {
-		return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+	var dValue *big.Int
+	// strconv.ParseInt is faster than new(big.Int).SetString so this is just a shortcut for strings we know won't overflow
+	if len(intString) <= 18 {
+		parsed64, err := strconv.ParseInt(intString, 10, 64)
+		if err != nil {
+			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+		}
+		dValue = big.NewInt(parsed64)
+	} else {
+		dValue = new(big.Int)
+		_, ok := dValue.SetString(intString, 10)
+		if !ok {
+			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+		}
 	}
 
 	if exp < math.MinInt32 || exp > math.MaxInt32 {

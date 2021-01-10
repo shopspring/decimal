@@ -1,4 +1,10 @@
-## Decimal v1.2.0 
+## Decimal v1.3.0
+
+#### ENHANCEMENTS
+- NewFromString optimization [#198](https://github.com/shopspring/decimal/pull/198)
+
+
+## Decimal v1.2.0
 
 #### BREAKING
 - Drop support for Go version older than 1.7 [#172](https://github.com/shopspring/decimal/pull/172)

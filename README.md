@@ -5,6 +5,8 @@
 This fork changes:
 * adds SetBSON and GetBSON (for mgo library)
 * sets MarshalJSONWithoutQuotes=true
+* adds decoder and encoder functions for official mongo driver
+* adds go.mod
 
 
 [![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal) [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)

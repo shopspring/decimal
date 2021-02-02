@@ -5,6 +5,8 @@
 This fork changes:
 * adds MarshalBSON and UnmarshalBSON (for official mongo dirver)
 * sets MarshalJSONWithoutQuotes=true
+* adds decoder and encoder functions for official mongo driver
+* adds go.mod
 
 [![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
 [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal)

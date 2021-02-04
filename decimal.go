@@ -610,8 +610,11 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 
 // Mod returns d % d2.
 func (d Decimal) Mod(d2 Decimal) Decimal {
-	quo := d.Div(d2).Truncate(0)
-	return d.Sub(d2.Mul(quo))
+	res := d
+	for res.Cmp(d2) > 0 {
+		res = res.Sub(d2)
+	}
+	return res
 }
 
 // Pow returns d to the power d2

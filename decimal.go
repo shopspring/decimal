@@ -1418,7 +1418,7 @@ func (d Decimal) xatan() Decimal {
 func (d Decimal) satan() Decimal {
 	Morebits := NewFromFloat(6.123233995736765886130e-17) // pi/2 = PIO2 + Morebits
 	Tan3pio8 := NewFromFloat(2.41421356237309504880)      // tan(3*pi/8)
-	pi := NewFromFloat(3.14159265358979323846264338327950288419716939937510582097494459)
+	pi := PiNumber()
 
 	if d.LessThanOrEqual(NewFromFloat(0.66)) {
 		return d.xatan()
@@ -1600,4 +1600,10 @@ func (d Decimal) Tan() Decimal {
 		y = y.Neg()
 	}
 	return y
+}
+
+//PiNumber Returns Pi Number For Calculations
+func PiNumber() Decimal {
+	pi, _ := NewFromString("3.14159265358979323846264338327950288419716939937510582097494459")
+	return pi
 }

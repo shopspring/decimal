@@ -2279,14 +2279,64 @@ func TestDecimal_Cmp2(t *testing.T) {
 }
 
 func TestPow(t *testing.T) {
-	a := New(4, 0)
-	b := New(2, 0)
+	a := NewFromFloat(1.15)
+	b := New(3, 0)
 	x := a.Pow(b)
-	if x.String() != "16" {
+
+	if x.String() != "1.520875" {
 		t.Errorf("Error, saw %s", x.String())
 	}
 }
 
+func TestPow2(t *testing.T) {
+	a := NewFromFloat(1.5)
+	b := New(3, 0)
+	x := a.Pow(b)
+
+	if x.String() != "3.375" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestPow3(t *testing.T) {
+	a := NewFromFloat(2.5)
+	b := NewFromFloat(4)
+	x := a.Pow(b)
+
+	if x.String() != "39.0625" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestPow4(t *testing.T) {
+	a := NewFromFloat(3.5)
+	b := NewFromFloat(7)
+	x := a.Pow(b)
+
+	if x.String() != "6433.9296875" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestPow5(t *testing.T) {
+	a := NewFromFloat(1.5)
+	b := NewFromFloat(9)
+	x := a.Pow(b)
+
+	if x.String() != "38.443359375" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestPow6(t *testing.T) {
+	a := NewFromFloat(6.7)
+	b := NewFromFloat(3)
+	x := a.Pow(b)
+
+	if x.String() != "300.763" {
+		t.Errorf("Error, saw %s", x.String())
+	}
+}
 func TestNegativePow(t *testing.T) {
 	a := New(4, 0)
 	b := New(-2, 0)

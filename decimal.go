@@ -614,20 +614,16 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 	return d.Sub(d2.Mul(quo))
 }
 
-// Pow returns d to the power d2
 func (d Decimal) Pow(d2 Decimal) Decimal {
 	var temp Decimal
-	if d2.IntPart() == 0 {
-		return NewFromFloat(1)
-	}
-	temp = d.Pow(d2.Div(NewFromFloat(2)))
-	if d2.IntPart()%2 == 0 {
-		return temp.Mul(temp)
-	}
-	if d2.IntPart() > 0 {
-		return temp.Mul(temp).Mul(d)
-	}
-	return temp.Mul(temp).Div(d)
+	x := d.value
+	x1 := d.exp
+	y := d2.value
+	k := x.Exp(x, y, nil)
+	a := big.NewInt(int64(x1)).Mul(big.NewInt(int64(x1)), y)
+	temp.value = k
+	temp.exp = int32(a.Int64())
+	return temp
 }
 
 // IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.

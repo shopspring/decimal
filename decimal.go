@@ -804,9 +804,9 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	return d.Rat().Float64()
 }
 
-// MustFloat64 returns the nearest float64 value for d.
+// InexactFloat64 returns the nearest float64 value for d.
 // It doesn't indicate if the returned value represents d exactly.
-func (d Decimal) MustFloat64() float64 {
+func (d Decimal) InexactFloat64() float64 {
 	f, _ := d.Float64()
 	return f
 }

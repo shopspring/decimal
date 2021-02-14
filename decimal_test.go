@@ -2810,3 +2810,53 @@ func ExampleNewFromFloat() {
 	//0.123123123123123
 	//-10000000000000
 }
+
+func TestMod1(t *testing.T) {
+	a := RequireFromString("0.499999999999999999")
+	b := RequireFromString("0.25")
+	x := a.Mod(b)
+  
+	if x.String() != "0.249999999999999999" {
+	  	t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestMod5(t *testing.T) {
+	a := RequireFromString("0.599999999999999999")
+	b := RequireFromString("0.25")
+	x := a.Mod(b)
+  
+	if x.String() != "0.099999999999999999" {
+	  	t.Errorf("Error, saw %s", x.String())
+	}
+}
+
+func TestMod2(t *testing.T) {
+	a := RequireFromString("0.5")
+	b := RequireFromString("0.25")
+	x := a.Mod(b)
+  
+	if x.String() != "0" {
+	  	t.Errorf("Error, saw %s", x.String())
+	}
+}
+  
+func TestMod3(t *testing.T) {
+	a := RequireFromString("0.7")
+	b := RequireFromString("0.25")
+	x := a.Mod(b)
+  
+	if x.String() != "0.2" {
+	  	t.Errorf("Error, saw %s", x.String())
+	}
+}
+  
+func TestMod4(t *testing.T) {
+	a := RequireFromString("0.8")
+	b := RequireFromString("0.25")
+	x := a.Mod(b)
+  
+	if x.String() != "0.05" {
+	  	t.Errorf("Error, saw %s", x.String())
+	}
+}

@@ -2860,3 +2860,73 @@ func TestMod4(t *testing.T) {
 	  	t.Errorf("Error, saw %s", x.String())
 	}
 }
+
+func TestPowFunc(t *testing.T) {
+	a := NewFromFloat(1.35)
+	b := New(3, 0)
+	x := a.Pow(b)
+  
+	if x.String() != "2.460375" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc2(t *testing.T) {
+	a := NewFromFloat(5.5)
+	b := New(3, 0)
+	x := a.Pow(b)
+  
+	if x.String() != "166.375" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc3(t *testing.T) {
+	a := NewFromFloat(3.5)
+	b := NewFromFloat(5)
+	x := a.Pow(b)
+  
+	if x.String() != "525.21875" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc4(t *testing.T) {
+	a := NewFromFloat(4.5)
+	b := NewFromFloat(7)
+	x := a.Pow(b)
+  
+	if x.String() != "37366.9453125" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc5(t *testing.T) {
+	a := NewFromFloat(1.7)
+	b := NewFromFloat(9)
+	x := a.Pow(b)
+  
+	if x.String() != "118.587876497" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc6(t *testing.T) {
+	a := NewFromFloat(6.6)
+	b := NewFromFloat(3)
+	x := a.Pow(b)
+  
+	if x.String() != "287.496" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }
+  
+  func TestPowFunc7(t *testing.T) {
+	a := NewFromFloat(9)
+	b := NewFromFloat(3)
+	x := a.Pow(b)
+  
+	if x.String() != "729" {
+	  t.Errorf("Error, saw %s", x.String())
+	}
+  }

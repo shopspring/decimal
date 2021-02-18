@@ -766,6 +766,96 @@ func TestBadXML(t *testing.T) {
 	}
 }
 
+func TestNullDecimalXML(t *testing.T) {
+	// test valid values
+	for _, x := range testTable {
+		s := x.short
+		var doc struct {
+			XMLName xml.Name    `xml:"account"`
+			Amount  NullDecimal `xml:"amount"`
+		}
+		docStr := `<account><amount>` + s + `</amount></account>`
+		err := xml.Unmarshal([]byte(docStr), &doc)
+		if err != nil {
+			t.Errorf("error unmarshaling %s: %v", docStr, err)
+		} else if doc.Amount.Decimal.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, doc.Amount.Decimal.String(),
+				doc.Amount.Decimal.value.String(), doc.Amount.Decimal.exp)
+		}
+
+		out, err := xml.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStr {
+			t.Errorf("expected %s, got %s", docStr, string(out))
+		}
+	}
+
+	var doc struct {
+		XMLName xml.Name    `xml:"account"`
+		Amount  NullDecimal `xml:"amount"`
+	}
+
+	// test for XML with empty body
+	docStr := `<account><amount></amount></account>`
+	err := xml.Unmarshal([]byte(docStr), &doc)
+	if err != nil {
+		t.Errorf("error unmarshaling: %s: %v", docStr, err)
+	} else if doc.Amount.Valid {
+		t.Errorf("expected null value to have Valid = false, got Valid = true and Decimal = %s (%s, %d)",
+			doc.Amount.Decimal.String(),
+			doc.Amount.Decimal.value.String(), doc.Amount.Decimal.exp)
+	}
+
+	expected := `<account><amount></amount></account>`
+	out, err := xml.Marshal(&doc)
+	if err != nil {
+		t.Errorf("error marshaling %+v: %v", doc, err)
+	} else if string(out) != expected {
+		t.Errorf("expected %s, got %s", expected, string(out))
+	}
+
+	// test for empty XML
+	docStr = `<account></account>`
+	err = xml.Unmarshal([]byte(docStr), &doc)
+	if err != nil {
+		t.Errorf("error unmarshaling: %s: %v", docStr, err)
+	} else if doc.Amount.Valid {
+		t.Errorf("expected null value to have Valid = false, got Valid = true and Decimal = %s (%s, %d)",
+			doc.Amount.Decimal.String(),
+			doc.Amount.Decimal.value.String(), doc.Amount.Decimal.exp)
+	}
+
+	expected = `<account><amount></amount></account>`
+	out, err = xml.Marshal(&doc)
+	if err != nil {
+		t.Errorf("error marshaling %+v: %v", doc, err)
+	} else if string(out) != expected {
+		t.Errorf("expected %s, got %s", expected, string(out))
+	}
+}
+
+func TestNullDecimalBadXML(t *testing.T) {
+	for _, testCase := range []string{
+		"o_o",
+		"<abc",
+		"<account><amount>7",
+		`<html><body></body></html>`,
+		`<account><amount>nope</amount></account>`,
+		`0.333`,
+	} {
+		var doc struct {
+			XMLName xml.Name    `xml:"account"`
+			Amount  NullDecimal `xml:"amount"`
+		}
+		err := xml.Unmarshal([]byte(testCase), &doc)
+		if err == nil {
+			t.Errorf("expected error, got %+v", doc)
+		}
+	}
+}
+
 func TestDecimal_rescale(t *testing.T) {
 	type Inp struct {
 		int     int64

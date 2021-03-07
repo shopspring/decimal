@@ -1084,7 +1084,7 @@ func TestDecimal_RoundAndStringFixed(t *testing.T) {
 	}
 }
 
-func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
+func TestDecimal_RoundCeilAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string
 		places        int32
@@ -1157,9 +1157,9 @@ func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := d.RoundUp(test.places)
+		got := d.RoundCeil(test.places)
 		if !got.Equal(expected) {
-			t.Errorf("Rounding up %s to %d places, got %s, expected %s",
+			t.Errorf("Rounding ceil %s to %d places, got %s, expected %s",
 				d, test.places, got, expected)
 		}
 
@@ -1175,7 +1175,7 @@ func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
 	}
 }
 
-func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
+func TestDecimal_RoundFloorAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string
 		places        int32
@@ -1248,9 +1248,9 @@ func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := d.RoundDown(test.places)
+		got := d.RoundFloor(test.places)
 		if !got.Equal(expected) {
-			t.Errorf("Rounding down %s to %d places, got %s, expected %s",
+			t.Errorf("Rounding floor %s to %d places, got %s, expected %s",
 				d, test.places, got, expected)
 		}
 

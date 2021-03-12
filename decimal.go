@@ -944,7 +944,7 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 	return rescaled
 }
 
-// RoundUp rounds the decimal towards +infinity.
+// RoundUp rounds the decimal away from zero.
 //
 // Example:
 //
@@ -972,7 +972,7 @@ func (d Decimal) RoundUp(places int32) Decimal {
 	return rescaled
 }
 
-// RoundDown rounds the decimal towards -infinity.
+// RoundDown rounds the decimal towards zero.
 //
 // Example:
 //

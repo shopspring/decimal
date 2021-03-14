@@ -892,7 +892,59 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
-// RoundUp rounds the decimal towards +infinity.
+// RoundCeil rounds the decimal towards +infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundCeil(-2).String()   // output: "600"
+//     NewFromFloat(500).RoundCeil(-2).String()   // output: "500"
+//     NewFromFloat(1.1001).RoundCeil(2).String() // output: "1.11"
+//     NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.5"
+//
+func (d Decimal) RoundCeil(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+
+	if d.value.Sign() > 0 {
+		rescaled.value.Add(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundFloor rounds the decimal towards -infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundFloor(-2).String()   // output: "500"
+//     NewFromFloat(-500).RoundFloor(-2).String()   // output: "-500"
+//     NewFromFloat(1.1001).RoundFloor(2).String() // output: "1.1"
+//     NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.4"
+//
+func (d Decimal) RoundFloor(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+
+	if d.value.Sign() < 0 {
+		rescaled.value.Sub(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundUp rounds the decimal away from zero.
 //
 // Example:
 //
@@ -913,12 +965,14 @@ func (d Decimal) RoundUp(places int32) Decimal {
 
 	if d.value.Sign() > 0 {
 		rescaled.value.Add(rescaled.value, oneInt)
+	} else if d.value.Sign() < 0 {
+		rescaled.value.Sub(rescaled.value, oneInt)
 	}
 
 	return rescaled
 }
 
-// RoundDown rounds the decimal towards -infinity.
+// RoundDown rounds the decimal towards zero.
 //
 // Example:
 //
@@ -936,11 +990,6 @@ func (d Decimal) RoundDown(places int32) Decimal {
 	if d.Equal(rescaled) {
 		return d
 	}
-
-	if d.value.Sign() < 0 {
-		rescaled.value.Sub(rescaled.value, oneInt)
-	}
-
 	return rescaled
 }
 

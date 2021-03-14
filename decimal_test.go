@@ -1084,7 +1084,7 @@ func TestDecimal_RoundAndStringFixed(t *testing.T) {
 	}
 }
 
-func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
+func TestDecimal_RoundCeilAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string
 		places        int32
@@ -1157,9 +1157,9 @@ func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := d.RoundUp(test.places)
+		got := d.RoundCeil(test.places)
 		if !got.Equal(expected) {
-			t.Errorf("Rounding up %s to %d places, got %s, expected %s",
+			t.Errorf("Rounding ceil %s to %d places, got %s, expected %s",
 				d, test.places, got, expected)
 		}
 
@@ -1175,7 +1175,7 @@ func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
 	}
 }
 
-func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
+func TestDecimal_RoundFloorAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string
 		places        int32
@@ -1235,6 +1235,188 @@ func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
 		{"-545", -4, "-10000", ""},
 		{"-499", -3, "-1000", ""},
 		{"-499", -4, "-10000", ""},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// test Round
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := d.RoundFloor(test.places)
+		if !got.Equal(expected) {
+			t.Errorf("Rounding floor %s to %d places, got %s, expected %s",
+				d, test.places, got, expected)
+		}
+
+		// test StringFixed
+		if test.expectedFixed == "" {
+			test.expectedFixed = test.expected
+		}
+		gotStr := got.StringFixed(test.places)
+		if gotStr != test.expectedFixed {
+			t.Errorf("(%s).StringFixed(%d): got %s, expected %s",
+				d, test.places, gotStr, test.expectedFixed)
+		}
+	}
+}
+
+func TestDecimal_RoundUpAndStringFixed(t *testing.T) {
+	type testData struct {
+		input         string
+		places        int32
+		expected      string
+		expectedFixed string
+	}
+	tests := []testData{
+		{"1.454", 0, "2", ""},
+		{"1.454", 1, "1.5", ""},
+		{"1.454", 2, "1.46", ""},
+		{"1.454", 3, "1.454", ""},
+		{"1.454", 4, "1.454", "1.4540"},
+		{"1.454", 5, "1.454", "1.45400"},
+		{"1.554", 0, "2", ""},
+		{"1.554", 1, "1.6", ""},
+		{"1.554", 2, "1.56", ""},
+		{"0.554", 0, "1", ""},
+		{"0.454", 0, "1", ""},
+		{"0.454", 5, "0.454", "0.45400"},
+		{"0", 0, "0", ""},
+		{"0", 1, "0", "0.0"},
+		{"0", 2, "0", "0.00"},
+		{"0", -1, "0", ""},
+		{"5", 2, "5", "5.00"},
+		{"5", 1, "5", "5.0"},
+		{"5", 0, "5", ""},
+		{"500", 2, "500", "500.00"},
+		{"500", -2, "500", ""},
+		{"545", -1, "550", ""},
+		{"545", -2, "600", ""},
+		{"545", -3, "1000", ""},
+		{"545", -4, "10000", ""},
+		{"499", -3, "1000", ""},
+		{"499", -4, "10000", ""},
+		{"1.1001", 2, "1.11", ""},
+		{"-1.1001", 2, "-1.11", ""},
+		{"-1.454", 0, "-2", ""},
+		{"-1.454", 1, "-1.5", ""},
+		{"-1.454", 2, "-1.46", ""},
+		{"-1.454", 3, "-1.454", ""},
+		{"-1.454", 4, "-1.454", "-1.4540"},
+		{"-1.454", 5, "-1.454", "-1.45400"},
+		{"-1.554", 0, "-2", ""},
+		{"-1.554", 1, "-1.6", ""},
+		{"-1.554", 2, "-1.56", ""},
+		{"-0.554", 0, "-1", ""},
+		{"-0.454", 0, "-1", ""},
+		{"-0.454", 5, "-0.454", "-0.45400"},
+		{"-5", 2, "-5", "-5.00"},
+		{"-5", 1, "-5", "-5.0"},
+		{"-5", 0, "-5", ""},
+		{"-500", 2, "-500", "-500.00"},
+		{"-500", -2, "-500", ""},
+		{"-545", -1, "-550", ""},
+		{"-545", -2, "-600", ""},
+		{"-545", -3, "-1000", ""},
+		{"-545", -4, "-10000", ""},
+		{"-499", -3, "-1000", ""},
+		{"-499", -4, "-10000", ""},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// test Round
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := d.RoundUp(test.places)
+		if !got.Equal(expected) {
+			t.Errorf("Rounding up %s to %d places, got %s, expected %s",
+				d, test.places, got, expected)
+		}
+
+		// test StringFixed
+		if test.expectedFixed == "" {
+			test.expectedFixed = test.expected
+		}
+		gotStr := got.StringFixed(test.places)
+		if gotStr != test.expectedFixed {
+			t.Errorf("(%s).StringFixed(%d): got %s, expected %s",
+				d, test.places, gotStr, test.expectedFixed)
+		}
+	}
+}
+
+func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
+	type testData struct {
+		input         string
+		places        int32
+		expected      string
+		expectedFixed string
+	}
+	tests := []testData{
+		{"1.454", 0, "1", ""},
+		{"1.454", 1, "1.4", ""},
+		{"1.454", 2, "1.45", ""},
+		{"1.454", 3, "1.454", ""},
+		{"1.454", 4, "1.454", "1.4540"},
+		{"1.454", 5, "1.454", "1.45400"},
+		{"1.554", 0, "1", ""},
+		{"1.554", 1, "1.5", ""},
+		{"1.554", 2, "1.55", ""},
+		{"0.554", 0, "0", ""},
+		{"0.454", 0, "0", ""},
+		{"0.454", 5, "0.454", "0.45400"},
+		{"0", 0, "0", ""},
+		{"0", 1, "0", "0.0"},
+		{"0", 2, "0", "0.00"},
+		{"0", -1, "0", ""},
+		{"5", 2, "5", "5.00"},
+		{"5", 1, "5", "5.0"},
+		{"5", 0, "5", ""},
+		{"500", 2, "500", "500.00"},
+		{"500", -2, "500", ""},
+		{"545", -1, "540", ""},
+		{"545", -2, "500", ""},
+		{"545", -3, "0", ""},
+		{"545", -4, "0", ""},
+		{"499", -3, "0", ""},
+		{"499", -4, "0", ""},
+		{"1.1001", 2, "1.10", ""},
+		{"-1.1001", 2, "-1.10", ""},
+		{"-1.454", 0, "-1", ""},
+		{"-1.454", 1, "-1.4", ""},
+		{"-1.454", 2, "-1.45", ""},
+		{"-1.454", 3, "-1.454", ""},
+		{"-1.454", 4, "-1.454", "-1.4540"},
+		{"-1.454", 5, "-1.454", "-1.45400"},
+		{"-1.554", 0, "-1", ""},
+		{"-1.554", 1, "-1.5", ""},
+		{"-1.554", 2, "-1.55", ""},
+		{"-0.554", 0, "0", ""},
+		{"-0.454", 0, "0", ""},
+		{"-0.454", 5, "-0.454", "-0.45400"},
+		{"-5", 2, "-5", "-5.00"},
+		{"-5", 1, "-5", "-5.0"},
+		{"-5", 0, "-5", ""},
+		{"-500", 2, "-500", "-500.00"},
+		{"-500", -2, "-500", ""},
+		{"-545", -1, "-540", ""},
+		{"-545", -2, "-500", ""},
+		{"-545", -3, "0", ""},
+		{"-545", -4, "0", ""},
+		{"-499", -3, "0", ""},
+		{"-499", -4, "0", ""},
 	}
 
 	for _, test := range tests {

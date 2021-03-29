@@ -804,6 +804,13 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	return d.Rat().Float64()
 }
 
+// InexactFloat64 returns the nearest float64 value for d.
+// It doesn't indicate if the returned value represents d exactly.
+func (d Decimal) InexactFloat64() float64 {
+	f, _ := d.Float64()
+	return f
+}
+
 // String returns the string representation of the decimal
 // with the fixed point.
 //

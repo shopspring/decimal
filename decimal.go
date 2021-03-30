@@ -1684,7 +1684,6 @@ func (d Decimal) Tan() Decimal {
 }
 
 // Copy makes instance of d with same value and different pointer.
-//
 func (d Decimal) Copy() Decimal {
 	d.ensureInitialized()
 	return Decimal{

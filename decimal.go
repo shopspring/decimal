@@ -1,11 +1,5 @@
 // Package decimal implements an arbitrary precision fixed-point decimal.
 //
-// To use as part of a struct:
-//
-//     type Struct struct {
-//         Number Decimal
-//     }
-//
 // The zero-value of a Decimal is 0, as you would expect.
 //
 // The best way to create a new Decimal is to use decimal.NewFromString, ex:
@@ -13,8 +7,13 @@
 //     n, err := decimal.NewFromString("-123.4567")
 //     n.String() // output: "-123.4567"
 //
-// NOTE: This can "only" represent numbers with a maximum of 2^31 digits
-// after the decimal point.
+// To use Decimal as part of a struct:
+//
+//     type Struct struct {
+//         Number Decimal
+//     }
+//
+// Note: This can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
 package decimal
 
 import (
@@ -23,6 +22,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -32,14 +32,14 @@ import (
 //
 // Example:
 //
-//     d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
+//     d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //     d1.String() // output: "0.6666666666666667"
-//     d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000)
+//     d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000))
 //     d2.String() // output: "0.0000666666666667"
-//     d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3)
+//     d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3))
 //     d3.String() // output: "6666.6666666666666667"
 //     decimal.DivisionPrecision = 3
-//     d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3)
+//     d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //     d4.String() // output: "0.667"
 //
 var DivisionPrecision = 16
@@ -53,10 +53,8 @@ var DivisionPrecision = 16
 var MarshalJSONWithoutQuotes = false
 
 // Zero constant, to make computations faster.
+// Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
 var Zero = New(0, 1)
-
-// fiveDec used in Cash Rounding
-var fiveDec = New(5, 0)
 
 var zeroInt = big.NewInt(0)
 var oneInt = big.NewInt(1)
@@ -87,6 +85,32 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
+// NewFromInt converts a int64 to Decimal.
+//
+// Example:
+//
+//     NewFromInt(123).String() // output: "123"
+//     NewFromInt(-10).String() // output: "-10"
+func NewFromInt(value int64) Decimal {
+	return Decimal{
+		value: big.NewInt(value),
+		exp:   0,
+	}
+}
+
+// NewFromInt32 converts a int32 to Decimal.
+//
+// Example:
+//
+//     NewFromInt(123).String() // output: "123"
+//     NewFromInt(-10).String() // output: "-10"
+func NewFromInt32(value int32) Decimal {
+	return Decimal{
+		value: big.NewInt(int64(value)),
+		exp:   0,
+	}
+}
+
 // NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{
@@ -96,11 +120,13 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 }
 
 // NewFromString returns a new Decimal from a string representation.
+// Trailing zeroes are not trimmed.
 //
 // Example:
 //
 //     d, err := NewFromString("-123.45")
 //     d2, err := NewFromString(".0001")
+//     d3, err := NewFromString("1.47000")
 //
 func NewFromString(value string) (Decimal, error) {
 	originalInput := value
@@ -121,25 +147,45 @@ func NewFromString(value string) (Decimal, error) {
 		exp = expInt
 	}
 
-	parts := strings.Split(value, ".")
-	if len(parts) == 1 {
+	pIndex := -1
+	vLen := len(value)
+	for i := 0; i < vLen; i++ {
+		if value[i] == '.' {
+			if pIndex > -1 {
+				return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
+			}
+			pIndex = i
+		}
+	}
+
+	if pIndex == -1 {
 		// There is no decimal point, we can just parse the original string as
 		// an int
 		intString = value
-	} else if len(parts) == 2 {
-		// strip the insignificant digits for more accurate comparisons.
-		decimalPart := strings.TrimRight(parts[1], "0")
-		intString = parts[0] + decimalPart
-		expInt := -len(decimalPart)
-		exp += int64(expInt)
 	} else {
-		return Decimal{}, fmt.Errorf("can't convert %s to decimal: too many .s", value)
+		if pIndex+1 < vLen {
+			intString = value[:pIndex] + value[pIndex+1:]
+		} else {
+			intString = value[:pIndex]
+		}
+		expInt := -len(value[pIndex+1:])
+		exp += int64(expInt)
 	}
 
-	dValue := new(big.Int)
-	_, ok := dValue.SetString(intString, 10)
-	if !ok {
-		return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+	var dValue *big.Int
+	// strconv.ParseInt is faster than new(big.Int).SetString so this is just a shortcut for strings we know won't overflow
+	if len(intString) <= 18 {
+		parsed64, err := strconv.ParseInt(intString, 10, 64)
+		if err != nil {
+			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+		}
+		dValue = big.NewInt(parsed64)
+	} else {
+		dValue = new(big.Int)
+		_, ok := dValue.SetString(intString, 10)
+		if !ok {
+			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
+		}
 	}
 
 	if exp < math.MinInt32 || exp > math.MaxInt32 {
@@ -151,6 +197,30 @@ func NewFromString(value string) (Decimal, error) {
 		value: dValue,
 		exp:   int32(exp),
 	}, nil
+}
+
+// NewFromFormattedString returns a new Decimal from a formatted string representation.
+// The second argument - replRegexp, is a regular expression that is used to find characters that should be
+// removed from given decimal string representation. All matched characters will be replaced with an empty string.
+//
+// Example:
+//
+//     r := regexp.MustCompile("[$,]")
+//     d1, err := NewFromFormattedString("$5,125.99", r)
+//
+//     r2 := regexp.MustCompile("[_]")
+//     d2, err := NewFromFormattedString("1_000_000", r2)
+//
+//     r3 := regexp.MustCompile("[USD\\s]")
+//     d3, err := NewFromFormattedString("5000 USD", r3)
+//
+func NewFromFormattedString(value string, replRegexp *regexp.Regexp) (Decimal, error) {
+	parsedValue := replRegexp.ReplaceAllString(value, "")
+	d, err := NewFromString(parsedValue)
+	if err != nil {
+		return Decimal{}, err
+	}
+	return d, nil
 }
 
 // RequireFromString returns a new Decimal from a string representation
@@ -186,7 +256,7 @@ func NewFromFloat(value float64) Decimal {
 	return newFromFloat(value, math.Float64bits(value), &float64info)
 }
 
-// NewFromFloat converts a float32 to Decimal.
+// NewFromFloat32 converts a float32 to Decimal.
 //
 // The converted number will contain the number of significant digits that can be
 // represented in a float with reliable roundtrip.
@@ -272,10 +342,9 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 		// specials
 		if mant == 0 {
 			return Decimal{}
-		} else {
-			// subnormal
-			exp2++
 		}
+		// subnormal
+		exp2++
 	} else {
 		// normal
 		mant |= 1 << 52
@@ -361,6 +430,14 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 //
 func (d Decimal) rescale(exp int32) Decimal {
 	d.ensureInitialized()
+
+	if d.exp == exp {
+		return Decimal{
+			new(big.Int).Set(d.value),
+			d.exp,
+		}
+	}
+
 	// NOTE(vadim): must convert exps to float64 before - to prevent overflow
 	diff := math.Abs(float64(exp) - float64(d.exp))
 	value := new(big.Int).Set(d.value)
@@ -390,27 +467,23 @@ func (d Decimal) Abs() Decimal {
 
 // Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
-	baseScale := min(d.exp, d2.exp)
-	rd := d.rescale(baseScale)
-	rd2 := d2.rescale(baseScale)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Add(rd.value, rd2.value)
 	return Decimal{
 		value: d3Value,
-		exp:   baseScale,
+		exp:   rd.exp,
 	}
 }
 
 // Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
-	baseScale := min(d.exp, d2.exp)
-	rd := d.rescale(baseScale)
-	rd2 := d2.rescale(baseScale)
+	rd, rd2 := RescalePair(d, d2)
 
 	d3Value := new(big.Int).Sub(rd.value, rd2.value)
 	return Decimal{
 		value: d3Value,
-		exp:   baseScale,
+		exp:   rd.exp,
 	}
 }
 
@@ -557,6 +630,33 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 	return temp.Mul(temp).Div(d)
 }
 
+// IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.
+func (d Decimal) IsInteger() bool {
+	// The most typical case, all decimal with exponent higher or equal 0 can be represented as integer
+	if d.exp >= 0 {
+		return true
+	}
+	// When the exponent is negative we have to check every number after the decimal place
+	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
+	var r big.Int
+	q := big.NewInt(0).Set(d.value)
+	for z := abs(d.exp); z > 0; z-- {
+		q.QuoRem(q, tenInt, &r)
+		if r.Cmp(zeroInt) != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// Abs calculates absolute value of any int32. Used for calculating absolute value of decimal's exponent.
+func abs(n int32) int32 {
+	if n < 0 {
+		return -n
+	}
+	return n
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //     -1 if d <  d2
@@ -571,9 +671,7 @@ func (d Decimal) Cmp(d2 Decimal) int {
 		return d.value.Cmp(d2.value)
 	}
 
-	baseExp := min(d.exp, d2.exp)
-	rd := d.rescale(baseExp)
-	rd2 := d2.rescale(baseExp)
+	rd, rd2 := RescalePair(d, d2)
 
 	return rd.value.Cmp(rd2.value)
 }
@@ -657,6 +755,7 @@ func (d Decimal) Exponent() int32 {
 
 // Coefficient returns the coefficient of the decimal.  It is scaled by 10^Exponent()
 func (d Decimal) Coefficient() *big.Int {
+	d.ensureInitialized()
 	// we copy the coefficient so that mutating the result does not mutate the
 	// Decimal.
 	return big.NewInt(0).Set(d.value)
@@ -666,6 +765,22 @@ func (d Decimal) Coefficient() *big.Int {
 func (d Decimal) IntPart() int64 {
 	scaledD := d.rescale(0)
 	return scaledD.value.Int64()
+}
+
+// BigInt returns integer component of the decimal as a BigInt.
+func (d Decimal) BigInt() *big.Int {
+	scaledD := d.rescale(0)
+	i := &big.Int{}
+	i.SetString(scaledD.String(), 10)
+	return i
+}
+
+// BigFloat returns decimal as BigFloat.
+// Be aware that casting decimal to BigFloat might cause a loss of precision.
+func (d Decimal) BigFloat() *big.Float {
+	f := &big.Float{}
+	f.SetString(d.String())
+	return f
 }
 
 // Rat returns a rational number representation of the decimal.
@@ -687,6 +802,13 @@ func (d Decimal) Rat() *big.Rat {
 // For more details, see the documentation for big.Rat.Float64
 func (d Decimal) Float64() (f float64, exact bool) {
 	return d.Rat().Float64()
+}
+
+// InexactFloat64 returns the nearest float64 value for d.
+// It doesn't indicate if the returned value represents d exactly.
+func (d Decimal) InexactFloat64() float64 {
+	f, _ := d.Float64()
+	return f
 }
 
 // String returns the string representation of the decimal
@@ -728,13 +850,13 @@ func (d Decimal) StringFixed(places int32) string {
 //
 // Example:
 //
-// 	   NewFromFloat(0).StringFixed(2) // output: "0.00"
-// 	   NewFromFloat(0).StringFixed(0) // output: "0"
-// 	   NewFromFloat(5.45).StringFixed(0) // output: "5"
-// 	   NewFromFloat(5.45).StringFixed(1) // output: "5.4"
-// 	   NewFromFloat(5.45).StringFixed(2) // output: "5.45"
-// 	   NewFromFloat(5.45).StringFixed(3) // output: "5.450"
-// 	   NewFromFloat(545).StringFixed(-1) // output: "550"
+// 	   NewFromFloat(0).StringFixedBank(2) // output: "0.00"
+// 	   NewFromFloat(0).StringFixedBank(0) // output: "0"
+// 	   NewFromFloat(5.45).StringFixedBank(0) // output: "5"
+// 	   NewFromFloat(5.45).StringFixedBank(1) // output: "5.4"
+// 	   NewFromFloat(5.45).StringFixedBank(2) // output: "5.45"
+// 	   NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
+// 	   NewFromFloat(545).StringFixedBank(-1) // output: "540"
 //
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)
@@ -777,6 +899,107 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
+// RoundCeil rounds the decimal towards +infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundCeil(-2).String()   // output: "600"
+//     NewFromFloat(500).RoundCeil(-2).String()   // output: "500"
+//     NewFromFloat(1.1001).RoundCeil(2).String() // output: "1.11"
+//     NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.5"
+//
+func (d Decimal) RoundCeil(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+
+	if d.value.Sign() > 0 {
+		rescaled.value.Add(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundFloor rounds the decimal towards -infinity.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundFloor(-2).String()   // output: "500"
+//     NewFromFloat(-500).RoundFloor(-2).String()   // output: "-500"
+//     NewFromFloat(1.1001).RoundFloor(2).String() // output: "1.1"
+//     NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.4"
+//
+func (d Decimal) RoundFloor(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+
+	if d.value.Sign() < 0 {
+		rescaled.value.Sub(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundUp rounds the decimal away from zero.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundUp(-2).String()   // output: "600"
+//     NewFromFloat(500).RoundUp(-2).String()   // output: "500"
+//     NewFromFloat(1.1001).RoundUp(2).String() // output: "1.11"
+//     NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.4"
+//
+func (d Decimal) RoundUp(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+
+	if d.value.Sign() > 0 {
+		rescaled.value.Add(rescaled.value, oneInt)
+	} else if d.value.Sign() < 0 {
+		rescaled.value.Sub(rescaled.value, oneInt)
+	}
+
+	return rescaled
+}
+
+// RoundDown rounds the decimal towards zero.
+//
+// Example:
+//
+//     NewFromFloat(545).RoundDown(-2).String()   // output: "500"
+//     NewFromFloat(-500).RoundDown(-2).String()   // output: "-500"
+//     NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
+//     NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.5"
+//
+func (d Decimal) RoundDown(places int32) Decimal {
+	if d.exp >= -places {
+		return d
+	}
+
+	rescaled := d.rescale(-places)
+	if d.Equal(rescaled) {
+		return d
+	}
+	return rescaled
+}
+
 // RoundBank rounds the decimal to places decimal places.
 // If the final digit to round is equidistant from the nearest two integers the
 // rounded value is taken as the even number
@@ -785,12 +1008,12 @@ func (d Decimal) Round(places int32) Decimal {
 //
 // Examples:
 //
-// 	   NewFromFloat(5.45).Round(1).String() // output: "5.4"
-// 	   NewFromFloat(545).Round(-1).String() // output: "540"
-// 	   NewFromFloat(5.46).Round(1).String() // output: "5.5"
-// 	   NewFromFloat(546).Round(-1).String() // output: "550"
-// 	   NewFromFloat(5.55).Round(1).String() // output: "5.6"
-// 	   NewFromFloat(555).Round(-1).String() // output: "560"
+// 	   NewFromFloat(5.45).RoundBank(1).String() // output: "5.4"
+// 	   NewFromFloat(545).RoundBank(-1).String() // output: "540"
+// 	   NewFromFloat(5.46).RoundBank(1).String() // output: "5.5"
+// 	   NewFromFloat(546).RoundBank(-1).String() // output: "550"
+// 	   NewFromFloat(5.55).RoundBank(1).String() // output: "5.6"
+// 	   NewFromFloat(555).RoundBank(-1).String() // output: "560"
 //
 func (d Decimal) RoundBank(places int32) Decimal {
 
@@ -812,10 +1035,9 @@ func (d Decimal) RoundBank(places int32) Decimal {
 // RoundCash aka Cash/Penny/öre rounding rounds decimal to a specific
 // interval. The amount payable for a cash transaction is rounded to the nearest
 // multiple of the minimum currency unit available. The following intervals are
-// available: 5, 10, 15, 25, 50 and 100; any other number throws a panic.
+// available: 5, 10, 25, 50 and 100; any other number throws a panic.
 //	    5:   5 cent rounding 3.43 => 3.45
 // 	   10:  10 cent rounding 3.45 => 3.50 (5 gets rounded up)
-// 	   15:  10 cent rounding 3.45 => 3.40 (5 gets rounded down)
 // 	   25:  25 cent rounding 3.41 => 3.50
 // 	   50:  50 cent rounding 3.75 => 4.00
 // 	  100: 100 cent rounding 3.50 => 4.00
@@ -827,20 +1049,6 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 		iVal = twentyInt
 	case 10:
 		iVal = tenInt
-	case 15:
-		if d.exp < 0 {
-			// TODO: optimize and reduce allocations
-			orgExp := d.exp
-			dOne := New(10^-int64(orgExp), orgExp)
-			d2 := d
-			d2.exp = 0
-			if d2.Mod(fiveDec).Equal(Zero) {
-				d2.exp = orgExp
-				d2 = d2.Sub(dOne)
-				d = d2
-			}
-		}
-		iVal = tenInt
 	case 25:
 		iVal = fourInt
 	case 50:
@@ -848,11 +1056,12 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	case 100:
 		iVal = oneInt
 	default:
-		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 15, 25, 50, 100", interval))
+		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 25, 50, 100", interval))
 	}
 	dVal := Decimal{
 		value: iVal,
 	}
+
 	// TODO: optimize those calculations to reduce the high allocations (~29 allocs).
 	return d.Mul(dVal).Round(0).Div(dVal).Truncate(2)
 }
@@ -918,13 +1127,13 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 
 	str, err := unquoteIfQuoted(decimalBytes)
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", decimalBytes, err)
+		return fmt.Errorf("error decoding string '%s': %s", decimalBytes, err)
 	}
 
 	decimal, err := NewFromString(str)
 	*d = decimal
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %s", str, err)
 	}
 	return nil
 }
@@ -1012,7 +1221,7 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 	dec, err := NewFromString(str)
 	*d = dec
 	if err != nil {
-		return fmt.Errorf("Error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %s", str, err)
 	}
 
 	return nil
@@ -1142,6 +1351,22 @@ func Avg(first Decimal, rest ...Decimal) Decimal {
 	return sum.Div(count)
 }
 
+// RescalePair rescales two decimals to common exponential value (minimal exp of both decimals)
+func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
+	d1.ensureInitialized()
+	d2.ensureInitialized()
+
+	if d1.exp == d2.exp {
+		return d1, d2
+	}
+
+	baseScale := min(d1.exp, d2.exp)
+	if baseScale != d1.exp {
+		return d1.rescale(baseScale), d2
+	}
+	return d1, d2.rescale(baseScale)
+}
+
 func min(x, y int32) int32 {
 	if x >= y {
 		return y
@@ -1158,7 +1383,7 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	case []byte:
 		bytes = v
 	default:
-		return "", fmt.Errorf("Could not convert value '%+v' to byte array of type '%T'",
+		return "", fmt.Errorf("could not convert value '%+v' to byte array of type '%T'",
 			value, value)
 	}
 
@@ -1212,17 +1437,44 @@ func (d NullDecimal) MarshalJSON() ([]byte, error) {
 	return d.Decimal.MarshalJSON()
 }
 
+// UnmarshalText implements the encoding.TextUnmarshaler interface for XML
+// deserialization
+func (d *NullDecimal) UnmarshalText(text []byte) error {
+	str := string(text)
+
+	// check for empty XML or XML without body e.g., <tag></tag>
+	if str == "" {
+		d.Valid = false
+		return nil
+	}
+	if err := d.Decimal.UnmarshalText(text); err != nil {
+		d.Valid = false
+		return err
+	}
+	d.Valid = true
+	return nil
+}
+
+// MarshalText implements the encoding.TextMarshaler interface for XML
+// serialization.
+func (d NullDecimal) MarshalText() (text []byte, err error) {
+	if !d.Valid {
+		return []byte{}, nil
+	}
+	return d.Decimal.MarshalText()
+}
+
 // Trig functions
 
 // Atan returns the arctangent, in radians, of x.
-func (x Decimal) Atan() Decimal {
-	if x.Equal(NewFromFloat(0.0)) {
-		return x
+func (d Decimal) Atan() Decimal {
+	if d.Equal(NewFromFloat(0.0)) {
+		return d
 	}
-	if x.GreaterThan(NewFromFloat(0.0)) {
-		return x.satan()
+	if d.GreaterThan(NewFromFloat(0.0)) {
+		return d.satan()
 	}
-	return x.Neg().satan().Neg()
+	return d.Neg().satan().Neg()
 }
 
 func (d Decimal) xatan() Decimal {
@@ -1262,19 +1514,19 @@ func (d Decimal) satan() Decimal {
 
 // sin coefficients
 var _sin = [...]Decimal{
-	NewFromFloat(1.58962301576546568060E-10), // 0x3de5d8fd1fd19ccd
-	NewFromFloat(-2.50507477628578072866E-8), // 0xbe5ae5e5a9291f5d
-	NewFromFloat(2.75573136213857245213E-6),  // 0x3ec71de3567d48a1
-	NewFromFloat(-1.98412698295895385996E-4), // 0xbf2a01a019bfdf03
-	NewFromFloat(8.33333333332211858878E-3),  // 0x3f8111111110f7d0
-	NewFromFloat(-1.66666666666666307295E-1), // 0xbfc5555555555548
+	NewFromFloat(1.58962301576546568060e-10), // 0x3de5d8fd1fd19ccd
+	NewFromFloat(-2.50507477628578072866e-8), // 0xbe5ae5e5a9291f5d
+	NewFromFloat(2.75573136213857245213e-6),  // 0x3ec71de3567d48a1
+	NewFromFloat(-1.98412698295895385996e-4), // 0xbf2a01a019bfdf03
+	NewFromFloat(8.33333333332211858878e-3),  // 0x3f8111111110f7d0
+	NewFromFloat(-1.66666666666666307295e-1), // 0xbfc5555555555548
 }
 
 // Sin returns the sine of the radian argument x.
 func (d Decimal) Sin() Decimal {
-	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
 	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
 	if d.Equal(NewFromFloat(0.0)) {
@@ -1301,6 +1553,7 @@ func (d Decimal) Sin() Decimal {
 		sign = !sign
 		j -= 4
 	}
+  
 	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
 	zz := z.Mul(z)
 
@@ -1318,20 +1571,20 @@ func (d Decimal) Sin() Decimal {
 
 // cos coefficients
 var _cos = [...]Decimal{
-	NewFromFloat(-1.13585365213876817300E-11), // 0xbda8fa49a0861a9b
-	NewFromFloat(2.08757008419747316778E-9),   // 0x3e21ee9d7b4e3f05
-	NewFromFloat(-2.75573141792967388112E-7),  // 0xbe927e4f7eac4bc6
-	NewFromFloat(2.48015872888517045348E-5),   // 0x3efa01a019c844f5
-	NewFromFloat(-1.38888888888730564116E-3),  // 0xbf56c16c16c14f91
-	NewFromFloat(4.16666666666665929218E-2),   // 0x3fa555555555554b
+	NewFromFloat(-1.13585365213876817300e-11), // 0xbda8fa49a0861a9b
+	NewFromFloat(2.08757008419747316778e-9),   // 0x3e21ee9d7b4e3f05
+	NewFromFloat(-2.75573141792967388112e-7),  // 0xbe927e4f7eac4bc6
+	NewFromFloat(2.48015872888517045348e-5),   // 0x3efa01a019c844f5
+	NewFromFloat(-1.38888888888730564116e-3),  // 0xbf56c16c16c14f91
+	NewFromFloat(4.16666666666665929218e-2),   // 0x3fa555555555554b
 }
 
 // Cos returns the cosine of the radian argument x.
 func (d Decimal) Cos() Decimal {
 
-	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
 	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
 	// make argument positive
@@ -1354,6 +1607,7 @@ func (d Decimal) Cos() Decimal {
 		sign = !sign
 		j -= 4
 	}
+
 	if j > 1 {
 		sign = !sign
 	}
@@ -1374,24 +1628,23 @@ func (d Decimal) Cos() Decimal {
 }
 
 var _tanP = [...]Decimal{
-	NewFromFloat(-1.30936939181383777646E+4), // 0xc0c992d8d24f3f38
-	NewFromFloat(1.15351664838587416140E+6),  // 0x413199eca5fc9ddd
-	NewFromFloat(-1.79565251976484877988E+7), // 0xc1711fead3299176
+	NewFromFloat(-1.30936939181383777646e+4), // 0xc0c992d8d24f3f38
+	NewFromFloat(1.15351664838587416140e+6),  // 0x413199eca5fc9ddd
+	NewFromFloat(-1.79565251976484877988e+7), // 0xc1711fead3299176
 }
 var _tanQ = [...]Decimal{
-	NewFromFloat(1.00000000000000000000E+0),
-	NewFromFloat(1.36812963470692954678E+4),  //0x40cab8a5eeb36572
-	NewFromFloat(-1.32089234440210967447E+6), //0xc13427bc582abc96
-	NewFromFloat(2.50083801823357915839E+7),  //0x4177d98fc2ead8ef
-	NewFromFloat(-5.38695755929454629881E+7), //0xc189afe03cbe5a31
+	NewFromFloat(1.00000000000000000000e+0),
+	NewFromFloat(1.36812963470692954678e+4),  //0x40cab8a5eeb36572
+	NewFromFloat(-1.32089234440210967447e+6), //0xc13427bc582abc96
+	NewFromFloat(2.50083801823357915839e+7),  //0x4177d98fc2ead8ef
+	NewFromFloat(-5.38695755929454629881e+7), //0xc189afe03cbe5a31
 }
 
 // Tan returns the tangent of the radian argument x.
 func (d Decimal) Tan() Decimal {
-
-	PI4A := NewFromFloat(7.85398125648498535156E-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668E-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645E-15)                            // 0x3ce8469898cc5170,
+	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
+	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
+	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
 	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
 
 	if d.Equal(NewFromFloat(0.0)) {
@@ -1442,3 +1695,5 @@ func (d Decimal) Copy() Decimal {
 		exp:   d.exp,
 	}
 }
+
+

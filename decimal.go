@@ -1553,7 +1553,8 @@ func (d Decimal) Sin() Decimal {
 		sign = !sign
 		j -= 4
 	}
-  	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
+  	
+	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
 	zz := z.Mul(z)
 
 	if j == 1 || j == 2 {

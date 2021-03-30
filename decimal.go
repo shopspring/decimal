@@ -1553,8 +1553,7 @@ func (d Decimal) Sin() Decimal {
 		sign = !sign
 		j -= 4
 	}
-  	
-	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
+  	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
 	zz := z.Mul(z)
 
 	if j == 1 || j == 2 {
@@ -1645,7 +1644,6 @@ func (d Decimal) Tan() Decimal {
 	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
 	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
 	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
-
 	if d.Equal(NewFromFloat(0.0)) {
 		return d
 	}

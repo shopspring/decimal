@@ -1640,10 +1640,12 @@ var _tanQ = [...]Decimal{
 
 // Tan returns the tangent of the radian argument x.
 func (d Decimal) Tan() Decimal {
+	
 	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
 	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
 	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
 	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	
 	if d.Equal(NewFromFloat(0.0)) {
 		return d
 	}

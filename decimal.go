@@ -52,6 +52,8 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
+var ExpMaxIterations = 1000
+
 // Zero constant, to make computations faster.
 // Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
 var Zero = New(0, 1)
@@ -63,6 +65,8 @@ var fourInt = big.NewInt(4)
 var fiveInt = big.NewInt(5)
 var tenInt = big.NewInt(10)
 var twentyInt = big.NewInt(20)
+
+var factorials = []Decimal{New(1, 0)}
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -628,6 +632,127 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 		return temp.Mul(temp).Mul(d)
 	}
 	return temp.Mul(temp).Div(d)
+}
+
+// Exp calculates the natural exponent of decimal (e to the power of d)
+func (d Decimal) Exp(overallPrecision uint32) (Decimal, error) {
+	// Algorithm based on Variable precision exponential function.
+	// ACM Transactions on Mathematical Software by Hull, T. E., & Abrham, A.
+	if d.IsZero() {
+		return Decimal{oneInt, 0}, nil
+	}
+
+	// special cases preventing under and overflow
+	overflowThreshold := New(23*int64(overallPrecision), 0)
+
+	// fail if abs(d) beyond an over/underflow threshold
+	if d.Abs().Cmp(overflowThreshold) > 0 {
+		// TODO: Increase the precision
+		return Decimal{}, fmt.Errorf("over/underflow threshold")
+	}
+
+	overflowThreshold2 := New(9, -int32(overallPrecision)-1)
+	// return 1 if abs(d) small enough; this also avoids later over/underflow
+	if d.Abs().Cmp(overflowThreshold2) <= 0 {
+		return Decimal{oneInt, d.exp}, nil
+	}
+
+	// t is the smallest integer >= 0 such that the corresponding abs(d/k) < 1
+	t := d.exp + int32(d.NumDigits()) // Add d.NumDigits because the paper assumes that d.value [0.1, 1)
+
+	if t < 0 {
+		t = 0
+	}
+
+	k := New(1, t)                                     // reduction factor
+	r := Decimal{new(big.Int).Set(d.value), d.exp - t} // reduced argument
+	p := int32(overallPrecision) + t + 2               // precision for calculating the sum
+
+	// determine n, the number of therms for calculating sum
+	// use first Newton step (1.435p - 1.182) / log10(p/abs(r))
+	// for solving appropriate equation, along with directed
+	// roundings and simple rational bound for log10(p/abs(r))
+	rf := r.Abs().InexactFloat64()
+	pf := float64(p)
+	nf := math.Ceil((1.453*pf - 1.182) / math.Log10(pf/rf))
+	if nf > float64(ExpMaxIterations) || math.IsNaN(nf) {
+		return Decimal{}, fmt.Errorf("exact value cannot be calculated in <=ExpMaxIterations iterations")
+	}
+	n := int64(nf)
+
+	tmp := New(0, 0)
+	sum := New(1, 0)
+	one := New(1, 0)
+	for i := n - 1; i > 0; i-- {
+		tmp.value.SetInt64(i)
+		sum = sum.Mul(r.Div(tmp))
+		sum = sum.Add(one)
+	}
+
+	ki := k.IntPart()
+
+	res := New(1, 0)
+	for i := ki; i > 0; i-- {
+		res = res.Mul(sum)
+	}
+	res = res.Round(-d.exp + 1)
+
+	return res, nil
+}
+
+// ExpTaylor calculates the natural exponent of decimal (e to the power of d) using Taylor series expansion
+func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
+	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
+	if d.IsZero() {
+		return Decimal{oneInt, 0}, nil
+	}
+
+	epsilon := New(1, precision-1)
+	result := New(1, 0)
+	decAbs := d.Abs()
+	pow := d.Abs()
+	factorial := New(1, 0)
+
+	for i := int64(1); ; {
+		step := pow.Div(factorial)
+		result = result.Add(step)
+
+		// Stop Taylor series when current step is smaller than epsilon
+		if step.Cmp(epsilon) < 0 {
+			break
+		}
+
+		pow = pow.Mul(decAbs)
+
+		i++
+
+		// Calculate next factorial number or retrieve cached value
+		if len(factorials) >= int(i) {
+			factorial = factorials[i-1]
+		} else {
+			factorial = factorials[i-2].Mul(New(i, 0))
+			factorials = append(factorials, factorial)
+		}
+
+		//fmt.Println(i, result)
+	}
+
+	//fmt.Println(factorials)
+	if d.Sign() < 0 {
+		result = New(1, 0).Div(result)
+	}
+
+	result = result.Round(-precision)
+
+	//fmt.Println(factorials)
+
+	return result, nil
+}
+
+// NumDigits return the number of digits coefficient (d.Value)
+func (d Decimal) NumDigits() int {
+	// Note(mwoss): It can be optimized, unnecessary cast of bit.Int to string
+	return len(d.value.String())
 }
 
 // IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.

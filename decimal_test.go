@@ -2596,6 +2596,109 @@ func TestDecimal_IsInteger(t *testing.T) {
 	}
 }
 
+func TestDecimal_Exp(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec              string
+		OverallPrecision uint32
+		ExpectedDec      string
+	}{
+		{"0", 1, "1"},
+		{"0.00", 2, "1"},
+		{"1.0", 5, ""},
+		{"3.0", 2, ""},
+		{"5.26", 2, ""},
+		{"5.2663117716", 2, ""},
+		{"26.1", 2, ""},
+		{"529.1591", 2, ""},
+		{"-1.0", 2, ""},
+		{"-3.0", 2, ""},
+		{"-5.26", 2, ""},
+		{"-5.2663117716", 2, ""},
+		{"-26.1", 2, ""},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.ExpectedDec)
+
+		exp, err := d.Exp(testCase.OverallPrecision)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if exp.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s", testCase.ExpectedDec, exp.String())
+		}
+
+	}
+}
+
+func TestDecimal_ExpTaylor(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec         string
+		Precision   int32
+		ExpectedDec string
+	}{
+		{"0", 1, "1"},
+		{"0", -5, "1"},
+		{"0.00", 5, "1"},
+		{"1.0", -5, "2.71828"},
+		{"1.0", -1, "2.7"},
+		{"1.0", 5, "0"},
+		{"1.0", 1, "0"},
+		{"1.0", 0, "3"},
+		{"3.0", -1, "20.1"},
+		{"3.0", -2, "20.09"},
+		//{"5.26", 2, ""},
+		//{"5.2663117716", 2, ""},
+		{"26.1", -2, "216314672147.06"},
+		//{"529.1591", 2, ""},
+		//{"-1.0", 2, ""},
+		//{"-3.0", 2, ""},
+		//{"-5.26", 2, ""},
+		//{"-5.2663117716", 2, ""},
+		//{"-26.1", 2, ""},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.ExpectedDec)
+
+		exp, err := d.ExpTaylor(testCase.Precision)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if exp.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s", testCase.ExpectedDec, exp.String())
+		}
+
+	}
+}
+
+func TestDecimal_NumDigits(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec               string
+		ExpectedNumDigits int32
+	}{
+		{"0", 1},
+		{"0.00", 2},
+		{"1.0", 5},
+		{"3.0", 2},
+		{"5.26", 2},
+		{"5.2663117716", 2},
+		{"26.1", 2},
+		{"529.1591", 2},
+		{"-1.0", 2},
+		{"-3.0", 2},
+		{"-5.26", 2},
+		{"-5.2663117716", 2},
+		{"-26.1", 2},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+
+		nums := d.NumDigits()
+		if nums != 0 {
+			t.Errorf("expected %d, got %d", testCase.ExpectedNumDigits, nums)
+		}
+	}
+}
+
 func TestDecimal_Sign(t *testing.T) {
 	if Zero.Sign() != 0 {
 		t.Errorf("%q should have sign 0", Zero)

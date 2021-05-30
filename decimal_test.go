@@ -2728,26 +2728,27 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 func TestDecimal_NumDigits(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec               string
-		ExpectedNumDigits int32
+		ExpectedNumDigits int
 	}{
 		{"0", 1},
-		{"0.00", 2},
-		{"1.0", 5},
+		{"0.00", 1},
+		{"1.0", 2},
 		{"3.0", 2},
-		{"5.26", 2},
-		{"5.2663117716", 2},
-		{"26.1", 2},
-		{"529.1591", 2},
+		{"5.26", 3},
+		{"5.2663117716", 11},
+		{"3164836416948884.2162426426426267863", 35},
+		{"26.1", 3},
+		{"529.1591", 7},
 		{"-1.0", 2},
 		{"-3.0", 2},
-		{"-5.26", 2},
-		{"-5.2663117716", 2},
-		{"-26.1", 2},
+		{"-5.26", 3},
+		{"-5.2663117716", 11},
+		{"-26.1", 3},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 
 		nums := d.NumDigits()
-		if nums != 0 {
+		if nums != testCase.ExpectedNumDigits {
 			t.Errorf("expected %d, got %d", testCase.ExpectedNumDigits, nums)
 		}
 	}

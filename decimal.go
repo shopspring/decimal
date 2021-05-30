@@ -793,7 +793,10 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 
 // NumDigits return the number of digits of decimal coefficient (d.Value)
 func (d Decimal) NumDigits() int {
-	// Note(mwoss): It can be optimized, unnecessary cast of bit.Int to string
+	// Note(mwoss): It can be optimized, unnecessary cast of big.Int to string
+	if d.IsNegative() {
+		return len(d.value.String()) - 1
+	}
 	return len(d.value.String())
 }
 

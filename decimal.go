@@ -52,6 +52,8 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
+// ExpMaxIterations specifies the maximum number of iterations needed to calculate
+// precise natural exponent value using ExpHullAbraham method.
 var ExpMaxIterations = 1000
 
 // Zero constant, to make computations faster.

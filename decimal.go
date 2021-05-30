@@ -634,25 +634,41 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 	return temp.Mul(temp).Div(d)
 }
 
-// Exp calculates the natural exponent of decimal (e to the power of d)
-func (d Decimal) Exp(overallPrecision uint32) (Decimal, error) {
+// ExpHullAbraham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
+// OverallPrecision argument specifies the overall precision of the result (integer part + decimal part).
+//
+// ExpHullAbraham is faster than ExpTaylor for small precision values, but it is much slower for large precision values.
+//
+// Example:
+//
+//     NewFromFloat(26.1).ExpHullAbraham(2).String()    // output: "220000000000"
+//     NewFromFloat(26.1).ExpHullAbraham(20).String()   // output: "216314672147.05767284"
+//
+func (d Decimal) ExpHullAbraham(overallPrecision uint32) (Decimal, error) {
 	// Algorithm based on Variable precision exponential function.
-	// ACM Transactions on Mathematical Software by Hull, T. E., & Abrham, A.
+	// ACM Transactions on Mathematical Software by T. E. Hull & A. Abrham.
 	if d.IsZero() {
 		return Decimal{oneInt, 0}, nil
 	}
 
-	// special cases preventing under and overflow
-	overflowThreshold := New(23*int64(overallPrecision), 0)
+	currentPrecision := overallPrecision
 
-	// fail if abs(d) beyond an over/underflow threshold
-	if d.Abs().Cmp(overflowThreshold) > 0 {
-		// TODO: Increase the precision
-		return Decimal{}, fmt.Errorf("over/underflow threshold")
+	// Algorithm does not work if currentPrecision * 23 < |x|.
+	// Precision is automatically increased in such cases, so the value can be calculated precisely.
+	// If newly calculated precision is higher than ExpMaxIterations the currentPrecision will not be changed.
+	f := d.Abs().InexactFloat64()
+	if ncp := f / 23; ncp > float64(currentPrecision) && ncp < float64(ExpMaxIterations) {
+		currentPrecision = uint32(math.Ceil(ncp))
 	}
 
-	overflowThreshold2 := New(9, -int32(overallPrecision)-1)
-	// return 1 if abs(d) small enough; this also avoids later over/underflow
+	// fail if abs(d) beyond an over/underflow threshold
+	overflowThreshold := New(23*int64(currentPrecision), 0)
+	if d.Abs().Cmp(overflowThreshold) > 0 {
+		return Decimal{}, fmt.Errorf("over/underflow threshold, exp(x) cannot be calculated precisely")
+	}
+
+	// Return 1 if abs(d) small enough; this also avoids later over/underflow
+	overflowThreshold2 := New(9, -int32(currentPrecision)-1)
 	if d.Abs().Cmp(overflowThreshold2) <= 0 {
 		return Decimal{oneInt, d.exp}, nil
 	}
@@ -666,9 +682,9 @@ func (d Decimal) Exp(overallPrecision uint32) (Decimal, error) {
 
 	k := New(1, t)                                     // reduction factor
 	r := Decimal{new(big.Int).Set(d.value), d.exp - t} // reduced argument
-	p := int32(overallPrecision) + t + 2               // precision for calculating the sum
+	p := int32(currentPrecision) + t + 2               // precision for calculating the sum
 
-	// determine n, the number of therms for calculating sum
+	// Determine n, the number of therms for calculating sum
 	// use first Newton step (1.435p - 1.182) / log10(p/abs(r))
 	// for solving appropriate equation, along with directed
 	// roundings and simple rational bound for log10(p/abs(r))
@@ -685,36 +701,66 @@ func (d Decimal) Exp(overallPrecision uint32) (Decimal, error) {
 	one := New(1, 0)
 	for i := n - 1; i > 0; i-- {
 		tmp.value.SetInt64(i)
-		sum = sum.Mul(r.Div(tmp))
+		sum = sum.Mul(r.DivRound(tmp, p))
 		sum = sum.Add(one)
 	}
 
 	ki := k.IntPart()
-
 	res := New(1, 0)
 	for i := ki; i > 0; i-- {
 		res = res.Mul(sum)
 	}
-	res = res.Round(-d.exp + 1)
+
+	resNumDigits := int32(res.NumDigits())
+
+	var roundDigits int32
+	if resNumDigits > abs(res.exp) {
+		roundDigits = int32(currentPrecision) - resNumDigits - res.exp
+	} else {
+		roundDigits = int32(currentPrecision)
+	}
+
+	res = res.Round(roundDigits)
 
 	return res, nil
 }
 
-// ExpTaylor calculates the natural exponent of decimal (e to the power of d) using Taylor series expansion
+// ExpTaylor calculates the natural exponent of decimal (e to the power of d) using Taylor series expansion.
+// Precision argument specifies how precise the result must be (number of digits after decimal point).
+// Negative precision is allowed.
+//
+// ExpTaylor is much faster for large precision values than ExpHullAbraham.
+//
+// Example:
+//
+//     NewFromFloat(26.1).ExpHullAbraham(2).String()     // output: "216314672147.06"
+//     NewFromFloat(26.1).ExpHullAbraham(20).String()    // output: "216314672147.05767284062928674083"
+//     NewFromFloat(26.1).ExpHullAbraham(-10).String()   // output: "220000000000"
+//
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
 	if d.IsZero() {
-		return Decimal{oneInt, 0}, nil
+		return Decimal{oneInt, 0}.Round(precision), nil
 	}
 
-	epsilon := New(1, precision-1)
-	result := New(1, 0)
+	var epsilon Decimal
+	var divPrecision int32
+	if precision < 0 {
+		epsilon = New(1, -1)
+		divPrecision = 8
+	} else {
+		epsilon = New(1, -precision-1)
+		divPrecision = precision + 1
+	}
+
 	decAbs := d.Abs()
 	pow := d.Abs()
 	factorial := New(1, 0)
 
+	result := New(1, 0)
+
 	for i := int64(1); ; {
-		step := pow.Div(factorial)
+		step := pow.DivRound(factorial, divPrecision)
 		result = result.Add(step)
 
 		// Stop Taylor series when current step is smaller than epsilon
@@ -733,23 +779,17 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 			factorial = factorials[i-2].Mul(New(i, 0))
 			factorials = append(factorials, factorial)
 		}
-
-		//fmt.Println(i, result)
 	}
 
-	//fmt.Println(factorials)
 	if d.Sign() < 0 {
-		result = New(1, 0).Div(result)
+		result = New(1, 0).DivRound(result, precision+1)
 	}
 
-	result = result.Round(-precision)
-
-	//fmt.Println(factorials)
-
+	result = result.Round(precision)
 	return result, nil
 }
 
-// NumDigits return the number of digits coefficient (d.Value)
+// NumDigits return the number of digits of decimal coefficient (d.Value)
 func (d Decimal) NumDigits() int {
 	// Note(mwoss): It can be optimized, unnecessary cast of bit.Int to string
 	return len(d.value.String())

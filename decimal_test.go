@@ -2798,6 +2798,24 @@ func TestBinary(t *testing.T) {
 	}
 }
 
+func TestBinary_DataTooShort(t *testing.T) {
+	var d Decimal
+
+	err := d.UnmarshalBinary(nil) // nil slice has length 0
+	if err == nil {
+		t.Fatalf("expected error, got %v", d)
+	}
+}
+
+func TestBinary_InvalidValue(t *testing.T) {
+	var d Decimal
+
+	err := d.UnmarshalBinary([]byte{0, 0, 0, 0, 'x'}) // valid exponent, invalid value
+	if err == nil {
+		t.Fatalf("expected error, got %v", d)
+	}
+}
+
 func slicesEqual(a, b []byte) bool {
 	for i, val := range a {
 		if b[i] != val {

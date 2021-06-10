@@ -1164,7 +1164,7 @@ func (d *Decimal) UnmarshalBinary(data []byte) error {
 	// Extract the value
 	d.value = new(big.Int)
 	if err := d.value.GobDecode(data[4:]); err != nil {
-		return fmt.Errorf("error decoding binary %v: %w", data, err)
+		return fmt.Errorf("error decoding binary %v: %s", data, err)
 	}
 
 	return nil

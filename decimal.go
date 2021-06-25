@@ -611,24 +611,24 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 // Mod returns d % d2.
 func (d Decimal) Mod(d2 Decimal) Decimal {
 	quo := d.Div(d2).Truncate(0)
-	return d.Sub(d2.Mul(quo))
-}
-
-// Pow returns d to the power d2
+  
+	temp1 := d.Sub(d2.Mul(quo))
+	f, _ := strconv.ParseFloat(temp1.String(), 8)
+	f1, _ := strconv.ParseFloat(d2.String(), 8)
+	if f < 0 {
+	  return d.Sub(d2.Mul(quo)).Add(NewFromFloat(f1))
+	}
+	return temp1
+  }
+// Pow Function Implemented
 func (d Decimal) Pow(d2 Decimal) Decimal {
 	var temp Decimal
-	if d2.IntPart() == 0 {
-		return NewFromFloat(1)
-	}
-	temp = d.Pow(d2.Div(NewFromFloat(2)))
-	if d2.IntPart()%2 == 0 {
-		return temp.Mul(temp)
-	}
-	if d2.IntPart() > 0 {
-		return temp.Mul(temp).Mul(d)
-	}
-	return temp.Mul(temp).Div(d)
-}
+	x := d.value
+	a := big.NewInt(int64(d.exp)).Mul(big.NewInt(int64(d.exp)), d2.value)
+	temp.value = x.Exp(x, d2.value, nil)
+	temp.exp = int32(a.Int64())
+	return temp
+  }
 
 // IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.
 func (d Decimal) IsInteger() bool {

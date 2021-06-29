@@ -1411,6 +1411,13 @@ type NullDecimal struct {
 	Valid   bool
 }
 
+func NewNullDecimal(d Decimal) NullDecimal {
+	return NullDecimal{
+		Decimal: d,
+		Valid:   true,
+	}
+}
+
 // Scan implements the sql.Scanner interface for database deserialization.
 func (d *NullDecimal) Scan(value interface{}) error {
 	if value == nil {

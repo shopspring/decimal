@@ -3081,6 +3081,18 @@ func TestTan(t *testing.T) {
 	}
 }
 
+func TestNewNullDecimal(t *testing.T) {
+	d := NewFromInt(1)
+	nd := NewNullDecimal(d)
+
+	if !nd.Valid {
+		t.FailNow()
+	}
+	if nd.Decimal != d {
+		t.FailNow()
+	}
+}
+
 func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(123.123123123123).String())
 	fmt.Println(NewFromFloat32(.123123123123123).String())

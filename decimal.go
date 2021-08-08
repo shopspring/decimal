@@ -457,6 +457,9 @@ func (d Decimal) rescale(exp int32) Decimal {
 
 // Abs returns the absolute value of the decimal.
 func (d Decimal) Abs() Decimal {
+	if !d.IsNegative() {
+		return d
+	}
 	d.ensureInitialized()
 	d2Value := new(big.Int).Abs(d.value)
 	return Decimal{
@@ -879,6 +882,9 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 // 	   NewFromFloat(545).Round(-1).String() // output: "550"
 //
 func (d Decimal) Round(places int32) Decimal {
+	if d.exp == -places {
+		return d
+	}
 	// truncate to places + 1
 	ret := d.rescale(-places - 1)
 

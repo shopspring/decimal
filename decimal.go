@@ -761,6 +761,14 @@ func (d Decimal) Coefficient() *big.Int {
 	return big.NewInt(0).Set(d.value)
 }
 
+// OriginalIntPart returns the integer component of the decimal
+// scaled by the decimals exponent. In other words, it returns the
+// int64 the decimal was originally constructed with.
+func (d Decimal) OriginalIntPart() int64 {
+	scaledD := d.rescale(d.exp)
+	return scaledD.value.Int64()
+}
+
 // IntPart returns the integer component of the decimal.
 func (d Decimal) IntPart() int64 {
 	scaledD := d.rescale(0)

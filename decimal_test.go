@@ -2216,6 +2216,25 @@ func TestIntPart(t *testing.T) {
 	}
 }
 
+func TestOriginalIntPart(t *testing.T) {
+	for _, testCase := range []struct {
+		Value int64
+		Exp   int32
+	}{
+		{1, -3},
+		{121, -1},
+		{9999999, -3},
+		{3276801234, -5},
+		{10, 0},
+		{100, 1},
+	} {
+		d := New(testCase.Value, testCase.Exp)
+		if d.OriginalIntPart() != testCase.Value {
+			t.Errorf("expect %d, got %d", testCase.Value, d.OriginalIntPart())
+		}
+	}
+}
+
 func TestBigInt(t *testing.T) {
 	testCases := []struct {
 		Dec       string

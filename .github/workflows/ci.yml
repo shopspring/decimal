@@ -1,0 +1,19 @@
+name: decimal-ci
+on: [push]
+jobs:
+  ci-job:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.7.x', '1.15', '1.16', '1.17', 'tip' ]
+        archi: [ 'amd64', 'ppc64le' ]
+    name: Decimal CI - GO version ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+          architecture: ${{ matrix.archi }}
+      - run: go build .
+      - run: go test -v

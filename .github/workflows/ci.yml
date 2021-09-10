@@ -5,15 +5,13 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: [ '1.7.x', '1.15', '1.16', '1.17', 'tip' ]
-        archi: [ 'amd64', 'ppc64le' ]
-    name: Decimal CI - GO version ${{ matrix.go }}
+        go: [ '1.7.x', '1.15', '1.16', '1.17', '1.x' ]
+    name: Go ${{ matrix.go }}
     steps:
       - uses: actions/checkout@v2
       - name: Use go
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
-          architecture: ${{ matrix.archi }}
       - run: go build .
       - run: go test -v

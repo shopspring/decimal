@@ -756,12 +756,18 @@ func (d Decimal) Exponent() int32 {
 	return d.exp
 }
 
-// Coefficient returns the coefficient of the decimal.  It is scaled by 10^Exponent()
+// Coefficient returns the coefficient of the decimal. It is scaled by 10^Exponent()
 func (d Decimal) Coefficient() *big.Int {
 	d.ensureInitialized()
-	// we copy the coefficient so that mutating the result does not mutate the
-	// Decimal.
+	// we copy the coefficient so that mutating the result does not mutate the Decimal.
 	return big.NewInt(0).Set(d.value)
+}
+
+// CoefficientInt64 returns the coefficient of the decimal as int64. It is scaled by 10^Exponent()
+// If coefficient cannot be represented in an int64, the result will be undefined.
+func (d Decimal) CoefficientInt64() int64 {
+	d.ensureInitialized()
+	return d.value.Int64()
 }
 
 // IntPart returns the integer component of the decimal.

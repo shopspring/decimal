@@ -2643,6 +2643,36 @@ func TestDecimal_Coefficient(t *testing.T) {
 	}
 }
 
+func TestDecimal_CoefficientInt64(t *testing.T) {
+	type Inp struct {
+		Dec string
+		Coefficient int64
+	}
+
+	testCases := []Inp{
+		{"1", 1},
+		{"1.111", 1111},
+		{"1.000000", 1000000},
+		{"1.121215125511", 1121215125511},
+		{"100000000000000000", 100000000000000000},
+		{"9223372036854775807", 9223372036854775807},
+		{"10000000000000000000", -8446744073709551616}, // undefined value
+	}
+
+	// add negative cases
+	for _, tc := range testCases {
+		testCases = append(testCases, Inp{"-" + tc.Dec, -tc.Coefficient})
+	}
+
+	for _, tc := range testCases {
+		d := RequireFromString(tc.Dec)
+		coefficient := d.CoefficientInt64()
+		if coefficient != tc.Coefficient {
+			t.Errorf("expect coefficient %d, got %d, for decimal %s", tc.Coefficient, coefficient, tc.Dec)
+		}
+	}
+}
+
 func TestNullDecimal_Scan(t *testing.T) {
 	// test the Scan method that implements the
 	// sql.Scanner interface

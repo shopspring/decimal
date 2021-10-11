@@ -233,7 +233,7 @@ func BenchmarkDecimal_ExpHullAbraham(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = d.ExpHullAbraham(10)
+		_, _ = d.ExpHullAbrham(10)
 	}
 }
 

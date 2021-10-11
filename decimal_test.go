@@ -2596,7 +2596,7 @@ func TestDecimal_IsInteger(t *testing.T) {
 	}
 }
 
-func TestDecimal_ExpHullAbraham(t *testing.T) {
+func TestDecimal_ExpHullAbrham(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec              string
 		OverallPrecision uint32
@@ -2645,13 +2645,13 @@ func TestDecimal_ExpHullAbraham(t *testing.T) {
 		d, _ := NewFromString(testCase.Dec)
 		expected, _ := NewFromString(testCase.ExpectedDec)
 
-		exp, err := d.ExpHullAbraham(testCase.OverallPrecision)
+		exp, err := d.ExpHullAbrham(testCase.OverallPrecision)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		if exp.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", testCase.ExpectedDec, exp.String())
+			t.Errorf("expected %s, got %s, for decimal %s", testCase.ExpectedDec, exp.String(), testCase.Dec)
 		}
 
 	}
@@ -2749,7 +2749,7 @@ func TestDecimal_NumDigits(t *testing.T) {
 
 		nums := d.NumDigits()
 		if nums != testCase.ExpectedNumDigits {
-			t.Errorf("expected %d, got %d", testCase.ExpectedNumDigits, nums)
+			t.Errorf("expected %d digits for decimal %s, got %d", testCase.ExpectedNumDigits, testCase.Dec, nums)
 		}
 	}
 }
@@ -3239,10 +3239,4 @@ func ExampleNewFromFloat() {
 	//123.123123123123
 	//0.123123123123123
 	//-10000000000000
-}
-
-func Test2(t *testing.T) {
-	d1 := RequireFromString("3104646.0")
-	d2 := RequireFromString("3.0")
-	t.Log(d1.DivRound(d2, -6))
 }

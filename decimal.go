@@ -53,7 +53,7 @@ var DivisionPrecision = 16
 var MarshalJSONWithoutQuotes = false
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
-// precise natural exponent value using ExpHullAbraham method.
+// precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
 
 // Zero constant, to make computations faster.
@@ -636,17 +636,17 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 	return temp.Mul(temp).Div(d)
 }
 
-// ExpHullAbraham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
+// ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
 // OverallPrecision argument specifies the overall precision of the result (integer part + decimal part).
 //
-// ExpHullAbraham is faster than ExpTaylor for small precision values, but it is much slower for large precision values.
+// ExpHullAbrham is faster than ExpTaylor for small precision values, but it is much slower for large precision values.
 //
 // Example:
 //
-//     NewFromFloat(26.1).ExpHullAbraham(2).String()    // output: "220000000000"
-//     NewFromFloat(26.1).ExpHullAbraham(20).String()   // output: "216314672147.05767284"
+//     NewFromFloat(26.1).ExpHullAbrham(2).String()    // output: "220000000000"
+//     NewFromFloat(26.1).ExpHullAbrham(20).String()   // output: "216314672147.05767284"
 //
-func (d Decimal) ExpHullAbraham(overallPrecision uint32) (Decimal, error) {
+func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	// Algorithm based on Variable precision exponential function.
 	// ACM Transactions on Mathematical Software by T. E. Hull & A. Abrham.
 	if d.IsZero() {
@@ -731,13 +731,18 @@ func (d Decimal) ExpHullAbraham(overallPrecision uint32) (Decimal, error) {
 // Precision argument specifies how precise the result must be (number of digits after decimal point).
 // Negative precision is allowed.
 //
-// ExpTaylor is much faster for large precision values than ExpHullAbraham.
+// ExpTaylor is much faster for large precision values than ExpHullAbrham.
 //
 // Example:
 //
-//     NewFromFloat(26.1).ExpHullAbraham(2).String()     // output: "216314672147.06"
-//     NewFromFloat(26.1).ExpHullAbraham(20).String()    // output: "216314672147.05767284062928674083"
-//     NewFromFloat(26.1).ExpHullAbraham(-10).String()   // output: "220000000000"
+//     d, err := NewFromFloat(26.1).ExpTaylor(2).String()
+//     d.String()  // output: "216314672147.06"
+//
+//     NewFromFloat(26.1).ExpTaylor(20).String()
+//     d.String()  // output: "216314672147.05767284062928674083"
+//
+//     NewFromFloat(26.1).ExpTaylor(-10).String()
+//     d.String()  // output: "220000000000"
 //
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
@@ -775,11 +780,15 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 		i++
 
 		// Calculate next factorial number or retrieve cached value
-		if len(factorials) >= int(i) {
+		if len(factorials) >= int(i) && !factorials[i-1].IsZero() {
 			factorial = factorials[i-1]
 		} else {
+			// To avoid any race conditions, firstly the zero value is appended to a slice to create
+			// a spot for newly calculated factorial. After that, the zero value is replaced by calculated
+			// factorial using the index notation.
 			factorial = factorials[i-2].Mul(New(i, 0))
-			factorials = append(factorials, factorial)
+			factorials = append(factorials, Zero)
+			factorials[i-1] = factorial
 		}
 	}
 
@@ -791,7 +800,8 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	return result, nil
 }
 
-// NumDigits return the number of digits of decimal coefficient (d.Value)
+// NumDigits returns the number of digits of the decimal coefficient (d.Value)
+// Note: Current implementation is extremely slow for large decimals and/or decimals with large fractional part
 func (d Decimal) NumDigits() int {
 	// Note(mwoss): It can be optimized, unnecessary cast of big.Int to string
 	if d.IsNegative() {

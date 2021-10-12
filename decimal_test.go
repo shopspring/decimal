@@ -3288,3 +3288,21 @@ func ExampleNewFromFloat() {
 	//0.123123123123123
 	//-10000000000000
 }
+
+//For Copy
+func TestCopy(t *testing.T) {
+	origin := New(1, 0)
+	cpy := origin.Copy()
+
+	if cpy.Cmp(origin) != 0 {
+		t.Error("copy and origin not equal")
+	}
+
+	//change value
+	cpy = cpy.Add(New(1, 0))
+
+	if cpy.Cmp(origin) == 0 {
+		t.Error("copy and origin are equal but expected not")
+	}
+
+}

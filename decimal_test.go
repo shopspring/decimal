@@ -556,6 +556,22 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 	}
 }
 
+func TestCopy(t *testing.T) {
+	origin := New(1, 0)
+	cpy := origin.Copy()
+
+	if cpy.Cmp(origin) != 0 {
+		t.Error("expecting copy and origin to be equals, but they are not")
+	}
+
+	//change value
+	cpy = cpy.Add(New(1, 0))
+
+	if cpy.Cmp(origin) == 0 {
+		t.Error("expecting copy and origin to have different values, but they are equal")
+	}
+}
+
 func TestJSON(t *testing.T) {
 	for _, x := range testTable {
 		s := x.short
@@ -2803,7 +2819,7 @@ func TestDecimal_Coefficient(t *testing.T) {
 
 func TestDecimal_CoefficientInt64(t *testing.T) {
 	type Inp struct {
-		Dec string
+		Dec         string
 		Coefficient int64
 	}
 
@@ -3299,22 +3315,4 @@ func ExampleNewFromFloat() {
 	//123.123123123123
 	//0.123123123123123
 	//-10000000000000
-}
-
-//For Copy
-func TestCopy(t *testing.T) {
-	origin := New(1, 0)
-	cpy := origin.Copy()
-
-	if cpy.Cmp(origin) != 0 {
-		t.Error("copy and origin not equal")
-	}
-
-	//change value
-	cpy = cpy.Add(New(1, 0))
-
-	if cpy.Cmp(origin) == 0 {
-		t.Error("copy and origin are equal but expected not")
-	}
-
 }

@@ -831,7 +831,7 @@ func (d Decimal) IsInteger() bool {
 	// When the exponent is negative we have to check every number after the decimal place
 	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
 	var r big.Int
-	q := big.NewInt(0).Set(d.value)
+	q := new(big.Int).Set(d.value)
 	for z := abs(d.exp); z > 0; z-- {
 		q.QuoRem(q, tenInt, &r)
 		if r.Cmp(zeroInt) != 0 {
@@ -949,7 +949,7 @@ func (d Decimal) Exponent() int32 {
 func (d Decimal) Coefficient() *big.Int {
 	d.ensureInitialized()
 	// we copy the coefficient so that mutating the result does not mutate the Decimal.
-	return big.NewInt(0).Set(d.value)
+	return new(big.Int).Set(d.value)
 }
 
 // CoefficientInt64 returns the coefficient of the decimal as int64. It is scaled by 10^Exponent()

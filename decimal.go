@@ -120,7 +120,7 @@ func NewFromInt32(value int32) Decimal {
 // NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{
-		value: big.NewInt(0).Set(value),
+		value: new(big.Int).Set(value),
 		exp:   exp,
 	}
 }

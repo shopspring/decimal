@@ -3002,6 +3002,25 @@ func TestBinary(t *testing.T) {
 	}
 }
 
+func TestBinary_Zero(t *testing.T) {
+	var d1 Decimal
+
+	b, err := d1.MarshalBinary()
+	if err != nil {
+		t.Fatalf("error marshalling %v to binary: %v", d1, err)
+	}
+
+	var d2 Decimal
+	err = (&d2).UnmarshalBinary(b)
+	if err != nil {
+		t.Errorf("error unmarshalling from binary: %v", err)
+	}
+
+	if !d1.Equals(d2) {
+		t.Errorf("expected %v when restoring, got %v", d1, d2)
+	}
+}
+
 func TestBinary_DataTooShort(t *testing.T) {
 	var d Decimal
 

@@ -1353,9 +1353,9 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
 // is already used when encoding to text, this method stores that string as []byte
 func (d *Decimal) UnmarshalBinary(data []byte) error {
-	// Verify we have at least 5 bytes, 4 for the exponent and at least 1 more
-	// for the GOB encoded value.
-	if len(data) < 5 {
+	// Verify we have at least 4 bytes for the exponent. The GOB encoded value
+	// can be empty.
+	if len(data) < 4 {
 		return fmt.Errorf("error decoding binary %v: expected at least 5 bytes, got %d", data, len(data))
 	}
 

@@ -880,24 +880,22 @@ func (d Decimal) Equals(d2 Decimal) bool {
 
 // GreaterThan (GT) returns true when d is greater than d2.
 func (d Decimal) GreaterThan(d2 Decimal) bool {
-	return d.Cmp(d2) == 1
+	return d.Cmp(d2) > 0
 }
 
 // GreaterThanOrEqual (GTE) returns true when d is greater than or equal to d2.
 func (d Decimal) GreaterThanOrEqual(d2 Decimal) bool {
-	cmp := d.Cmp(d2)
-	return cmp == 1 || cmp == 0
+	return d.Cmp(d2) >= 0
 }
 
 // LessThan (LT) returns true when d is less than d2.
 func (d Decimal) LessThan(d2 Decimal) bool {
-	return d.Cmp(d2) == -1
+	return d.Cmp(d2) < 0
 }
 
 // LessThanOrEqual (LTE) returns true when d is less than or equal to d2.
 func (d Decimal) LessThanOrEqual(d2 Decimal) bool {
-	cmp := d.Cmp(d2)
-	return cmp == -1 || cmp == 0
+	return d.Cmp(d2) <= 0
 }
 
 // Sign returns:
@@ -913,25 +911,25 @@ func (d Decimal) Sign() int {
 	return d.value.Sign()
 }
 
-// IsPositive return
+// IsPositive returns
 //
 //	true if d > 0
 //	false if d == 0
 //	false if d < 0
 func (d Decimal) IsPositive() bool {
-	return d.Sign() == 1
+	return d.Sign() > 0
 }
 
-// IsNegative return
+// IsNegative returns
 //
 //	true if d < 0
 //	false if d == 0
 //	false if d > 0
 func (d Decimal) IsNegative() bool {
-	return d.Sign() == -1
+	return d.Sign() < 0
 }
 
-// IsZero return
+// IsZero returns
 //
 //	true if d == 0
 //	false if d > 0

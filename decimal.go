@@ -873,7 +873,7 @@ func (d Decimal) Equal(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
-// Equals is deprecated, please use Equal method instead
+// Deprecated: Equals is deprecated, please use Equal method instead
 func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Equal(d2)
 }
@@ -1454,7 +1454,7 @@ func (d *Decimal) GobDecode(data []byte) error {
 	return d.UnmarshalBinary(data)
 }
 
-// StringScaled first scales the decimal then calls .String() on it.
+// Deprecated: StringScaled first scales the decimal then calls .String() on it.
 // NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
 func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()

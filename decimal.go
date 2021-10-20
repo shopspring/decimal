@@ -1354,9 +1354,9 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 // is already used when encoding to text, this method stores that string as []byte
 func (d *Decimal) UnmarshalBinary(data []byte) error {
 	// Verify we have at least 4 bytes for the exponent. The GOB encoded value
-	// can be empty.
+	// may be empty.
 	if len(data) < 4 {
-		return fmt.Errorf("error decoding binary %v: expected at least 5 bytes, got %d", data, len(data))
+		return fmt.Errorf("error decoding binary %v: expected at least 4 bytes, got %d", data, len(data))
 	}
 
 	// Extract the exponent

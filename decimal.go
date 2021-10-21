@@ -552,7 +552,7 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return d.DivRound(d2, int32(DivisionPrecision))
 }
 
-// QuoRem does divsion with remainder
+// QuoRem does division with remainder
 // d.QuoRem(d2,precision) returns quotient q and remainder r such that
 //   d = d2 * q + r, q an integer multiple of 10^(-precision)
 //   0 <= r < abs(d2) * 10 ^(-precision) if d>=0
@@ -628,7 +628,7 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 
 // Mod returns d % d2.
 func (d Decimal) Mod(d2 Decimal) Decimal {
-	quo := d.Div(d2).Truncate(0)
+	quo := d.DivRound(d2, -d.exp+1).Truncate(0)
 	return d.Sub(d2.Mul(quo))
 }
 

@@ -1424,6 +1424,11 @@ func (d Decimal) Value() (driver.Value, error) {
 	return d.String(), nil
 }
 
+// Decimal returns a pointer to struct
+func (d Decimal) Ptr() *Decimal {
+	return &d
+}
+
 // UnmarshalText implements the encoding.TextUnmarshaler interface for XML
 // deserialization.
 func (d *Decimal) UnmarshalText(text []byte) error {

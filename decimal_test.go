@@ -3320,6 +3320,25 @@ func TestNewNullDecimal(t *testing.T) {
 	}
 }
 
+func TestTrailingZeros(t *testing.T) {
+	MarshalJSONWithoutQuotes = true
+	MarshalJSONWithTrailingZeros = true
+	var doc struct {
+		Amount Decimal `json:"amount"`
+	}
+
+	doc.Amount = New(100, -2)
+	b, err := json.Marshal(&doc)
+	if err != nil {
+		t.FailNow()
+	}
+
+	docStr := `{"amount":1.00}`
+	if string(b) != docStr {
+		t.Errorf("expected %s, got %s", docStr, b)
+	}
+}
+
 func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(123.123123123123).String())
 	fmt.Println(NewFromFloat32(.123123123123123).String())

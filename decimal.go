@@ -52,6 +52,9 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
+// MarshalJSONWithTrailingZeros should be set to true if you want to keep trailing zeros
+var MarshalJSONWithTrailingZeros = false
+
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
@@ -1483,7 +1486,7 @@ func (d Decimal) string(trimTrailingZeros bool) string {
 		fractionalPart = strings.Repeat("0", num0s) + str
 	}
 
-	if trimTrailingZeros {
+	if trimTrailingZeros && !MarshalJSONWithTrailingZeros {
 		i := len(fractionalPart) - 1
 		for ; i >= 0; i-- {
 			if fractionalPart[i] != '0' {

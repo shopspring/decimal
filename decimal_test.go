@@ -3339,7 +3339,7 @@ func TestTrailingZeros(t *testing.T) {
 	}
 }
 
-func TestTrailingZerosA(t *testing.T) {
+func TestTrailingZerosWithIntValue(t *testing.T) {
 	MarshalJSONWithoutTrailingZeros = false
 	v := New(100, 0)
 	str := v.String()

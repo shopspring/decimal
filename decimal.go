@@ -52,7 +52,7 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
-// MarshalJSONWithoutTrailingZeros should be set to true if you want to keep trailing zeros
+// MarshalJSONWithoutTrailingZeros should be set to false if you want to keep trailing zeros
 var MarshalJSONWithoutTrailingZeros = true
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate

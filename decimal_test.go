@@ -3339,6 +3339,20 @@ func TestTrailingZeros(t *testing.T) {
 	}
 }
 
+func TestTrailingZerosA(t *testing.T) {
+	MarshalJSONWithoutTrailingZeros = false
+	v := New(100, 0)
+	str := v.String()
+	if str != "100.0" {
+		t.Errorf("expected %s, got %s", "100.0", str)
+	}
+	MarshalJSONWithoutTrailingZeros = true
+	str = v.String()
+	if str != "100" {
+		t.Errorf("expected %s, got %s", "100", str)
+	}
+}
+
 func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(123.123123123123).String())
 	fmt.Println(NewFromFloat32(.123123123123123).String())

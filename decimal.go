@@ -1465,7 +1465,11 @@ func (d Decimal) StringScaled(exp int32) string {
 
 func (d Decimal) string(trimTrailingZeros bool) string {
 	if d.exp >= 0 {
-		return d.rescale(0).value.String()
+		str := d.rescale(0).value.String()
+		if MarshalJSONWithoutTrailingZeros {
+			return str
+		}
+		return str + ".0"
 	}
 
 	abs := new(big.Int).Abs(d.value)

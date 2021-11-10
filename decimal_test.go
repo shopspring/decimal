@@ -3322,7 +3322,7 @@ func TestNewNullDecimal(t *testing.T) {
 
 func TestTrailingZeros(t *testing.T) {
 	MarshalJSONWithoutQuotes = true
-	MarshalJSONWithTrailingZeros = true
+	MarshalJSONWithoutTrailingZeros = false
 	var doc struct {
 		Amount Decimal `json:"amount"`
 	}

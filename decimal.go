@@ -52,8 +52,8 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
-// MarshalJSONWithTrailingZeros should be set to true if you want to keep trailing zeros
-var MarshalJSONWithTrailingZeros = false
+// MarshalJSONWithoutTrailingZeros should be set to true if you want to keep trailing zeros
+var MarshalJSONWithoutTrailingZeros = true
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
@@ -1025,7 +1025,7 @@ func (d Decimal) InexactFloat64() float64 {
 //     -12.345
 //
 func (d Decimal) String() string {
-	return d.string(true)
+	return d.string(MarshalJSONWithoutTrailingZeros)
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after
@@ -1486,7 +1486,7 @@ func (d Decimal) string(trimTrailingZeros bool) string {
 		fractionalPart = strings.Repeat("0", num0s) + str
 	}
 
-	if trimTrailingZeros && !MarshalJSONWithTrailingZeros {
+	if trimTrailingZeros {
 		i := len(fractionalPart) - 1
 		for ; i >= 0; i-- {
 			if fractionalPart[i] != '0' {

@@ -1030,7 +1030,7 @@ func (d Decimal) String() string {
 
 func (d Decimal) marshalJsonString() string {
 	str := d.string(MarshalJSONWithoutTrailingZeros)
-	if !MarshalJSONWithoutTrailingZeros && !strings.Contains(str, ".") {
+	if !MarshalJSONWithoutTrailingZeros && d.exp >= 0 {
 		str += ".0"
 	}
 	return str

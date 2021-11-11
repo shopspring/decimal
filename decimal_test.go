@@ -3320,36 +3320,77 @@ func TestNewNullDecimal(t *testing.T) {
 	}
 }
 
-func TestTrailingZeros(t *testing.T) {
-	MarshalJSONWithoutQuotes = true
-	MarshalJSONWithoutTrailingZeros = false
-	var doc struct {
-		Amount Decimal `json:"amount"`
+func TestDecimal_MarshalJSON(t *testing.T) {
+	type fields struct {
+		d                Decimal
+		keepTailingZeros bool
 	}
-
-	doc.Amount = New(100, -2)
-	b, err := json.Marshal(&doc)
-	if err != nil {
-		t.FailNow()
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "keep trailing zeros integer",
+			fields: fields{
+				d:                New(10, 0),
+				keepTailingZeros: true,
+			},
+			want:    "10.0",
+			wantErr: false,
+		},
+		{
+			name: "remove trailing zeros integer",
+			fields: fields{
+				d:                New(10, 0),
+				keepTailingZeros: false,
+			},
+			want:    "10",
+			wantErr: false,
+		},
+		{
+			name: "keep trailing zeros decimal",
+			fields: fields{
+				d:                New(100, -2),
+				keepTailingZeros: true,
+			},
+			want:    "1.00",
+			wantErr: false,
+		},
+		{
+			name: "remove trailing zeros decimal",
+			fields: fields{
+				d:                New(100, -2),
+				keepTailingZeros: true,
+			},
+			want:    "1",
+			wantErr: false,
+		},
+		{
+			name: "remove trailing zeros decimal",
+			fields: fields{
+				d:                New(10010, -2),
+				keepTailingZeros: true,
+			},
+			want:    "10.01",
+			wantErr: false,
+		},
 	}
-
-	docStr := `{"amount":1.00}`
-	if string(b) != docStr {
-		t.Errorf("expected %s, got %s", docStr, b)
-	}
-}
-
-func TestTrailingZerosWithIntValue(t *testing.T) {
-	MarshalJSONWithoutTrailingZeros = false
-	v := New(100, 0)
-	str := v.String()
-	if str != "100.0" {
-		t.Errorf("expected %s, got %s", "100.0", str)
-	}
-	MarshalJSONWithoutTrailingZeros = true
-	str = v.String()
-	if str != "100" {
-		t.Errorf("expected %s, got %s", "100", str)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.fields.keepTailingZeros {
+				MarshalJSONWithoutTrailingZeros = false
+			}
+			got, err := tt.fields.d.MarshalJSON()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("MarshalJSON() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if string(got) == tt.want {
+				t.Errorf("MarshalJSON() got = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 

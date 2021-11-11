@@ -1025,7 +1025,15 @@ func (d Decimal) InexactFloat64() float64 {
 //     -12.345
 //
 func (d Decimal) String() string {
-	return d.string(MarshalJSONWithoutTrailingZeros)
+	return d.string(true)
+}
+
+func (d Decimal) marshalJsonString() string {
+	str := d.string(MarshalJSONWithoutTrailingZeros)
+	if !MarshalJSONWithoutTrailingZeros && !strings.Contains(str, ".") {
+		str += ".0"
+	}
+	return str
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after
@@ -1346,9 +1354,9 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	var str string
 	if MarshalJSONWithoutQuotes {
-		str = d.String()
+		str = d.marshalJsonString()
 	} else {
-		str = "\"" + d.String() + "\""
+		str = "\"" + d.marshalJsonString() + "\""
 	}
 	return []byte(str), nil
 }
@@ -1465,11 +1473,7 @@ func (d Decimal) StringScaled(exp int32) string {
 
 func (d Decimal) string(trimTrailingZeros bool) string {
 	if d.exp >= 0 {
-		str := d.rescale(0).value.String()
-		if MarshalJSONWithoutTrailingZeros {
-			return str
-		}
-		return str + ".0"
+		return d.rescale(0).value.String()
 	}
 
 	abs := new(big.Int).Abs(d.value)

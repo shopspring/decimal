@@ -1,3 +1,11 @@
+## Decimal v1.3.1
+
+#### ENHANCEMENTS
+- Reduce memory allocation in case of initialization from big.Int [#252](https://github.com/shopspring/decimal/pull/252)
+
+#### BUGFIXES
+- Fix binary marshalling of decimal zero value  [#253](https://github.com/shopspring/decimal/pull/253)
+
 ## Decimal v1.3.0
 
 #### FEATURES

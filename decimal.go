@@ -120,7 +120,7 @@ func NewFromInt32(value int32) Decimal {
 // NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{
-		value: big.NewInt(0).Set(value),
+		value: new(big.Int).Set(value),
 		exp:   exp,
 	}
 }
@@ -552,7 +552,7 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 	return d.DivRound(d2, int32(DivisionPrecision))
 }
 
-// QuoRem does divsion with remainder
+// QuoRem does division with remainder
 // d.QuoRem(d2,precision) returns quotient q and remainder r such that
 //   d = d2 * q + r, q an integer multiple of 10^(-precision)
 //   0 <= r < abs(d2) * 10 ^(-precision) if d>=0
@@ -628,7 +628,7 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 
 // Mod returns d % d2.
 func (d Decimal) Mod(d2 Decimal) Decimal {
-	quo := d.Div(d2).Truncate(0)
+	quo := d.DivRound(d2, -d.exp+1).Truncate(0)
 	return d.Sub(d2.Mul(quo))
 }
 
@@ -831,7 +831,7 @@ func (d Decimal) IsInteger() bool {
 	// When the exponent is negative we have to check every number after the decimal place
 	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
 	var r big.Int
-	q := big.NewInt(0).Set(d.value)
+	q := new(big.Int).Set(d.value)
 	for z := abs(d.exp); z > 0; z-- {
 		q.QuoRem(q, tenInt, &r)
 		if r.Cmp(zeroInt) != 0 {
@@ -949,7 +949,7 @@ func (d Decimal) Exponent() int32 {
 func (d Decimal) Coefficient() *big.Int {
 	d.ensureInitialized()
 	// we copy the coefficient so that mutating the result does not mutate the Decimal.
-	return big.NewInt(0).Set(d.value)
+	return new(big.Int).Set(d.value)
 }
 
 // CoefficientInt64 returns the coefficient of the decimal as int64. It is scaled by 10^Exponent()
@@ -1353,10 +1353,10 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
 // is already used when encoding to text, this method stores that string as []byte
 func (d *Decimal) UnmarshalBinary(data []byte) error {
-	// Verify we have at least 5 bytes, 4 for the exponent and at least 1 more
-	// for the GOB encoded value.
-	if len(data) < 5 {
-		return fmt.Errorf("error decoding binary %v: expected at least 5 bytes, got %d", data, len(data))
+	// Verify we have at least 4 bytes for the exponent. The GOB encoded value
+	// may be empty.
+	if len(data) < 4 {
+		return fmt.Errorf("error decoding binary %v: expected at least 4 bytes, got %d", data, len(data))
 	}
 
 	// Extract the exponent

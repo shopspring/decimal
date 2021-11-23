@@ -2132,14 +2132,18 @@ func TestDecimal_Mod(t *testing.T) {
 	}
 
 	inputs := map[Inp]string{
-		Inp{"3", "2"}:                     "1",
-		Inp{"3451204593", "2454495034"}:   "996709559",
-		Inp{"24544.95034", ".3451204593"}: "0.3283950433",
-		Inp{".1", ".1"}:                   "0",
-		Inp{"0", "1.001"}:                 "0",
-		Inp{"-7.5", "2"}:                  "-1.5",
-		Inp{"7.5", "-2"}:                  "1.5",
-		Inp{"-7.5", "-2"}:                 "-1.5",
+		Inp{"3", "2"}:                           "1",
+		Inp{"3451204593", "2454495034"}:         "996709559",
+		Inp{"9999999999", "1275"}:               "324",
+		Inp{"9999999999.9999998", "1275.49"}:    "239.2399998",
+		Inp{"24544.95034", "0.3451204593"}:      "0.3283950433",
+		Inp{"0.499999999999999999", "0.25"}:     "0.249999999999999999",
+		Inp{"0.989512958912895912", "0.000001"}: "0.000000958912895912",
+		Inp{"0.1", "0.1"}:                       "0",
+		Inp{"0", "1.001"}:                       "0",
+		Inp{"-7.5", "2"}:                        "-1.5",
+		Inp{"7.5", "-2"}:                        "1.5",
+		Inp{"-7.5", "-2"}:                       "-1.5",
 	}
 
 	for inp, res := range inputs {
@@ -3000,6 +3004,25 @@ func TestBinary(t *testing.T) {
 		if !d1.Equals(d2) {
 			t.Errorf("expected %v when restoring, got %v", d1, d2)
 		}
+	}
+}
+
+func TestBinary_Zero(t *testing.T) {
+	var d1 Decimal
+
+	b, err := d1.MarshalBinary()
+	if err != nil {
+		t.Fatalf("error marshalling %v to binary: %v", d1, err)
+	}
+
+	var d2 Decimal
+	err = (&d2).UnmarshalBinary(b)
+	if err != nil {
+		t.Errorf("error unmarshalling from binary: %v", err)
+	}
+
+	if !d1.Equals(d2) {
+		t.Errorf("expected %v when restoring, got %v", d1, d2)
 	}
 }
 

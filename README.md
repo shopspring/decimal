@@ -1,6 +1,6 @@
 # decimal
 
-[![Build Status](https://app.travis-ci.com/shopspring/decimal.svg?branch=master)](https://app.travis-ci.com/shopspring/decimal) [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
+[![Build Status](https://app.travis-ci.com/shopspring/decimal.svg?branch=master)](https://app.travis-ci.com/shopspring/decimal) [![GoDoc](https://pkg.go.dev/badge/github.com/shopspring/decimal)](https://pkg.go.dev/github.com/shopspring/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
@@ -59,7 +59,7 @@ func main() {
 
 ## Documentation
 
-http://godoc.org/github.com/shopspring/decimal
+https://pkg.go.dev/github.com/shopspring/decimal
 
 ## Production Usage
 
@@ -73,7 +73,7 @@ http://godoc.org/github.com/shopspring/decimal
 Because float64 (or any binary floating point type, actually) can't represent
 numbers such as `0.1` exactly.
 
-Consider this code: http://play.golang.org/p/TQBd4yJe6B You might expect that
+Consider this code: https://go.dev/play/p/TQBd4yJe6B You might expect that
 it prints out `10`, but it actually prints `9.999999999999831`. Over time,
 these small errors can really add up!
 
@@ -88,7 +88,7 @@ out, the string output has to stop somewhere (let's say it stops at 3 decimal
 digits, for simplicity), so you'll get 0.333, 0.333, and 0.333. But where did
 the other 0.001 go?
 
-Here's the above example as code: http://play.golang.org/p/lCZZs0w9KE
+Here's the above example as code: https://go.dev/play/p/lCZZs0w9KE
 
 With Decimal, the strings being printed out represent the number exactly. So,
 if you have `x = y = 1/3` (with precision 3), they will actually be equal to
@@ -113,7 +113,7 @@ modifies `a` and sets `z` as an alias for `a`, which they might not expect. It
 also modifies any other aliases to `a`.
 
 Here's an example of the subtle bugs you can introduce with big.Int's API:
-https://play.golang.org/p/x2R_78pa8r
+https://go.dev/play/p/x2R_78pa8r
 
 In contrast, it's difficult to make such mistakes with decimal. Decimals
 behave like other go numbers types: even though `a = b` will not deep copy

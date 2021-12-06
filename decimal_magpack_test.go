@@ -7,7 +7,7 @@ import (
 func TestMsgPack(t *testing.T) {
 	for _, x := range testTable {
 		s := x.short
-		 // limit to 31 digits
+		// limit to 31 digits
 		if len(s) > 31 {
 			s = s[:31]
 			if s[30] == '.' {
@@ -17,15 +17,15 @@ func TestMsgPack(t *testing.T) {
 
 		// Prepare Test Decimal Data
 		amount, err := NewFromString(s)
-		if err != nil{
+		if err != nil {
 			t.Error(err)
 		}
 		s = amount.String()
 
 		// MarshalMsg
 		var b []byte
-	 	out, err := amount.MarshalMsg(b)
-		if err != nil{
+		out, err := amount.MarshalMsg(b)
+		if err != nil {
 			t.Errorf("error marshalMsg %s: %v", s, err)
 		}
 
@@ -44,12 +44,12 @@ func TestMsgPack(t *testing.T) {
 		// UnmarshalMsg
 		var unmarshalAmount Decimal
 		_, err = unmarshalAmount.UnmarshalMsg(out)
-		if err != nil{
+		if err != nil {
 			t.Errorf("error unmarshalMsg %s: %v", s, err)
-		}else if !unmarshalAmount.Equal(amount) {
-				t.Errorf("expected %s, got %s (%s, %d)",
-					amount.String(), unmarshalAmount.String(),
-					unmarshalAmount.value.String(), unmarshalAmount.exp)
+		} else if !unmarshalAmount.Equal(amount) {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				amount.String(), unmarshalAmount.String(),
+				unmarshalAmount.value.String(), unmarshalAmount.exp)
 		}
 	}
 }

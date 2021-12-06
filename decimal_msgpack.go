@@ -26,7 +26,7 @@ func (d Decimal) MarshalMsg(b []byte) ([]byte, error) {
 		str = str[:sz]
 	}
 
-	o, n := ensure(b, 1+sz)
+	o, n := ensure(o, 1+sz)
 	o[n] = byte(0xa0 | sz)
 	n++
 
@@ -54,7 +54,7 @@ func (d *Decimal) UnmarshalMsg(b []byte) ([]byte, error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (d Decimal) Msgsize() int {
-	return 31
+	return 32
 }
 
 // Require ensures that cap(old)-len(old) >= extra.

@@ -9,17 +9,18 @@ var (
 )
 
 // MarshalMsg implements msgp.Marshaler
+//  Note: limit to 31 digits, if d.IntPart size large than 31, will be lose.
 func (d Decimal) MarshalMsg(b []byte) (o []byte, err error) {
 	o = require(b, d.Msgsize())
 	str := d.String()
 	sz := len(str)
-	// limit to 30 digits
-	// note, if d.IntPart size large than 30, will be lose.
-	if sz > 30 {
-		sz = 30
-		// if last char is '.' then limit to 20 digits
-		if str[29] == '.' {
-			sz = 29
+	// limit to 31 digits
+	// note, if d.IntPart size large than 31, will be lose.
+	if sz > 31 {
+		sz = 31
+		// if last char is '.' then limit to 30 digits
+		if str[30] == '.' {
+			sz = 30
 		}
 
 		str = str[:sz]

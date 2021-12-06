@@ -20,6 +20,7 @@ func TestMsgPack(t *testing.T) {
 		if err != nil{
 			t.Error(err)
 		}
+		s = amount.String()
 
 		// MarshalMsg
 		var b []byte

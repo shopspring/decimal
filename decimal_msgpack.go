@@ -10,12 +10,12 @@ var (
 
 // MarshalMsg implements msgp.Marshaler
 //  Note: limit to 31 digits, if d.IntPart size large than 31, will be lose.
-func (d Decimal) MarshalMsg(b []byte) (o []byte, err error) {
-	o = require(b, d.Msgsize())
+func (d Decimal) MarshalMsg(b []byte) ([]byte, error) {
+	o := require(b, d.Msgsize())
 	str := d.String()
 	sz := len(str)
 	// limit to 31 digits
-	// note, if d.IntPart size large than 31, will be lose.
+	// note, if d.IntPart size large than 3, will be lose.
 	if sz > 31 {
 		sz = 31
 		// if last char is '.' then limit to 30 digits
@@ -34,7 +34,9 @@ func (d Decimal) MarshalMsg(b []byte) (o []byte, err error) {
 }
 
 // UnmarshalMsg implements msgp.Unmarshaler
-func (d *Decimal) UnmarshalMsg(b []byte) (o []byte, err error) {
+func (d *Decimal) UnmarshalMsg(b []byte) ([]byte, error) {
+	o, err := b, errShortBytes
+
 	l := len(b)
 	if l < 1 {
 		return nil, errShortBytes
@@ -42,13 +44,12 @@ func (d *Decimal) UnmarshalMsg(b []byte) (o []byte, err error) {
 
 	sz := int(b[0] & 0x1f)
 	if len(b[1:]) < sz {
-		err = errShortBytes
-		return
+		return nil, errShortBytes
 	}
 	if *d, err = NewFromString(string(b[1 : sz+1])); err == nil {
 		o = b[sz:]
 	}
-	return
+	return o, err
 }
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message

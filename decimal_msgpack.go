@@ -39,12 +39,12 @@ func (d *Decimal) UnmarshalMsg(b []byte) ([]byte, error) {
 
 	l := len(b)
 	if l < 1 {
-		return nil, errShortBytes
+		return o, err
 	}
 
 	sz := int(b[0] & 0x1f)
 	if len(b[1:]) < sz {
-		return nil, errShortBytes
+		return o, err
 	}
 	if *d, err = NewFromString(string(b[1 : sz+1])); err == nil {
 		o = b[sz:]

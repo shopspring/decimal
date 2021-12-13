@@ -458,9 +458,9 @@ func (d Decimal) rescale(exp int32) Decimal {
 	value := new(big.Int).Set(d.value)
 
 	expScale := new(big.Int).Exp(tenInt, big.NewInt(int64(diff)), nil)
-	if exp > d.exp {
+	if exp < d.exp {
 		value = value.Quo(value, expScale)
-	} else if exp < d.exp {
+	} else if exp > d.exp {
 		value = value.Mul(value, expScale)
 	}
 

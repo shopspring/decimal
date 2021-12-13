@@ -458,9 +458,9 @@ func (d Decimal) rescale(exp int32) Decimal {
 	value := new(big.Int).Set(d.value)
 
 	expScale := new(big.Int).Exp(tenInt, big.NewInt(int64(diff)), nil)
-	if exp < d.exp {
+	if exp > d.exp {
 		value = value.Quo(value, expScale)
-	} else if exp > d.exp {
+	} else if exp < d.exp {
 		value = value.Mul(value, expScale)
 	}
 
@@ -1567,9 +1567,9 @@ func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
 	d1.ensureInitialized()
 	d2.ensureInitialized()
 
-	if d1.exp > d2.exp {
+	if d1.exp < d2.exp {
 		return d1, d2.rescale(d1.exp)
-	} else if d1.exp < d2.exp {
+	} else if d1.exp > d2.exp {
 		return d1.rescale(d2.exp), d2
 	}
 

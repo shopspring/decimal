@@ -224,3 +224,27 @@ func BenchmarkDecimal_NewFromString_large_number(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkDecimal_ExpHullAbraham(b *testing.B) {
+	b.ResetTimer()
+
+	d := RequireFromString("30.412346346346")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = d.ExpHullAbrham(10)
+	}
+}
+
+func BenchmarkDecimal_ExpTaylor(b *testing.B) {
+	b.ResetTimer()
+
+	d := RequireFromString("30.412346346346")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = d.ExpTaylor(10)
+	}
+}

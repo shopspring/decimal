@@ -556,6 +556,22 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 	}
 }
 
+func TestCopy(t *testing.T) {
+	origin := New(1, 0)
+	cpy := origin.Copy()
+
+	if cpy.Cmp(origin) != 0 {
+		t.Error("expecting copy and origin to be equals, but they are not")
+	}
+
+	//change value
+	cpy = cpy.Add(New(1, 0))
+
+	if cpy.Cmp(origin) == 0 {
+		t.Error("expecting copy and origin to have different values, but they are equal")
+	}
+}
+
 func TestJSON(t *testing.T) {
 	for _, x := range testTable {
 		s := x.short
@@ -2115,14 +2131,18 @@ func TestDecimal_Mod(t *testing.T) {
 	}
 
 	inputs := map[Inp]string{
-		Inp{"3", "2"}:                     "1",
-		Inp{"3451204593", "2454495034"}:   "996709559",
-		Inp{"24544.95034", ".3451204593"}: "0.3283950433",
-		Inp{".1", ".1"}:                   "0",
-		Inp{"0", "1.001"}:                 "0",
-		Inp{"-7.5", "2"}:                  "-1.5",
-		Inp{"7.5", "-2"}:                  "1.5",
-		Inp{"-7.5", "-2"}:                 "-1.5",
+		Inp{"3", "2"}:                           "1",
+		Inp{"3451204593", "2454495034"}:         "996709559",
+		Inp{"9999999999", "1275"}:               "324",
+		Inp{"9999999999.9999998", "1275.49"}:    "239.2399998",
+		Inp{"24544.95034", "0.3451204593"}:      "0.3283950433",
+		Inp{"0.499999999999999999", "0.25"}:     "0.249999999999999999",
+		Inp{"0.989512958912895912", "0.000001"}: "0.000000958912895912",
+		Inp{"0.1", "0.1"}:                       "0",
+		Inp{"0", "1.001"}:                       "0",
+		Inp{"-7.5", "2"}:                        "-1.5",
+		Inp{"7.5", "-2"}:                        "1.5",
+		Inp{"-7.5", "-2"}:                       "-1.5",
 	}
 
 	for inp, res := range inputs {
@@ -2596,6 +2616,164 @@ func TestDecimal_IsInteger(t *testing.T) {
 	}
 }
 
+func TestDecimal_ExpHullAbrham(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec              string
+		OverallPrecision uint32
+		ExpectedDec      string
+	}{
+		{"0", 1, "1"},
+		{"0.00", 5, "1"},
+		{"0.5", 5, "1.6487"},
+		{"0.569297", 10, "1.767024397"},
+		{"0.569297", 16, "1.76702439654095"},
+		{"0.569297", 20, "1.7670243965409496521"},
+		{"1.0", 0, "3"},
+		{"1.0", 1, "3"},
+		{"1.0", 5, "2.7183"},
+		{"1.0", 10, "2.718281828"},
+		{"3.0", 0, "20"},
+		{"3.0", 2, "20"},
+		{"5.26", 0, "200"},
+		{"5.26", 2, "190"},
+		{"5.26", 10, "192.4814913"},
+		{"5.2663117716", 2, "190"},
+		{"5.2663117716", 10, "193.7002327"},
+		{"26.1", 2, "220000000000"},
+		{"26.1", 10, "216314672100"},
+		{"26.1", 20, "216314672147.05767284"},
+		{"50.1591", 10, "6078834887000000000000"},
+		{"50.1591", 30, "6078834886623434464595.07937141"},
+		{"-0.5", 5, "0.60653"},
+		{"-0.569297", 10, "0.5659231429"},
+		{"-0.569297", 16, "0.565923142859576"},
+		{"-0.569297", 20, "0.56592314285957604443"},
+		{"-1.0", 1, "0.4"},
+		{"-1.0", 5, "0.36788"},
+		{"-3.0", 1, "0"},
+		{"-3.0", 2, "0.05"},
+		{"-3.0", 10, "0.0497870684"},
+		{"-5.26", 2, "0.01"},
+		{"-5.26", 10, "0.0051953047"},
+		{"-5.2663117716", 2, "0.01"},
+		{"-5.2663117716", 10, "0.0051626164"},
+		{"-26.1", 2, "0"},
+		{"-26.1", 15, "0.000000000004623"},
+		{"-50.1591", 10, "0"},
+		{"-50.1591", 30, "0.000000000000000000000164505208"},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.ExpectedDec)
+
+		exp, err := d.ExpHullAbrham(testCase.OverallPrecision)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if exp.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for decimal %s", testCase.ExpectedDec, exp.String(), testCase.Dec)
+		}
+
+	}
+}
+
+func TestDecimal_ExpTaylor(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec         string
+		Precision   int32
+		ExpectedDec string
+	}{
+		{"0", 1, "1"},
+		{"0.00", 5, "1"},
+		{"0", -1, "0"},
+		{"0.5", 5, "1.64872"},
+		{"0.569297", 10, "1.7670243965"},
+		{"0.569297", 16, "1.7670243965409497"},
+		{"0.569297", 20, "1.76702439654094965215"},
+		{"1.0", 0, "3"},
+		{"1.0", 1, "2.7"},
+		{"1.0", 5, "2.71828"},
+		{"1.0", -1, "0"},
+		{"1.0", -5, "0"},
+		{"3.0", 1, "20.1"},
+		{"3.0", 2, "20.09"},
+		{"5.26", 0, "192"},
+		{"5.26", 2, "192.48"},
+		{"5.26", 10, "192.4814912972"},
+		{"5.26", -2, "200"},
+		{"5.2663117716", 2, "193.70"},
+		{"5.2663117716", 10, "193.7002326701"},
+		{"26.1", 2, "216314672147.06"},
+		{"26.1", 20, "216314672147.05767284062928674083"},
+		{"26.1", -2, "216314672100"},
+		{"26.1", -10, "220000000000"},
+		{"50.1591", 10, "6078834886623434464595.0793714061"},
+		{"-0.5", 5, "0.60653"},
+		{"-0.569297", 10, "0.5659231429"},
+		{"-0.569297", 16, "0.565923142859576"},
+		{"-0.569297", 20, "0.56592314285957604443"},
+		{"-1.0", 1, "0.4"},
+		{"-1.0", 5, "0.36788"},
+		{"-1.0", -1, "0"},
+		{"-1.0", -5, "0"},
+		{"-3.0", 1, "0.1"},
+		{"-3.0", 2, "0.05"},
+		{"-3.0", 10, "0.0497870684"},
+		{"-5.26", 2, "0.01"},
+		{"-5.26", 10, "0.0051953047"},
+		{"-5.26", -2, "0"},
+		{"-5.2663117716", 2, "0.01"},
+		{"-5.2663117716", 10, "0.0051626164"},
+		{"-26.1", 2, "0"},
+		{"-26.1", 15, "0.000000000004623"},
+		{"-26.1", -2, "0"},
+		{"-26.1", -10, "0"},
+		{"-50.1591", 10, "0"},
+		{"-50.1591", 30, "0.000000000000000000000164505208"},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.ExpectedDec)
+
+		exp, err := d.ExpTaylor(testCase.Precision)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if exp.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s", testCase.ExpectedDec, exp.String())
+		}
+	}
+}
+
+func TestDecimal_NumDigits(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec               string
+		ExpectedNumDigits int
+	}{
+		{"0", 1},
+		{"0.00", 1},
+		{"1.0", 2},
+		{"3.0", 2},
+		{"5.26", 3},
+		{"5.2663117716", 11},
+		{"3164836416948884.2162426426426267863", 35},
+		{"26.1", 3},
+		{"529.1591", 7},
+		{"-1.0", 2},
+		{"-3.0", 2},
+		{"-5.26", 3},
+		{"-5.2663117716", 11},
+		{"-26.1", 3},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+
+		nums := d.NumDigits()
+		if nums != testCase.ExpectedNumDigits {
+			t.Errorf("expected %d digits for decimal %s, got %d", testCase.ExpectedNumDigits, testCase.Dec, nums)
+		}
+	}
+}
+
 func TestDecimal_Sign(t *testing.T) {
 	if Zero.Sign() != 0 {
 		t.Errorf("%q should have sign 0", Zero)
@@ -2645,7 +2823,7 @@ func TestDecimal_Coefficient(t *testing.T) {
 
 func TestDecimal_CoefficientInt64(t *testing.T) {
 	type Inp struct {
-		Dec string
+		Dec         string
 		Coefficient int64
 	}
 
@@ -2825,6 +3003,25 @@ func TestBinary(t *testing.T) {
 		if !d1.Equals(d2) {
 			t.Errorf("expected %v when restoring, got %v", d1, d2)
 		}
+	}
+}
+
+func TestBinary_Zero(t *testing.T) {
+	var d1 Decimal
+
+	b, err := d1.MarshalBinary()
+	if err != nil {
+		t.Fatalf("error marshalling %v to binary: %v", d1, err)
+	}
+
+	var d2 Decimal
+	err = (&d2).UnmarshalBinary(b)
+	if err != nil {
+		t.Errorf("error unmarshalling from binary: %v", err)
+	}
+
+	if !d1.Equals(d2) {
+		t.Errorf("expected %v when restoring, got %v", d1, d2)
 	}
 }
 
@@ -3108,6 +3305,18 @@ func TestTan(t *testing.T) {
 		if !a.Equal(s) {
 			t.Errorf("expected %s, got %s", s, a)
 		}
+	}
+}
+
+func TestNewNullDecimal(t *testing.T) {
+	d := NewFromInt(1)
+	nd := NewNullDecimal(d)
+
+	if !nd.Valid {
+		t.Errorf("expected NullDecimal to be valid")
+	}
+	if nd.Decimal != d {
+		t.Errorf("expected NullDecimal to hold the provided Decimal")
 	}
 }
 

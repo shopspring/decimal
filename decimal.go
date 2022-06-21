@@ -125,7 +125,7 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	}
 }
 
-// NewFromBigRat returns a new Decimal from a big.Rat. The nominator and
+// NewFromBigRat returns a new Decimal from a big.Rat. The numerator and
 // denominator are divided and rounded to the given precision.
 //
 // Example:

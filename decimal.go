@@ -125,6 +125,25 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	}
 }
 
+// NewFromBigRat returns a new Decimal from a big.Rat. The nominator and
+// denominator are divided and rounded to the given precision.
+//
+// Example:
+//
+//     d1, err := NewFromBigRat(big.NewRat(0, 1), 4)
+//     d2, err := NewFromBigRat(big.NewRat(4, 5), 100)
+//     d3, err := NewFromBigRat(big.NewRat(10000, 3), 300)
+//
+func NewFromBigRat(value *big.Rat, precision int32) Decimal {
+	return Decimal{
+		value: new(big.Int).Set(value.Num()),
+		exp:   0,
+	}.DivRound(Decimal{
+		value: new(big.Int).Set(value.Denom()),
+		exp:   0,
+	}, precision)
+}
+
 // NewFromString returns a new Decimal from a string representation.
 // Trailing zeroes are not trimmed.
 //

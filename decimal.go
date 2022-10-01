@@ -52,6 +52,14 @@ var DivisionPrecision = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
+// StringTrimTrailingZeros should be set to false if you want the decimal stringify without zeros trailing.
+// By default, when decimal is output as a string (for example, in JSON), zeros are truncated from it (2.00 -> 2, 3.11 -> 3.11, 13.000 -> 13).
+// But this logic can be changed by this variable.
+// For example, if you have numeric(10,2) values stored in your database,
+// and you want your API response to always be given 2 decimal places (even 2.00, 3.00, 17.00 [not 2,3,17]),
+// then this variable is a great way out.
+var StringTrimTrailingZeros = true
+
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
@@ -1022,7 +1030,7 @@ func (d Decimal) InexactFloat64() float64 {
 //     -12.345
 //
 func (d Decimal) String() string {
-	return d.string(true)
+	return d.string(StringTrimTrailingZeros)
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after

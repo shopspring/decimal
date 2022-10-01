@@ -3383,7 +3383,4 @@ func TestDecimal_String(t *testing.T) {
 			t.Errorf("expected %s, got %s", test.expected, d.String())
 		}
 	}
-
-
-
 }

@@ -1,3 +1,8 @@
+# xdecimal
+
+`xdecimal` is a fork of [shopspring's](https://github.com/shopspring) decimal package that seeks to be more actively maintained and 
+provide additional features that original package did not provide.
+
 # decimal
 
 [![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
@@ -18,7 +23,7 @@ _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digi
 
 ## Install
 
-Run `go get github.com/shopspring/decimal`
+Run `go get github.com/advbet/xdecimal`
 
 ## Requirements 
 
@@ -31,7 +36,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/shopspring/decimal"
+	"github.com/advbet/xdecimal"
 )
 
 func main() {
@@ -61,7 +66,7 @@ func main() {
 
 ## Documentation
 
-http://godoc.org/github.com/shopspring/decimal
+http://godoc.org/github.com/advbet/xdecimal
 
 ## Production Usage
 

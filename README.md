@@ -5,9 +5,9 @@ provide additional features that original package did not provide.
 
 # decimal
 
-[![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
-[![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
+[![Github Actions](https://github.com/advbet/xdecimal/actions/workflows/ci.yml/badge.svg)](https://github.com/advbet/xdecimal/actions/workflows/ci.yml)
+[![GoDoc](https://godoc.org/github.com/advbet/xdecimal?status.svg)](https://godoc.org/github.com/advbet/xdecimal) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/advbet/xdecimal)](https://goreportcard.com/report/github.com/advbet/xdecimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
@@ -40,21 +40,21 @@ import (
 )
 
 func main() {
-	price, err := decimal.NewFromString("136.02")
+	price, err := xdecimal.NewFromString("136.02")
 	if err != nil {
 		panic(err)
 	}
 
-	quantity := decimal.NewFromInt(3)
+	quantity := xdecimal.NewFromInt(3)
 
-	fee, _ := decimal.NewFromString(".035")
-	taxRate, _ := decimal.NewFromString(".08875")
+	fee, _ := xdecimal.NewFromString(".035")
+	taxRate, _ := xdecimal.NewFromString(".08875")
 
 	subtotal := price.Mul(quantity)
 
-	preTax := subtotal.Mul(fee.Add(decimal.NewFromFloat(1)))
+	preTax := subtotal.Mul(fee.Add(xdecimal.NewFromFloat(1)))
 
-	total := preTax.Mul(taxRate.Add(decimal.NewFromFloat(1)))
+	total := preTax.Mul(taxRate.Add(xdecimal.NewFromFloat(1)))
 
 	fmt.Println("Subtotal:", subtotal)                      // Subtotal: 408.06
 	fmt.Println("Pre-tax:", preTax)                         // Pre-tax: 422.3421

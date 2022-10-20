@@ -1,4 +1,4 @@
-module github.com/advbet/xdecimal
+module github.com/advbet/xdecimal/v2
 
 go 1.13
 

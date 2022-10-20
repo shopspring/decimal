@@ -15,6 +15,8 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 type testEnt struct {
@@ -103,6 +105,12 @@ func init() {
 			testTableScientificNotation["-"+e] = "-" + s
 		}
 	}
+}
+
+func TestMain(m *testing.M) {
+	// Left for test backwards compability
+	TrimTrailingZeroes = true
+	m.Run()
 }
 
 func TestNewFromFloat(t *testing.T) {
@@ -524,6 +532,125 @@ func TestNewFromInt32(t *testing.T) {
 	}
 }
 
+func TestMulInt(t *testing.T) {
+	tests := []struct {
+		x        Decimal
+		y        int
+		expected Decimal
+	}{{
+		x:        New(0, 0),
+		y:        5,
+		expected: New(0, 0),
+	}, {
+		x:        New(1, 0),
+		y:        5,
+		expected: New(5, 0),
+	}, {
+		// Assert exponent is not normalized
+		x:        New(2, -1),
+		y:        5,
+		expected: New(10, -1),
+	}, {
+		// Assert exponent is not normalized
+		x:        New(2, -1),
+		y:        0,
+		expected: New(0, -1),
+	}}
+
+	for _, test := range tests {
+		actual := test.x.MulInt(test.y)
+		assert.Equal(
+			t,
+			test.expected,
+			actual,
+			fmt.Sprintf("%s * %d", test.x, test.y),
+		)
+	}
+}
+
+func TestRound(t *testing.T) {
+	tests := []struct {
+		rule   RoundRule
+		num    string
+		exp    int
+		result string
+	}{
+		{RoundTruncate, "1.23", -4, "1.2300"}, // Scale down
+		{RoundTruncate, "1.23", -2, "1.23"},   // Noop
+		// Truncate
+		{RoundTruncate, "123.45", -1, "123.4"},
+		{RoundTruncate, "-123.45", -1, "-123.4"},
+		// Floor
+		{RoundFloor, "123.4500", -2, "123.45"},
+		{RoundFloor, "123.45", -1, "123.4"},
+		{RoundFloor, "-123.45", -1, "-123.5"},
+		//// Ceil
+		{RoundCeil, "123.4500", -2, "123.45"},
+		{RoundCeil, "123.45", -1, "123.5"},
+		{RoundCeil, "-123.45", -1, "-123.4"},
+		// Math rounding, positive numbers
+		{RoundMath, "0.45", -1, "0.5"},
+		{RoundMath, "-0.45", -1, "-0.5"},
+		// Bankers rounding, positive numbers, round-up
+		{RoundBankers, "0.349999", -1, "0.3"},
+		{RoundBankers, "0.350000", -1, "0.4"},
+		{RoundBankers, "0.350001", -1, "0.4"},
+		// Bankers rounding, positive numbers, round-down
+		{RoundBankers, "0.449999", -1, "0.4"},
+		{RoundBankers, "0.450000", -1, "0.4"},
+		{RoundBankers, "0.450001", -1, "0.5"},
+		// Bankers rounding, negative numbers, round-up
+		{RoundBankers, "-0.349999", -1, "-0.3"},
+		{RoundBankers, "-0.350000", -1, "-0.4"},
+		{RoundBankers, "-0.350001", -1, "-0.4"},
+		// Bankers rounding, negative numbers, round-down
+		{RoundBankers, "-0.449999", -1, "-0.4"},
+		{RoundBankers, "-0.450000", -1, "-0.4"},
+		{RoundBankers, "-0.450001", -1, "-0.5"},
+		// Bankers rounding to zero
+		{RoundBankers, "0.500000", 0, "0"},
+		{RoundBankers, "-0.500000", 0, "0"},
+	}
+
+	var err error
+	var num, res Decimal
+
+	for _, test := range tests {
+		err = num.UnmarshalText([]byte(test.num))
+		assert.NoError(t, err)
+		err = res.UnmarshalText([]byte(test.result))
+		assert.NoError(t, err)
+
+		result := num.Round(test.exp, test.rule)
+
+		// Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
+		if result.IsZero() {
+			assert.Equal(
+				t,
+				true,
+				result.Equal(res),
+				fmt.Sprintf("%s round(%d, %d)",
+					test.num,
+					test.exp,
+					test.rule),
+			)
+		} else {
+			assert.Equal(
+				t,
+				res,
+				result,
+				fmt.Sprintf("%s round(%d, %d)", test.num, test.exp, test.rule),
+			)
+		}
+	}
+}
+
+func TestScaledVal(t *testing.T) {
+	assert.Equal(t, int64(12), New(1234, -2).ScaledVal(0))
+	assert.Equal(t, int64(1234), New(1234, -2).ScaledVal(-2))
+	assert.Equal(t, int64(123400), New(1234, -2).ScaledVal(-4))
+}
+
 func TestNewFromBigIntWithExponent(t *testing.T) {
 	type Inp struct {
 		val *big.Int
@@ -553,6 +680,118 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 				s, d.String(),
 				d.value.String(), d.exp)
 		}
+	}
+}
+
+func TestNewFromRat(t *testing.T) {
+	tests := []struct {
+		rat      *big.Rat
+		exp      int
+		expected Decimal
+	}{
+		{
+			rat:      big.NewRat(1234, 100),
+			exp:      -2,
+			expected: New(1234, -2),
+		},
+		{
+			rat:      big.NewRat(1234, 100),
+			exp:      -1,
+			expected: New(123, -1),
+		},
+		{
+			rat:      big.NewRat(1234, 100),
+			exp:      0,
+			expected: New(12, 0),
+		},
+		{
+			rat:      big.NewRat(1234, 100),
+			exp:      1,
+			expected: New(1, 1),
+		},
+		{
+			rat:      big.NewRat(1000000000, 3),
+			exp:      0,
+			expected: New(333333333, 0),
+		},
+		{
+			rat:      big.NewRat(1000000000, 3),
+			exp:      -7,
+			expected: New(3333333333333333, -7),
+		},
+		{
+			rat:      big.NewRat(1000000000, 3),
+			exp:      -8,
+			expected: New(33333333333333333, -8),
+		},
+		{
+			rat:      big.NewRat(1000000000, 3),
+			exp:      -9,
+			expected: New(333333333333333333, -9),
+		},
+		{
+			rat:      big.NewRat(1000000000, 3),
+			exp:      -10,
+			expected: New(3333333333333333333, -10),
+		},
+		{
+			rat: big.NewRat(1000000000, 3),
+			exp: -11,
+			expected: NewFromBigInt(
+				new(big.Int).Add(
+					new(big.Int).Mul(
+						big.NewInt(3333333333333333),
+						big.NewInt(10000),
+					),
+					big.NewInt(3333),
+				),
+				-11,
+			),
+		},
+		{
+			rat: big.NewRat(1000000000, 3),
+			exp: -12,
+			expected: NewFromBigInt(
+				new(big.Int).Add(
+					new(big.Int).Mul(
+						big.NewInt(3333333333333333),
+						big.NewInt(100000),
+					),
+					big.NewInt(33333),
+				),
+				-12,
+			),
+		},
+		{
+			rat: big.NewRat(1000000000, 3),
+			exp: -13,
+			expected: NewFromBigInt(
+				new(big.Int).Add(
+					new(big.Int).Mul(
+						big.NewInt(3333333333333333),
+						big.NewInt(1000000),
+					),
+					big.NewInt(333333),
+				),
+				-13,
+			),
+		},
+	}
+
+	for i, tt := range tests {
+		t.Run(fmt.Sprintf("test-%d", i), func(t *testing.T) {
+			actual := NewFromRat(tt.rat, tt.exp)
+			assert.Equalf(
+				t,
+				tt.expected,
+				actual, "%s (%d) expected %s, got %s (%d * 10^%d)",
+				tt.rat,
+				tt.expected,
+				actual,
+				actual.CoefficientInt64(),
+				actual.Exponent(),
+			)
+		})
 	}
 }
 
@@ -1021,7 +1260,7 @@ func TestDecimal_Ceil(t *testing.T) {
 	}
 }
 
-func TestDecimal_RoundAndStringFixed(t *testing.T) {
+func TestDecimal_RoundMathAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string
 		places        int32
@@ -1082,7 +1321,7 @@ func TestDecimal_RoundAndStringFixed(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		got := d.Round(test.places)
+		got := d.RoundMath(test.places)
 		if !got.Equal(expected) {
 			t.Errorf("Rounding %s to %d places, got %s, expected %s",
 				d, test.places, got, expected)
@@ -1561,7 +1800,7 @@ func TestDecimal_Uninitialized(t *testing.T) {
 		a.Mul(b),
 		a.Shift(0),
 		a.Div(New(1, -1)),
-		a.Round(2),
+		a.RoundMath(2),
 		a.Floor(),
 		a.Ceil(),
 		a.Truncate(2),

@@ -3,6 +3,9 @@
 `xdecimal` is a fork of [shopspring's](https://github.com/shopspring) decimal package that seeks to be more actively maintained and 
 provide additional features that original package did not provide.
 
+Here are the notable differences:
+- Trailing zeroes are not removed by default
+
 # decimal
 
 [![Github Actions](https://github.com/advbet/xdecimal/actions/workflows/ci.yml/badge.svg)](https://github.com/advbet/xdecimal/actions/workflows/ci.yml)

@@ -1,3 +1,11 @@
+## Decimal v2.0.0
+
+#### FEATURES
+- Add MulInt method that provides an easy way to multiply decimal value by an int [#2](https://github.com/advbet/xdecimal/pull/2)
+- Add ScaledVal method that provides a way to scale a decimal to the provided exponent [#2](https://github.com/advbet/xdecimal/pull/2)
+- Add NewFromRat initializer that provides a way to create a decimal from a `big.Rat` [#2](https://github.com/advbet/xdecimal/pull/2)
+- Replace Round method with a method that provides different rounding strategies. RoundMath contains the previous rounding logic [#2](https://github.com/advbet/xdecimal/pull/2)
+
 ## Decimal v1.3.1
 
 #### ENHANCEMENTS

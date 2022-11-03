@@ -5,6 +5,7 @@ provide additional features that original package did not provide.
 
 Here are the notable differences:
 - Trailing zeroes are not removed by default
+- Zero value has exponent of 0
 
 # decimal
 

@@ -49,7 +49,7 @@ var DivisionPrecision = 16
 // unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
 // double-precision floating point numbers, which means you can potentially
 // silently lose precision.
-var MarshalJSONWithoutQuotes = false
+var MarshalJSONWithoutQuotes = true
 
 // TrimTrailingZeroes should be set to true if you want to the decimal string
 // representation to be in a format where trailing zeroes are discarded.

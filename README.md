@@ -22,7 +22,7 @@ Run `go get github.com/shopspring/decimal`
 
 ## Requirements 
 
-Decimal library requires Go version `>=1.7`
+Decimal library requires Go version `>=1.17`
 
 ## Usage
 

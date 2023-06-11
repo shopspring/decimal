@@ -2542,6 +2542,13 @@ func TestDecimal_Equalities(t *testing.T) {
 	if c.LessThanOrEqual(b) {
 		t.Errorf("%q should not be less than or equal %q", a, b)
 	}
+
+	if !b.IsBetween(c, a) {
+		t.Errorf("%q should be less than or equal  %q", a, b)
+	}
+	if b.IsBetween(a, c) {
+		t.Errorf("%q should not be less than or equal %q", a, b)
+	}
 }
 
 func TestDecimal_ScalesNotEqual(t *testing.T) {

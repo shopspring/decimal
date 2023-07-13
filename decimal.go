@@ -565,7 +565,7 @@ func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 		panic("decimal division by 0")
 	}
 	scale := -precision
-	e := int64(d.exp - d2.exp - scale)
+	e := int64(d.exp) - int64(d2.exp) - int64(scale)
 	if e > math.MaxInt32 || e < math.MinInt32 {
 		panic("overflow in decimal QuoRem")
 	}

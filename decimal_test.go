@@ -2745,6 +2745,20 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
+func TestDecimal_Ln(t *testing.T) {
+	d := RequireFromString("5.0")
+	d, _ = d.Ln()
+	t.Log(d)
+
+}
+
+func TestDecimal_Power2(t *testing.T) {
+	d := RequireFromString("5.0")
+	e := RequireFromString("5.0")
+	t.Log(d.Power2(e))
+
+}
+
 func TestDecimal_NumDigits(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec               string

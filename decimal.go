@@ -812,6 +812,110 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	return result, nil
 }
 
+// Ln calculates natural logarithm of d
+func (d Decimal) Ln() (Decimal, error) {
+	// based on adp implementaiton, probably this need to be adjusted
+	// for sure it will need optimization
+
+	ln10 := RequireFromString("2.3025850929940456840179914546843642076011")
+
+	z := d.Copy()
+
+	var tmp1, resAdjust Decimal
+	tmp1 = z.Sub(Decimal{oneInt, 0})
+	tmp2 := Decimal{oneInt, -1}
+	usePowerSeries := false
+
+	if tmp1.Abs().Cmp(tmp2) <= 0 {
+		usePowerSeries = true
+	} else {
+		expDelta := int32(z.NumDigits()) + z.exp
+		z.exp -= expDelta
+
+		resAdjust = NewFromInt32(expDelta)
+		resAdjust = resAdjust.Mul(ln10)
+
+		tmp1 = z.Sub(Decimal{oneInt, 0})
+
+		if tmp1.Abs().Cmp(tmp2) <= 0 {
+			usePowerSeries = true
+		} else {
+			zFloat := z.InexactFloat64()
+			tmp1 = NewFromFloat(math.Log(zFloat))
+		}
+	}
+
+	fmt.Println(tmp1)
+
+	fmt.Println(resAdjust)
+
+	if usePowerSeries {
+		// ln(1+x) = 2 sum [ 1 / (2n+1) * (x / (x+2))^(2n+1) ]
+		// ultra fast for small decimals
+		tmp3 := tmp1.Add(Decimal{twoInt, 0})
+		tmp2 = tmp1.Div(tmp3)
+
+		tmp1 = tmp2.Add(tmp2)
+		tmp3 = tmp1.Copy()
+
+		eps := Decimal{oneInt, -d.exp} // probably to adjust
+
+		for n := 1; ; n++ {
+			tmp3 = tmp3.Mul(tmp2).Mul(tmp2)
+
+			tmp4 := NewFromInt(int64(2*n + 1)) // allocate earlier
+
+			tmp4 = tmp3.Div(tmp4)
+			tmp1 = tmp1.Add(tmp4)
+
+			if tmp4.Abs().Cmp(eps) <= 0 {
+				break
+			}
+		}
+	} else {
+		// Halley's Iteration.
+		var tmp3, tmp4 Decimal
+		epsilon := New(1, -16)
+		for { // fix stop condidtion
+			tmp2, _ = tmp1.ExpTaylor(16) // to adjust
+
+			fmt.Println(tmp2)
+
+			tmp3 = tmp2.Sub(z)
+
+			fmt.Println(tmp3)
+
+			tmp3 = tmp3.Add(tmp3)
+
+			fmt.Println(tmp3)
+
+			tmp4 = tmp2.Add(z)
+
+			fmt.Println(tmp4)
+
+			tmp2 = tmp3.Div(tmp4)
+
+			fmt.Println(tmp2)
+
+			tmp1 = tmp1.Sub(tmp2)
+
+			fmt.Println(tmp1)
+
+			// we need to somehow break from this, loop investigate futher in home
+
+			fmt.Println(tmp1)
+
+			if tmp2.Cmp(epsilon) < 0 {
+				break
+			}
+		}
+	}
+
+	tmp1 = tmp1.Add(resAdjust)
+	return tmp1, nil
+	//return tmp1.Round(-d.exp +), nil
+}
+
 // NumDigits returns the number of digits of the decimal coefficient (d.Value)
 // Note: Current implementation is extremely slow for large decimals and/or decimals with large fractional part
 func (d Decimal) NumDigits() int {
@@ -839,6 +943,13 @@ func (d Decimal) IsInteger() bool {
 		}
 	}
 	return true
+}
+
+func (d Decimal) Power2(e Decimal) Decimal {
+	coef := big.NewInt(0).Exp(d.value, e.value, nil)
+	prec := int32(math.Pow(float64(d.exp), float64(e.value.Uint64())))
+
+	return Decimal{coef, prec}
 }
 
 // Abs calculates absolute value of any int32. Used for calculating absolute value of decimal's exponent.

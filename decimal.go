@@ -418,7 +418,7 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 func (d Decimal) Copy() Decimal {
 	d.ensureInitialized()
 	return Decimal{
-		value: &(*d.value),
+		value: new(big.Int).Set(d.value),
 		exp:   d.exp,
 	}
 }
@@ -815,6 +815,7 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 // NumDigits returns the number of digits of the decimal coefficient (d.Value)
 // Note: Current implementation is extremely slow for large decimals and/or decimals with large fractional part
 func (d Decimal) NumDigits() int {
+	d.ensureInitialized()
 	// Note(mwoss): It can be optimized, unnecessary cast of big.Int to string
 	if d.IsNegative() {
 		return len(d.value.String()) - 1

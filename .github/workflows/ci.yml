@@ -1,17 +1,32 @@
-name: decimal-ci
+name: xdecimal-ci
+
 on: [push]
+
 jobs:
-  ci-job:
+  golanglint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.51.2
+
+  go-test-matrix:
     runs-on: ubuntu-latest
     strategy:
+      max-parallel: 2
       matrix:
-        go: [ '1.7.x', '1.15', '1.16', '1.17', '1.x' ]
-    name: Go ${{ matrix.go }}
+        version: ['1.18', '1.19','1.20']
+
+    name: Go ${{ matrix.version }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Use go
-        uses: actions/setup-go@v2
+        uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go }}
-      - run: go build .
-      - run: go test -v
+          go-version: ${{ matrix.version }}
+      - name: Build
+        run: go build ./...
+      - name: Test
+        run: go test -v -race -failfast -timeout 60s ./...

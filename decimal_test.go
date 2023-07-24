@@ -17,6 +17,12 @@ import (
 	"time"
 )
 
+func TestMain(m *testing.M) {
+	// for test backwards compatibility
+	TrimTrailingZeroes = true
+	m.Run()
+}
+
 type testEnt struct {
 	float   float64
 	short   string

@@ -1,8 +1,10 @@
-# decimal
+# xdecimal
 
-[![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
-[![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
+`xdecimal` is a fork of [shopspring's](https://github.com/shopspring) decimal package that seeks to be more actively maintained.
+
+[![Github Actions](https://github.com/space307/xdecimal/actions/workflows/ci.yml/badge.svg)](https://github.com/space307/xdecimal/actions/workflows/ci.yml)
+[![GoDoc](https://godoc.org/github.com/space307/xdecimal?status.svg)](https://godoc.org/github.com/space307/xdecimal) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/space307/xdecimal)](https://goreportcard.com/report/github.com/space307/xdecimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
@@ -18,11 +20,11 @@ _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digi
 
 ## Install
 
-Run `go get github.com/shopspring/decimal`
+Run `go get github.com/space307/xdecimal`
 
 ## Requirements 
 
-Decimal library requires Go version `>=1.7`
+Decimal library requires Go version `>=1.9`
 
 ## Usage
 
@@ -31,25 +33,25 @@ package main
 
 import (
 	"fmt"
-	"github.com/shopspring/decimal"
+	"github.com/space307/xdecimal"
 )
 
 func main() {
-	price, err := decimal.NewFromString("136.02")
+	price, err := xdecimal.NewFromString("136.02")
 	if err != nil {
 		panic(err)
 	}
 
-	quantity := decimal.NewFromInt(3)
+	quantity := xdecimal.NewFromInt(3)
 
-	fee, _ := decimal.NewFromString(".035")
-	taxRate, _ := decimal.NewFromString(".08875")
+	fee, _ := xdecimal.NewFromString(".035")
+	taxRate, _ := xdecimal.NewFromString(".08875")
 
 	subtotal := price.Mul(quantity)
 
-	preTax := subtotal.Mul(fee.Add(decimal.NewFromFloat(1)))
+	preTax := subtotal.Mul(fee.Add(xdecimal.NewFromFloat(1)))
 
-	total := preTax.Mul(taxRate.Add(decimal.NewFromFloat(1)))
+	total := preTax.Mul(taxRate.Add(xdecimal.NewFromFloat(1)))
 
 	fmt.Println("Subtotal:", subtotal)                      // Subtotal: 408.06
 	fmt.Println("Pre-tax:", preTax)                         // Pre-tax: 422.3421
@@ -61,7 +63,7 @@ func main() {
 
 ## Documentation
 
-http://godoc.org/github.com/shopspring/decimal
+http://godoc.org/github.com/space307/xdecimal
 
 ## Production Usage
 
@@ -129,4 +131,4 @@ than performance.
 
 The MIT License (MIT)
 
-This is a heavily modified fork of [fpd.Decimal](https://github.com/oguzbilgic/fpd), which was also released under the MIT License.
+This is a heavily modified fork of [shopspring.Decimal](https://github.com/shopspring/decimal), which was also released under the MIT License.

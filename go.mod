@@ -1,3 +1,3 @@
-module github.com/shopspring/decimal
+module github.com/space307/xdecimal
 
-go 1.13
+go 1.19

@@ -1,4 +1,4 @@
-package decimal
+package xdecimal
 
 import (
 	"fmt"

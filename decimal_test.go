@@ -564,6 +564,10 @@ func TestCopy(t *testing.T) {
 		t.Error("expecting copy and origin to be equals, but they are not")
 	}
 
+	if origin.value == cpy.value {
+		t.Error("expecting copy and origin to have different value pointers")
+	}
+
 	//change value
 	cpy = cpy.Add(New(1, 0))
 
@@ -2764,6 +2768,7 @@ func TestDecimal_NumDigits(t *testing.T) {
 		{"-5.26", 3},
 		{"-5.2663117716", 11},
 		{"-26.1", 3},
+		{"", 1},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 

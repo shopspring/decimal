@@ -19,6 +19,7 @@ package xdecimal
 import (
 	"database/sql/driver"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -142,7 +143,8 @@ func NewFromString(value string) (Decimal, error) {
 	if eIndex != -1 {
 		expInt, err := strconv.ParseInt(value[eIndex+1:], 10, 32)
 		if err != nil {
-			if e, ok := err.(*strconv.NumError); ok && e.Err == strconv.ErrRange {
+			var e *strconv.NumError
+			if errors.As(err, &e) && errors.Is(e.Err, strconv.ErrRange) {
 				return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", value)
 			}
 			return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent is not numeric", value)
@@ -1315,13 +1317,13 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 
 	str, err := unquoteIfQuoted(decimalBytes)
 	if err != nil {
-		return fmt.Errorf("error decoding string '%s': %s", decimalBytes, err)
+		return fmt.Errorf("error decoding string '%s': %w", decimalBytes, err)
 	}
 
 	decimal, err := NewFromString(str)
 	*d = decimal
 	if err != nil {
-		return fmt.Errorf("error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %w", str, err)
 	}
 	return nil
 }
@@ -1352,7 +1354,7 @@ func (d *Decimal) UnmarshalBinary(data []byte) error {
 	// Extract the value
 	d.value = new(big.Int)
 	if err := d.value.GobDecode(data[4:]); err != nil {
-		return fmt.Errorf("error decoding binary %v: %s", data, err)
+		return fmt.Errorf("error decoding binary %v: %w", data, err)
 	}
 
 	return nil
@@ -1371,12 +1373,13 @@ func (d Decimal) MarshalBinary() (data []byte, err error) {
 	}
 
 	// Return the byte array
+	//nolint: makezero
 	data = append(v1, v2...)
 	return
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
-func (d *Decimal) Scan(value interface{}) error {
+func (d *Decimal) Scan(value any) error {
 	// first try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
 
@@ -1419,7 +1422,7 @@ func (d *Decimal) UnmarshalText(text []byte) error {
 	dec, err := NewFromString(str)
 	*d = dec
 	if err != nil {
-		return fmt.Errorf("error decoding string '%s': %s", str, err)
+		return fmt.Errorf("error decoding string '%s': %w", str, err)
 	}
 
 	return nil
@@ -1572,7 +1575,8 @@ func min(x, y int32) int32 {
 	return x
 }
 
-func unquoteIfQuoted(value interface{}) (string, error) {
+func unquoteIfQuoted(value any) (string, error) {
+
 	var bytes []byte
 
 	switch v := value.(type) {
@@ -1607,7 +1611,7 @@ func NewNullDecimal(d Decimal) NullDecimal {
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.
-func (d *NullDecimal) Scan(value interface{}) error {
+func (d *NullDecimal) Scan(value any) error {
 	if value == nil {
 		d.Valid = false
 		return nil

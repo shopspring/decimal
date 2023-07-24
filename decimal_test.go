@@ -241,6 +241,13 @@ func TestNewFromString(t *testing.T) {
 	}
 }
 
+func TestNewFromStringWithTooLongFractional(t *testing.T) {
+	_, err := NewFromString("0e" + strconv.FormatInt(math.MaxInt64, 10) + "123")
+	if err == nil {
+		t.Errorf("must be error")
+	}
+}
+
 func TestNewFromFormattedString(t *testing.T) {
 	for _, testCase := range []struct {
 		Formatted string
@@ -388,16 +395,15 @@ func TestRequireFromString(t *testing.T) {
 
 func TestRequireFromStringErrs(t *testing.T) {
 	s := "qwert"
-	var d Decimal
-	var err interface{}
+	var err any
 
-	func(d Decimal) {
+	func() {
 		defer func() {
 			err = recover()
 		}()
 
 		RequireFromString(s)
-	}(d)
+	}()
 
 	if err == nil {
 		t.Errorf("panic expected when parsing %s", s)
@@ -410,6 +416,7 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 		exp   int32
 	}
 	// some tests are taken from here https://www.cockroachlabs.com/blog/rounding-implementations-in-go/
+	//nolint: gofmt
 	tests := map[Inp]string{
 		Inp{123.4, -3}:                 "123.4",
 		Inp{123.4, -1}:                 "123.4",
@@ -529,6 +536,7 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 		val *big.Int
 		exp int32
 	}
+	//nolint: gofmt
 	tests := map[Inp]string{
 		Inp{big.NewInt(123412345), -3}: "123412.345",
 		Inp{big.NewInt(2234), -1}:      "223.4",
@@ -600,7 +608,7 @@ func TestJSON(t *testing.T) {
 			t.Errorf("expected %s, got %s", docStr, string(out))
 		}
 
-		// make sure unquoted marshalling works too
+		// make sure unquoted marshaling works too
 		MarshalJSONWithoutQuotes = true
 		out, err = json.Marshal(&doc)
 		if err != nil {
@@ -675,7 +683,7 @@ func TestNullDecimalJSON(t *testing.T) {
 			t.Errorf("expected %s, got %s", docStr, string(out))
 		}
 
-		// make sure unquoted marshalling works too
+		// make sure unquoted marshaling works too
 		MarshalJSONWithoutQuotes = true
 		out, err = json.Marshal(&doc)
 		if err != nil {
@@ -707,7 +715,7 @@ func TestNullDecimalJSON(t *testing.T) {
 		t.Errorf("expected %s, got %s", expected, string(out))
 	}
 
-	// make sure unquoted marshalling works too
+	// make sure unquoted marshaling works too
 	MarshalJSONWithoutQuotes = true
 	expectedUnquoted := `{"amount":null}`
 	out, err = json.Marshal(&doc)
@@ -882,6 +890,7 @@ func TestDecimal_rescale(t *testing.T) {
 		exp     int32
 		rescale int32
 	}
+	//nolint: gofmt
 	tests := map[Inp]string{
 		Inp{1234, -3, -5}: "1.234",
 		Inp{1234, -3, 0}:  "1",
@@ -1610,6 +1619,7 @@ func TestDecimal_Add(t *testing.T) {
 		b string
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"2", "3"}:                     "5",
 		Inp{"2454495034", "3451204593"}:   "5905699627",
@@ -1641,6 +1651,7 @@ func TestDecimal_Sub(t *testing.T) {
 		b string
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"2", "3"}:                     "-1",
 		Inp{"12", "3"}:                    "9",
@@ -1705,6 +1716,7 @@ func TestDecimal_Mul(t *testing.T) {
 		b string
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"2", "3"}:                     "6",
 		Inp{"2454495034", "3451204593"}:   "8470964534836491162",
@@ -1741,6 +1753,7 @@ func TestDecimal_Shift(t *testing.T) {
 		b int32
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"6", 3}:                         "6000",
 		Inp{"10", -2}:                       "0.1",
@@ -1769,6 +1782,7 @@ func TestDecimal_Div(t *testing.T) {
 		b string
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"6", "3"}:                            "2",
 		Inp{"10", "2"}:                           "5",
@@ -1813,6 +1827,7 @@ func TestDecimal_Div(t *testing.T) {
 	}
 
 	// test code path where exp > 0
+	//nolint: gofmt
 	inputs2 := map[Inp2]string{
 		Inp2{124, 10, 3, 1}: "41333333333.3333333333333333",
 		Inp2{124, 10, 3, 0}: "413333333333.3333333333333333",
@@ -2134,6 +2149,7 @@ func TestDecimal_Mod(t *testing.T) {
 		b string
 	}
 
+	//nolint: gofmt
 	inputs := map[Inp]string{
 		Inp{"3", "2"}:                           "1",
 		Inp{"3451204593", "2454495034"}:         "996709559",
@@ -2455,7 +2471,7 @@ func TestDecimal_Scan(t *testing.T) {
 func TestDecimal_Value(t *testing.T) {
 	// Make sure this does implement the database/sql's driver.Valuer interface
 	var d Decimal
-	if _, ok := interface{}(d).(driver.Valuer); !ok {
+	if _, ok := any(d).(driver.Valuer); !ok {
 		t.Error("Decimal does not implement driver.Valuer")
 	}
 
@@ -2868,7 +2884,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 
 	// Make sure handles nil values
 	a := NullDecimal{}
-	var dbvaluePtr interface{}
+	var dbvaluePtr any
 	err := a.Scan(dbvaluePtr)
 	if err != nil {
 		// Scan failed... no need to test result value
@@ -2961,7 +2977,7 @@ func TestNullDecimal_Scan(t *testing.T) {
 func TestNullDecimal_Value(t *testing.T) {
 	// Make sure this does implement the database/sql's driver.Valuer interface
 	var nullDecimal NullDecimal
-	if _, ok := interface{}(nullDecimal).(driver.Valuer); !ok {
+	if _, ok := any(nullDecimal).(driver.Valuer); !ok {
 		t.Error("NullDecimal does not implement driver.Valuer")
 	}
 
@@ -2994,14 +3010,14 @@ func TestBinary(t *testing.T) {
 		// Encode to binary
 		b, err := d1.MarshalBinary()
 		if err != nil {
-			t.Errorf("error marshalling %v to binary: %v", d1, err)
+			t.Errorf("error marshaling %v to binary: %v", d1, err)
 		}
 
 		// Restore from binary
 		var d2 Decimal
 		err = (&d2).UnmarshalBinary(b)
 		if err != nil {
-			t.Errorf("error unmarshalling from binary: %v", err)
+			t.Errorf("error unmarshaling from binary: %v", err)
 		}
 
 		// The restored decimal should equal the original
@@ -3016,13 +3032,13 @@ func TestBinary_Zero(t *testing.T) {
 
 	b, err := d1.MarshalBinary()
 	if err != nil {
-		t.Fatalf("error marshalling %v to binary: %v", d1, err)
+		t.Fatalf("error marshaling %v to binary: %v", d1, err)
 	}
 
 	var d2 Decimal
 	err = (&d2).UnmarshalBinary(b)
 	if err != nil {
-		t.Errorf("error unmarshalling from binary: %v", err)
+		t.Errorf("error unmarshaling from binary: %v", err)
 	}
 
 	if !d1.Equals(d2) {

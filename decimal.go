@@ -1618,6 +1618,7 @@ func NewNullDecimal(d Decimal) NullDecimal {
 func (d *NullDecimal) Scan(value any) error {
 	if value == nil {
 		d.Valid = false
+		d.Decimal = Zero
 		return nil
 	}
 	d.Valid = true

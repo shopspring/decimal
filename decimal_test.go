@@ -2978,6 +2978,21 @@ func TestNullDecimal_Scan(t *testing.T) {
 			t.Errorf("%v does not equal %v", a, expected)
 		}
 	}
+
+	// after reuse a.Scan a.Decimal should be null
+	err = a.Scan(nil)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(nil) failed with message: %s", err)
+	} else {
+		if a.Valid {
+			t.Errorf("%s is not null", a.Decimal)
+		}
+
+		if !a.Decimal.Equal(Zero) {
+			t.Errorf("%v does not equal Zero", a)
+		}
+	}
 }
 
 func TestNullDecimal_Value(t *testing.T) {

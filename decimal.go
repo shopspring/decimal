@@ -967,10 +967,7 @@ func (d Decimal) IntPart() int64 {
 
 // BigInt returns integer component of the decimal as a BigInt.
 func (d Decimal) BigInt() *big.Int {
-	scaledD := d.rescale(0)
-	i := &big.Int{}
-	i.SetString(scaledD.String(), 10)
-	return i
+	return new(big.Int).Set(d.value)
 }
 
 // BigFloat returns decimal as BigFloat.

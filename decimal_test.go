@@ -623,12 +623,26 @@ func TestUnmarshalJSONNull(t *testing.T) {
 	}
 }
 
+func TestUnmarshalJSONEmptyString(t *testing.T) {
+	var doc struct {
+		Amount Decimal `json:"amount"`
+	}
+	docStr := `{"amount": ""}`
+	err := json.Unmarshal([]byte(docStr), &doc)
+	if err != nil {
+		t.Errorf("error unmarshaling %s: %v", docStr, err)
+	} else if !doc.Amount.Equal(Zero) {
+		t.Errorf("expected Zero, got %s (%s, %d)",
+			doc.Amount.String(),
+			doc.Amount.value.String(), doc.Amount.exp)
+	}
+}
+
 func TestBadJSON(t *testing.T) {
 	for _, testCase := range []string{
 		"]o_o[",
 		"{",
 		`{"amount":""`,
-		`{"amount":""}`,
 		`{"amount":"nope"}`,
 		`0.333`,
 	} {
@@ -720,7 +734,6 @@ func TestNullDecimalBadJSON(t *testing.T) {
 		"]o_o[",
 		"{",
 		`{"amount":""`,
-		`{"amount":""}`,
 		`{"amount":"nope"}`,
 		`{"amount":nope}`,
 		`0.333`,

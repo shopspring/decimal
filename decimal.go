@@ -482,6 +482,24 @@ func (d Decimal) Sign() int {
 	return d.value.Sign()
 }
 
+// IsPositive return
+//
+//	true if d > 0
+//	false if d == 0
+//	false if d < 0
+func (d Decimal) IsPositive() bool {
+	return d.Sign() == 1
+}
+
+// IsNegative return
+//
+//	true if d < 0
+//	false if d == 0
+//	false if d > 0
+func (d Decimal) IsNegative() bool {
+	return d.Sign() == -1
+}
+
 // IsZero return
 //
 //	true if d == 0

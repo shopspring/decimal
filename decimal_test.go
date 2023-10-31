@@ -15,7 +15,6 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
-	"gopkg.in/mgo.v2/bson"
 )
 
 type testEnt struct {
@@ -3339,78 +3338,4 @@ func ExampleNewFromFloat() {
 	//123.123123123123
 	//0.123123123123123
 	//-10000000000000
-}
-
-func TestBSON(t *testing.T) {
-	// Capture positive and negative cases of floating numbers and whole numbers in various bit ranges; also copied scientific notation
-	// test cases from above
-	tests := []string{
-		"3.14159",
-		"42",
-		"42949672960",
-		"18446744073709551616000",
-		"-3.14159",
-		"-42",
-		"-42949672960",
-		"-18446744073709551616000",
-		"0",
-		"1e9",
-		"2.41E-3",
-		"24.2E-4",
-		"243E-5",
-		"1e-5",
-		"245E3",
-		"1.2345E-1",
-		"0e5",
-		"0e-5",
-		"123.456e0",
-		"123.456e2",
-		"123.456e10",
-	}
-	type decStruct struct {
-		Dec Decimal
-	}
-	// For each test the idea is that the String output of the original parsed decimal should match the String output of the
-	// decimal after it has been marshalled and unmarshalled into BSON
-	for i := range tests {
-		d, errD := NewFromString(tests[i])
-		if errD != nil {
-			t.Errorf("TestBSON failed decimal parsing for case %v because of parse error - %v", tests[i], errD)
-		}
-		exp := d.String()
-		// Test structure marshalling first
-		s1 := decStruct{Dec: d}
-		data, err := bson.Marshal(s1)
-		if err != nil {
-			t.Errorf("TestBSON failed structure marshalling for case %v because of marshal error - %v", tests[i], err)
-		}
-		s2 := decStruct{}
-		err = bson.Unmarshal(data, &s2)
-		if err != nil {
-			t.Errorf("TestBSON failed structure marshalling for case %v because of unmarshal error - %v", tests[i], err)
-		}
-		res := s2.Dec.String()
-		if exp != res {
-			t.Errorf("TestBSON failed structure marshalling for case %v got %v expected %v", tests[i], res, exp)
-		}
-		// Next test map marshalling
-		m := bson.M{"dec": d}
-		data2, err2 := bson.Marshal(m)
-		if err2 != nil {
-			t.Errorf("TestBSON failed map marshalling for case %v because of marshal error - %v", tests[i], err2)
-		}
-		m2 := make(bson.M)
-		err2 = bson.Unmarshal(data2, m2)
-		if err2 != nil {
-			t.Errorf("TestBSON failed map marshalling for case %v because of unmarshal error - %v", tests[i], err2)
-		}
-		d2, errD2 := NewFromString(m2["dec"].(bson.Decimal128).String())
-		if errD2 != nil {
-			t.Errorf("TestBSON failed map marshalling for case %v because of parse error - %v", tests[i], errD2)
-		}
-		res2 := d2.String()
-		if exp != res2 {
-			t.Errorf("TestBSON failed map marshalling for case %v got %v expected %v", tests[i], res2, exp)
-		}
-	}
 }

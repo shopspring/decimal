@@ -15,6 +15,8 @@ import (
 	"testing"
 	"testing/quick"
 	"time"
+
+	"github.com/holiman/uint256"
 )
 
 type testEnt struct {
@@ -2261,6 +2263,43 @@ func TestBigInt(t *testing.T) {
 		}
 		if d.BigInt().String() != testCase.BigIntRep {
 			t.Errorf("expect %s, got %s", testCase.BigIntRep, d.BigInt())
+		}
+	}
+}
+
+func TestUint(t *testing.T) {
+	testCases := []struct {
+		Dec     string
+		UintRep string
+	}{
+		{"0.0", "0"},
+		{"0.00000", "0"},
+		{"0.01", "0"},
+		{"12.1", "12"},
+		{"9999.999", "9999"},
+		// {"-32768.01234", "-32768"},
+		// {"-572372.0000000001", "-572372"},
+	}
+	for _, testCase := range testCases {
+		d, err := NewFromString(testCase.Dec)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bi := &big.Int{}
+		bi.SetString(testCase.UintRep, 10)
+		exp, ok := uint256.FromBig(bi)
+		got, ok2 := d.Uint()
+		if ok != ok2 {
+			t.Fatalf("overflow from string (%v) <> vs from decimal (%v)", ok, ok2)
+		}
+		if !exp.Eq(got) {
+			t.Fatalf("expected %s == %s", exp, got)
+		}
+		if !ok {
+			if got = d.UintNO(); !exp.Eq(got) {
+				t.Fatalf("UintNO: expected %s == %s", exp, got)
+			}
+
 		}
 	}
 }

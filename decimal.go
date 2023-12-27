@@ -25,6 +25,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/holiman/uint256"
 )
 
 // DivisionPrecision is the number of decimal places in the result when it
@@ -101,6 +103,29 @@ func NewFromInt(value int64) Decimal {
 	return Decimal{
 		value: big.NewInt(value),
 		exp:   0,
+	}
+}
+
+// NewFromUint converts a uint256.Int to Decimal.
+// Example:
+//
+//     NewFromInt(uint256.NewInt(123)).String() // output: "123"
+func NewFromUint(u *uint256.Int) Decimal {
+	return Decimal{
+		value: u.ToBig(),
+		exp:   0,
+	}
+}
+
+// NewFromUintExp converts a Uint to Decimal with given exponent
+//
+// Example:
+//
+//     NewFromInt(uint256.NewInt(1), 2).String() // output: "100"
+func NewFromUintExp(u *uint256.Int, exp int32) Decimal {
+	return Decimal{
+		value: u.ToBig(),
+		exp:   exp,
 	}
 }
 
@@ -993,6 +1018,21 @@ func (d Decimal) Rat() *big.Rat {
 	mul := new(big.Int).Exp(tenInt, big.NewInt(int64(d.exp)), nil)
 	num := new(big.Int).Mul(d.value, mul)
 	return new(big.Rat).SetFrac(num, oneInt)
+}
+
+// Uint returns integer component of the decimal as a uint256.Int.
+func (d Decimal) Uint() (*uint256.Int, bool) {
+	i := &big.Int{}
+	i.SetString(d.rescale(0).String(), 10)
+	return uint256.FromBig(i)
+}
+
+// UintNO returns integer component of the decimal as a uint256.Int.
+// NO stands for No Overflow. Ignore the bool indicating whether or not
+// overflow occured.
+func (d Decimal) UintNO() *uint256.Int {
+	u, _ := d.Uint()
+	return u
 }
 
 // Float64 returns the nearest float64 value for d and a bool indicating

@@ -9,7 +9,7 @@
 //
 // To use Decimal as part of a struct:
 //
-//	type Struct struct {
+//	type StructName struct {
 //	    Number Decimal
 //	}
 //
@@ -90,7 +90,7 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
-// NewFromInt converts a int64 to Decimal.
+// NewFromInt converts an int64 to Decimal.
 //
 // Example:
 //
@@ -103,7 +103,7 @@ func NewFromInt(value int64) Decimal {
 	}
 }
 
-// NewFromInt32 converts a int32 to Decimal.
+// NewFromInt32 converts an int32 to Decimal.
 //
 // Example:
 //
@@ -227,7 +227,7 @@ func NewFromFormattedString(value string, replRegexp *regexp.Regexp) (Decimal, e
 }
 
 // RequireFromString returns a new Decimal from a string representation
-// or panics if NewFromString would have returned an error.
+// or panics if NewFromString had returned an error.
 //
 // Example:
 //
@@ -413,7 +413,7 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 func (d Decimal) Copy() Decimal {
 	d.ensureInitialized()
 	return Decimal{
-		value: &(*d.value),
+		value: new(big.Int).Set(d.value),
 		exp:   d.exp,
 	}
 }
@@ -744,14 +744,14 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 //
 // Example:
 //
-//	    d, err := NewFromFloat(26.1).ExpTaylor(2).String()
-//	    d.String()  // output: "216314672147.06"
+//	d, err := NewFromFloat(26.1).ExpTaylor(2).String()
+//	d.String()  // output: "216314672147.06"
 //
-//		NewFromFloat(26.1).ExpTaylor(20).String()
-//		d.String()  // output: "216314672147.05767284062928674083"
+//	NewFromFloat(26.1).ExpTaylor(20).String()
+//	d.String()  // output: "216314672147.05767284062928674083"
 //
-//		NewFromFloat(26.1).ExpTaylor(-10).String()
-//		d.String()  // output: "220000000000"
+//	NewFromFloat(26.1).ExpTaylor(-10).String()
+//	d.String()  // output: "220000000000"
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
 	if d.IsZero() {

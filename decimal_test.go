@@ -560,6 +560,10 @@ func TestCopy(t *testing.T) {
 	origin := New(1, 0)
 	cpy := origin.Copy()
 
+	if origin.value == cpy.value {
+		t.Error("expecting copy and origin to have different value pointers")
+	}
+
 	if cpy.Cmp(origin) != 0 {
 		t.Error("expecting copy and origin to be equals, but they are not")
 	}

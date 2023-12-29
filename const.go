@@ -41,9 +41,6 @@ func newConstApproximation(value string) constApproximation {
 func (c constApproximation) withPrecision(precision int32) Decimal {
 	i := 0
 
-	// 0, 1, 2-3, 4-7, 8-15, 16-31, 32-63
-	// 0, 1, 2,    3,   4,    5,     6
-
 	if precision >= 1 {
 		i++
 	}

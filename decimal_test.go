@@ -2749,6 +2749,67 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
+func TestDecimal_Ln(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec       string
+		Precision int32
+		Expected  string
+	}{
+		{"0.1", 25, "-2.3025850929940456840179915"},
+		{"0.01", 25, "-4.6051701859880913680359829"},
+		{"0.001", 25, "-6.9077552789821370520539744"},
+		{"0.00000001", 25, "-18.4206807439523654721439316"},
+		{"1.0", 10, "0.0"},
+		{"1.01", 25, "0.0099503308531680828482154"},
+		{"1.001", 25, "0.0009995003330835331668094"},
+		{"1.0001", 25, "0.0000999950003333083353332"},
+		{"1.1", 25, "0.0953101798043248600439521"},
+		{"1.13", 25, "0.1222176327242492005461486"},
+		{"3.13", 10, "1.1410330046"},
+		{"3.13", 25, "1.1410330045520618486427824"},
+		{"3.13", 50, "1.14103300455206184864278239988848193837089629107972"},
+		{"3.13", 100, "1.1410330045520618486427823998884819383708962910797239760817078430268177216960996098918971117211892839"},
+		{"5.71", 25, "1.7422190236679188486939833"},
+		{"5.7185108151957193571930205", 50, "1.74370842450178929149992165925283704012576949094645"},
+		{"839101.0351", 25, "13.6400864014410013994397240"},
+		{"839101.0351094726488848490572028502", 50, "13.64008640145229044389152437468283605382056561604272"},
+		{"5023583755703750094849.03519358513093500275017501750602739169823", 25, "49.9684305274348922267409953"},
+		{"5023583755703750094849.03519358513093500275017501750602739169823", -1, "50.0"},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.Expected)
+
+		ln, err := d.Ln(testCase.Precision)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ln.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for decimal %s", testCase.Expected, ln.String(), testCase.Dec)
+		}
+	}
+}
+
+func TestDecimal_LnZero(t *testing.T) {
+	d := New(0, 0)
+
+	_, err := d.Ln(5)
+
+	if err == nil {
+		t.Errorf("expected error, natural logarithm of 0 cannot be represented (-infinity)")
+	}
+}
+
+func TestDecimal_LnNegative(t *testing.T) {
+	d := New(-20, 2)
+
+	_, err := d.Ln(5)
+
+	if err == nil {
+		t.Errorf("expected error, natural logarithm cannot be calculated for nagative decimals")
+	}
+}
+
 func TestDecimal_NumDigits(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec               string

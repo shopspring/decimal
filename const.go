@@ -26,7 +26,7 @@ func newConstApproximation(value string) constApproximation {
 
 	var approximations []Decimal
 	for p := 1; p < maxPrecision; p *= 2 {
-		r := RequireFromString(strLn10[:coeffLen+p])
+		r := RequireFromString(value[:coeffLen+p])
 		approximations = append(approximations, r)
 	}
 
@@ -36,13 +36,15 @@ func newConstApproximation(value string) constApproximation {
 	}
 }
 
-// Returns the smallest approximation available that's at least as precise as the passed precision
-// i.e. Ceil[ log2(precision) ] = 1 + Floor[ log2(precision-1) ]
+// Returns the smallest approximation available that's at least as precise
+// as the passed precision (places after decimal point), i.e. Floor[ log2(precision) ] + 1
 func (c constApproximation) withPrecision(precision int32) Decimal {
 	i := 0
 
-	if precision > 1 {
-		precision--
+	// 0, 1, 2-3, 4-7, 8-15, 16-31, 32-63
+	// 0, 1, 2,    3,   4,    5,     6
+
+	if precision >= 1 {
 		i++
 	}
 

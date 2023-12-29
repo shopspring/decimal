@@ -1,3 +1,5 @@
-module github.com/shopspring/decimal
+module github.com/husarlabs/decimal
 
-go 1.13
+go 1.15
+
+require go.mongodb.org/mongo-driver v1.12.1

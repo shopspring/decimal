@@ -1361,12 +1361,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 	case 100:
 		iVal = oneInt
 	default:
-		panic(
-			fmt.Sprintf(
-				"Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 25, 50, 100",
-				interval,
-			),
-		)
+		panic(fmt.Sprintf("Decimal does not support this Cash rounding interval `%d`. Supported: 5, 10, 25, 50, 100", interval))
 	}
 	dVal := Decimal{
 		value: iVal,
@@ -1703,10 +1698,7 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	case []byte:
 		bytes = v
 	default:
-		return "", fmt.Errorf(
-			"could not convert value '%+v' to byte array of type '%T'",
-			value, value,
-		)
+		return "", fmt.Errorf("could not convert value '%+v' to byte array of type '%T'", value, value)
 	}
 
 	// If the amount is quoted, strip the quotes

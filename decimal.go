@@ -43,13 +43,23 @@ import (
 //	d4.String() // output: "0.667"
 var DivisionPrecision = 16
 
-// MarshalJSONWithoutQuotes should be set to true if you want the decimal to
-// be JSON marshaled as a number, instead of as a string.
-// WARNING: this is dangerous for decimals with many digits, since many JSON
-// unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
-// double-precision floating point numbers, which means you can potentially
-// silently lose precision.
-var MarshalJSONWithoutQuotes = false
+var marshalOption = MarshalOptions{
+	MarshalJSONWithoutQuotes:         false,
+	MarshalJSONPrecisionFixedEnabled: false,
+	MarshalJSONPrecisionFixed:        16,
+}
+
+type MarshalOptions struct {
+	// MarshalJSONWithoutQuotes should be set to true if you want the decimal to
+	// be JSON marshaled as a number, instead of as a string.
+	// WARNING: this is dangerous for decimals with many digits, since many JSON
+	// unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
+	// double-precision floating point numbers, which means you can potentially
+	// silently lose precision.
+	MarshalJSONWithoutQuotes         bool
+	MarshalJSONPrecisionFixedEnabled bool
+	MarshalJSONPrecisionFixed        int32
+}
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
@@ -80,6 +90,11 @@ type Decimal struct {
 	// could make exp a *big.Int but it would hurt performance and numbers
 	// like that are unrealistic.
 	exp int32
+}
+
+// SetMarshalOptions setting marshaller options
+func SetMarshalOptions(options MarshalOptions) {
+	marshalOption = options
 }
 
 // New returns a new fixed-point decimal, value * 10 ^ exp.
@@ -1435,8 +1450,8 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 		return fmt.Errorf("error decoding string '%s': %s", decimalBytes, err)
 	}
 
-	decimal, err := NewFromString(str)
-	*d = decimal
+	decimalFromString, err := NewFromString(str)
+	*d = decimalFromString
 	if err != nil {
 		return fmt.Errorf("error decoding string '%s': %s", str, err)
 	}
@@ -1446,12 +1461,36 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 // MarshalJSON implements the json.Marshaler interface.
 func (d Decimal) MarshalJSON() ([]byte, error) {
 	var str string
-	if MarshalJSONWithoutQuotes {
-		str = d.String()
+	if marshalOption.MarshalJSONPrecisionFixedEnabled {
+		str = addTrailingZeros(d.StringFixed(marshalOption.MarshalJSONPrecisionFixed))
 	} else {
-		str = "\"" + d.String() + "\""
+		str = d.String()
 	}
+
+	if !marshalOption.MarshalJSONWithoutQuotes {
+		str = "\"" + str + "\""
+	}
+
 	return []byte(str), nil
+}
+
+func addTrailingZeros(str string) string {
+	strSplit := strings.Split(str, ".")
+	lenStrSplit := len(strSplit)
+
+	if lenStrSplit == 1 && marshalOption.MarshalJSONPrecisionFixed > 0 {
+		// Case: No decimal point in the original string
+		return str + "." + strings.Repeat("0", int(marshalOption.MarshalJSONPrecisionFixed))
+	} else if lenStrSplit > 1 {
+		// Case: Decimal point exists in the original string
+		decimalPart := strSplit[1]
+		zerosToAdd := int(marshalOption.MarshalJSONPrecisionFixed) - len(decimalPart)
+
+		if zerosToAdd > 0 {
+			return str + strings.Repeat("0", zerosToAdd)
+		}
+	}
+	return str
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
@@ -1675,14 +1714,14 @@ func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
 		return d1, d2
 	}
 
-	baseScale := min(d1.exp, d2.exp)
+	baseScale := minimum(d1.exp, d2.exp)
 	if baseScale != d1.exp {
 		return d1.rescale(baseScale), d2
 	}
 	return d1, d2.rescale(baseScale)
 }
 
-func min(x, y int32) int32 {
+func minimum(x, y int32) int32 {
 	if x >= y {
 		return y
 	}

@@ -247,12 +247,12 @@ func TestNewFromFormattedString(t *testing.T) {
 		Expected  string
 		ReplRegex *regexp.Regexp
 	}{
-		{"$10.99", "10.99", regexp.MustCompile("[$]")},
-		{"$ 12.1", "12.1", regexp.MustCompile("[$\\s]")},
-		{"$61,690.99", "61690.99", regexp.MustCompile("[$,]")},
-		{"1_000_000.00", "1000000.00", regexp.MustCompile("[_]")},
-		{"41,410.00", "41410.00", regexp.MustCompile("[,]")},
-		{"5200 USD", "5200", regexp.MustCompile("[USD\\s]")},
+		{"$10.99", "10.99", regexp.MustCompile(`[$]`)},
+		{"$ 12.1", "12.1", regexp.MustCompile(`[$\s]`)},
+		{"$61,690.99", "61690.99", regexp.MustCompile(`[$,]`)},
+		{"1_000_000.00", "1000000.00", regexp.MustCompile(`_`)},
+		{"41,410.00", "41410.00", regexp.MustCompile(`,`)},
+		{"5200 USD", "5200", regexp.MustCompile(`[USD\s]`)},
 	} {
 		dFormatted, err := NewFromFormattedString(testCase.Formatted, testCase.ReplRegex)
 		if err != nil {
@@ -601,14 +601,75 @@ func TestJSON(t *testing.T) {
 		}
 
 		// make sure unquoted marshalling works too
-		MarshalJSONWithoutQuotes = true
+		marshalOption.MarshalJSONWithoutQuotes = true
 		out, err = json.Marshal(&doc)
 		if err != nil {
 			t.Errorf("error marshaling %+v: %v", doc, err)
 		} else if string(out) != docStrNumber {
 			t.Errorf("expected %s, got %s", docStrNumber, string(out))
 		}
-		MarshalJSONWithoutQuotes = false
+		marshalOption.MarshalJSONWithoutQuotes = false
+
+		// case fixed precision = 2 (number)
+		marshalOption.MarshalJSONWithoutQuotes = true
+		marshalOption.MarshalJSONPrecisionFixedEnabled = true
+		marshalOption.MarshalJSONPrecisionFixed = 2
+		sDecimal, err := NewFromString(s)
+		amountStr := addTrailingZeros(sDecimal.StringFixed(marshalOption.MarshalJSONPrecisionFixed))
+		docPrecisionFixed := `{"amount":` + amountStr + `}`
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docPrecisionFixed {
+			t.Errorf("expected %s, got %s", docPrecisionFixed, string(out))
+		}
+		marshalOption.MarshalJSONWithoutQuotes = false
+
+		// case fixed precision = 2 (string)
+		docStrPrecisionFixed := `{"amount":"` + amountStr + `"}`
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStrPrecisionFixed {
+			t.Errorf("expected %s, got %s", docStrPrecisionFixed, string(out))
+		}
+
+		// case fixed precision = 0 (number)
+		marshalOption.MarshalJSONWithoutQuotes = true
+		marshalOption.MarshalJSONPrecisionFixed = 0
+		amountStr = addTrailingZeros(sDecimal.StringFixed(marshalOption.MarshalJSONPrecisionFixed))
+		docPrecisionFixed = `{"amount":` + amountStr + `}`
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docPrecisionFixed {
+			t.Errorf("expected %s, got %s", docPrecisionFixed, string(out))
+		}
+		marshalOption.MarshalJSONWithoutQuotes = false
+
+		// case fixed precision = 0 (string)
+		docStrPrecisionFixed = `{"amount":"` + amountStr + `"}`
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStrPrecisionFixed {
+			t.Errorf("expected %s, got %s", docStrPrecisionFixed, string(out))
+		}
+		// test set new marshaller options
+		SetMarshalOptions(MarshalOptions{
+			MarshalJSONWithoutQuotes:         false,
+			MarshalJSONPrecisionFixed:        16,
+			MarshalJSONPrecisionFixedEnabled: true,
+		})
+		amountStr = addTrailingZeros(sDecimal.StringFixed(marshalOption.MarshalJSONPrecisionFixed))
+		docStrPrecisionFixed = `{"amount":"` + amountStr + `"}`
+		out, err = json.Marshal(&doc)
+		if err != nil {
+			t.Errorf("error marshaling %+v: %v", doc, err)
+		} else if string(out) != docStrPrecisionFixed {
+			t.Errorf("expected %s, got %s", docStrPrecisionFixed, string(out))
+		}
+		marshalOption.MarshalJSONPrecisionFixedEnabled = false
 	}
 }
 
@@ -676,14 +737,14 @@ func TestNullDecimalJSON(t *testing.T) {
 		}
 
 		// make sure unquoted marshalling works too
-		MarshalJSONWithoutQuotes = true
+		marshalOption.MarshalJSONWithoutQuotes = true
 		out, err = json.Marshal(&doc)
 		if err != nil {
 			t.Errorf("error marshaling %+v: %v", doc, err)
 		} else if string(out) != docStrNumber {
 			t.Errorf("expected %s, got %s", docStrNumber, string(out))
 		}
-		MarshalJSONWithoutQuotes = false
+		marshalOption.MarshalJSONWithoutQuotes = false
 	}
 
 	var doc struct {
@@ -708,7 +769,7 @@ func TestNullDecimalJSON(t *testing.T) {
 	}
 
 	// make sure unquoted marshalling works too
-	MarshalJSONWithoutQuotes = true
+	marshalOption.MarshalJSONWithoutQuotes = true
 	expectedUnquoted := `{"amount":null}`
 	out, err = json.Marshal(&doc)
 	if err != nil {
@@ -716,7 +777,7 @@ func TestNullDecimalJSON(t *testing.T) {
 	} else if string(out) != expectedUnquoted {
 		t.Errorf("expected %s, got %s", expectedUnquoted, string(out))
 	}
-	MarshalJSONWithoutQuotes = false
+	marshalOption.MarshalJSONWithoutQuotes = false
 }
 
 func TestNullDecimalBadJSON(t *testing.T) {

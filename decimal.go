@@ -90,7 +90,7 @@ func New(value int64, exp int32) Decimal {
 	}
 }
 
-// NewFromInt converts a int64 to Decimal.
+// NewFromInt converts an int64 to Decimal.
 //
 // Example:
 //
@@ -103,7 +103,7 @@ func NewFromInt(value int64) Decimal {
 	}
 }
 
-// NewFromInt32 converts a int32 to Decimal.
+// NewFromInt32 converts an int32 to Decimal.
 //
 // Example:
 //
@@ -227,7 +227,7 @@ func NewFromFormattedString(value string, replRegexp *regexp.Regexp) (Decimal, e
 }
 
 // RequireFromString returns a new Decimal from a string representation
-// or panics if NewFromString would have returned an error.
+// or panics if NewFromString had returned an error.
 //
 // Example:
 //
@@ -413,7 +413,7 @@ func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 func (d Decimal) Copy() Decimal {
 	d.ensureInitialized()
 	return Decimal{
-		value: &(*d.value),
+		value: new(big.Int).Set(d.value),
 		exp:   d.exp,
 	}
 }
@@ -626,8 +626,8 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 
 // Mod returns d % d2.
 func (d Decimal) Mod(d2 Decimal) Decimal {
-	quo := d.DivRound(d2, -d.exp+1).Truncate(0)
-	return d.Sub(d2.Mul(quo))
+	_, r := d.QuoRem(d2, 0)
+	return r
 }
 
 // Pow returns d to the power d2
@@ -808,9 +808,127 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	return result, nil
 }
 
+// Ln calculates natural logarithm of d.
+// Precision argument specifies how precise the result must be (number of digits after decimal point).
+// Negative precision is allowed.
+//
+// Example:
+//
+//	d1, err := NewFromFloat(13.3).Ln(2)
+//	d1.String()  // output: "2.59"
+//
+//	d2, err := NewFromFloat(579.161).Ln(10)
+//	d2.String()  // output: "6.3615805046"
+func (d Decimal) Ln(precision int32) (Decimal, error) {
+	// Algorithm based on The Use of Iteration Methods for Approximating the Natural Logarithm,
+	// James F. Epperson, The American Mathematical Monthly, Vol. 96, No. 9, November 1989, pp. 831-835.
+	if d.IsNegative() {
+		return Decimal{}, fmt.Errorf("cannot calculate natural logarithm for negative decimals")
+	}
+
+	if d.IsZero() {
+		return Decimal{}, fmt.Errorf("cannot represent natural logarithm of 0, result: -infinity")
+	}
+
+	calcPrecision := precision + 2
+	z := d.Copy()
+
+	var comp1, comp3, comp2, comp4, reduceAdjust Decimal
+	comp1 = z.Sub(Decimal{oneInt, 0})
+	comp3 = Decimal{oneInt, -1}
+
+	// for decimal in range [0.9, 1.1] where ln(d) is close to 0
+	usePowerSeries := false
+
+	if comp1.Abs().Cmp(comp3) <= 0 {
+		usePowerSeries = true
+	} else {
+		// reduce input decimal to range [0.1, 1)
+		expDelta := int32(z.NumDigits()) + z.exp
+		z.exp -= expDelta
+
+		// Input decimal was reduced by factor of 10^expDelta, thus we will need to add
+		// ln(10^expDelta) = expDelta * ln(10)
+		// to the result to compensate that
+		ln10 := ln10.withPrecision(calcPrecision)
+		reduceAdjust = NewFromInt32(expDelta)
+		reduceAdjust = reduceAdjust.Mul(ln10)
+
+		comp1 = z.Sub(Decimal{oneInt, 0})
+
+		if comp1.Abs().Cmp(comp3) <= 0 {
+			usePowerSeries = true
+		} else {
+			// initial estimate using floats
+			zFloat := z.InexactFloat64()
+			comp1 = NewFromFloat(math.Log(zFloat))
+		}
+	}
+
+	epsilon := Decimal{oneInt, -calcPrecision}
+
+	if usePowerSeries {
+		// Power Series - https://en.wikipedia.org/wiki/Logarithm#Power_series
+		// Calculating n-th term of formula: ln(z+1) = 2 sum [ 1 / (2n+1) * (z / (z+2))^(2n+1) ]
+		// until the difference between current and next term is smaller than epsilon.
+		// Coverage quite fast for decimals close to 1.0
+
+		// z + 2
+		comp2 = comp1.Add(Decimal{twoInt, 0})
+		// z / (z + 2)
+		comp3 = comp1.DivRound(comp2, calcPrecision)
+		// 2 * (z / (z + 2))
+		comp1 = comp3.Add(comp3)
+		comp2 = comp1.Copy()
+
+		for n := 1; ; n++ {
+			// 2 * (z / (z+2))^(2n+1)
+			comp2 = comp2.Mul(comp3).Mul(comp3)
+
+			// 1 / (2n+1) * 2 * (z / (z+2))^(2n+1)
+			comp4 = NewFromInt(int64(2*n + 1))
+			comp4 = comp2.DivRound(comp4, calcPrecision)
+
+			// comp1 = 2 sum [ 1 / (2n+1) * (z / (z+2))^(2n+1) ]
+			comp1 = comp1.Add(comp4)
+
+			if comp4.Abs().Cmp(epsilon) <= 0 {
+				break
+			}
+		}
+	} else {
+		// Halley's Iteration.
+		// Calculating n-th term of formula: a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z),
+		// until the difference between current and next term is smaller than epsilon
+		for {
+			// exp(a_n)
+			comp3, _ = comp1.ExpTaylor(calcPrecision)
+			// exp(a_n) - z
+			comp2 = comp3.Sub(z)
+			// 2 * (exp(a_n) - z)
+			comp2 = comp2.Add(comp2)
+			// exp(a_n) + z
+			comp4 = comp3.Add(z)
+			// 2 * (exp(a_n) - z) / (exp(a_n) + z)
+			comp3 = comp2.DivRound(comp4, calcPrecision)
+			// comp1 = a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z)
+			comp1 = comp1.Sub(comp3)
+
+			if comp3.Abs().Cmp(epsilon) <= 0 {
+				break
+			}
+		}
+	}
+
+	comp1 = comp1.Add(reduceAdjust)
+
+	return comp1.Round(precision), nil
+}
+
 // NumDigits returns the number of digits of the decimal coefficient (d.Value)
 // Note: Current implementation is extremely slow for large decimals and/or decimals with large fractional part
 func (d Decimal) NumDigits() int {
+	d.ensureInitialized()
 	// Note(mwoss): It can be optimized, unnecessary cast of big.Int to string
 	if d.IsNegative() {
 		return len(d.value.String()) - 1

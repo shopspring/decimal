@@ -986,7 +986,7 @@ func (d Decimal) Equal(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
-// Equals is deprecated, please use Equal method instead
+// Deprecated: Equals is deprecated, please use Equal method instead.
 func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Equal(d2)
 }
@@ -1559,7 +1559,8 @@ func (d *Decimal) GobDecode(data []byte) error {
 }
 
 // StringScaled first scales the decimal then calls .String() on it.
-// NOTE: buggy, unintuitive, and DEPRECATED! Use StringFixed instead.
+//
+// Deprecated: buggy and unintuitive. Use StringFixed instead.
 func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()
 }
@@ -1698,8 +1699,7 @@ func unquoteIfQuoted(value interface{}) (string, error) {
 	case []byte:
 		bytes = v
 	default:
-		return "", fmt.Errorf("could not convert value '%+v' to byte array of type '%T'",
-			value, value)
+		return "", fmt.Errorf("could not convert value '%+v' to byte array of type '%T'", value, value)
 	}
 
 	// If the amount is quoted, strip the quotes

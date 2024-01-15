@@ -1672,22 +1672,13 @@ func RescalePair(d1 Decimal, d2 Decimal) (Decimal, Decimal) {
 	d1.ensureInitialized()
 	d2.ensureInitialized()
 
-	if d1.exp == d2.exp {
-		return d1, d2
+	if d1.exp < d2.exp {
+		return d1, d2.rescale(d1.exp)
+	} else if d1.exp > d2.exp {
+		return d1.rescale(d2.exp), d2
 	}
 
-	baseScale := min(d1.exp, d2.exp)
-	if baseScale != d1.exp {
-		return d1.rescale(baseScale), d2
-	}
-	return d1, d2.rescale(baseScale)
-}
-
-func min(x, y int32) int32 {
-	if x >= y {
-		return y
-	}
-	return x
+	return d1, d2
 }
 
 func unquoteIfQuoted(value interface{}) (string, error) {

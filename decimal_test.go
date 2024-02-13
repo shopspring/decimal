@@ -524,6 +524,25 @@ func TestNewFromInt32(t *testing.T) {
 	}
 }
 
+func TestNewFromUint64(t *testing.T) {
+	tests := map[uint64]string{
+		0:                    "0",
+		1:                    "1",
+		323412345:            "323412345",
+		9223372036854775807:  "9223372036854775807",
+		18446744073709551615: "18446744073709551615",
+	}
+
+	for input, s := range tests {
+		d := NewFromUint64(input)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
+		}
+	}
+}
+
 func TestNewFromBigIntWithExponent(t *testing.T) {
 	type Inp struct {
 		val *big.Int

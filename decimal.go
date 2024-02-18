@@ -130,9 +130,10 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 //
 // Example:
 //
-//     d1, err := NewFromBigRat(big.NewRat(0, 1), 4)
-//     d2, err := NewFromBigRat(big.NewRat(4, 5), 100)
-//     d3, err := NewFromBigRat(big.NewRat(10000, 3), 300)
+//     d1 := NewFromBigRat(big.NewRat(0, 1), 0)    // output: "0"
+//     d2 := NewFromBigRat(big.NewRat(4, 5), 1)    // output: "0.8"
+//     d3 := NewFromBigRat(big.NewRat(1000, 3), 3) // output: "333.333"
+//     d4 := NewFromBigRat(big.NewRat(2, 7), 4)    // output: "0.2857"
 //
 func NewFromBigRat(value *big.Rat, precision int32) Decimal {
 	return Decimal{

@@ -8,6 +8,8 @@ Arbitrary-precision fixed-point decimal numbers in go.
 
 _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
 
+_Note:_ The library does not remove trailing zeros when parsing decimals from strings, e.g., `1.18` does not internally equal `1.1800` when parsing with this library, see example in usage
+
 ## Features
 
  * The zero-value is 0, and is safe to use without initialization
@@ -57,6 +59,32 @@ func main() {
 	fmt.Println("Total:", total)                            // Total: 459.824961375
 	fmt.Println("Tax rate:", total.Sub(preTax).Div(preTax)) // Tax rate: 0.08875
 }
+```
+
+Conservation of precision with trailing zeros. This conservation is, however,
+not translated backwards when printing the decimal as string.
+
+This is important to know.
+
+```go
+package main
+
+import (
+	"fmt"
+	"github.com/shopspring/decimal"
+)
+
+func main() {
+	noZeros := "1.18"
+	trailingZeros := "1.1800"
+
+	d1 := decimal.RequireFromString(noZeros)
+	d2 := decimal.RequireFromString(trailingZeros)
+
+	fmt.Println(d1.Coefficient(), d1.Exponent()) 	// 118 -2
+	fmt.Println(d2.Coefficient(), d2.Exponent()) 	// 118 -4
+	fmt.Println(d1)					// 1.18
+	fmt.Println(d2)					// 1.18
 ```
 
 ## Documentation

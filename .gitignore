@@ -4,6 +4,7 @@
 # IntelliJ
 .idea/
 *.iml
+*.sum
 
 # VS code
 *.code-workspace

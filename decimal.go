@@ -1506,19 +1506,18 @@ func (d *Decimal) UnmarshalBinary(data []byte) error {
 
 // MarshalBinary implements the encoding.BinaryMarshaler interface.
 func (d Decimal) MarshalBinary() (data []byte, err error) {
-	// Write the exponent first since it's a fixed size
-	v1 := make([]byte, 4)
-	binary.BigEndian.PutUint32(v1, uint32(d.exp))
-
-	// Add the value
-	var v2 []byte
-	if v2, err = d.value.GobEncode(); err != nil {
-		return
+	// exp is written first, but encode value first to know output size
+	var valueData []byte
+	if valueData, err = d.value.GobEncode(); err != nil {
+		return nil, err
 	}
 
+	// Write the exponent in front since it's a fixed size
+	expData := make([]byte, 4, len(valueData)+4)
+	binary.BigEndian.PutUint32(expData, uint32(d.exp))
+
 	// Return the byte array
-	data = append(v1, v2...)
-	return
+	return append(expData, valueData...), nil
 }
 
 // Scan implements the sql.Scanner interface for database deserialization.

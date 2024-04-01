@@ -937,7 +937,7 @@ func (d Decimal) Ln(precision int32) (Decimal, error) {
 			comp1 = comp1.Sub(comp3)
 
 			if prevStep.Add(comp3).IsZero() {
-				// If iteration steps oscillate we should return early and prevent infinity loop
+				// If iteration steps oscillate we should return early and prevent an infinity loop
 				// NOTE(mwoss): This should be quite a rare case, returning error is not necessary
 				break
 			}

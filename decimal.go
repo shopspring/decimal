@@ -129,11 +129,10 @@ func NewFromBigInt(value *big.Int, exp int32) Decimal {
 //
 // Example:
 //
-//     d1 := NewFromBigRat(big.NewRat(0, 1), 0)    // output: "0"
-//     d2 := NewFromBigRat(big.NewRat(4, 5), 1)    // output: "0.8"
-//     d3 := NewFromBigRat(big.NewRat(1000, 3), 3) // output: "333.333"
-//     d4 := NewFromBigRat(big.NewRat(2, 7), 4)    // output: "0.2857"
-//
+//	d1 := NewFromBigRat(big.NewRat(0, 1), 0)    // output: "0"
+//	d2 := NewFromBigRat(big.NewRat(4, 5), 1)    // output: "0.8"
+//	d3 := NewFromBigRat(big.NewRat(1000, 3), 3) // output: "333.333"
+//	d4 := NewFromBigRat(big.NewRat(2, 7), 4)    // output: "0.2857"
 func NewFromBigRat(value *big.Rat, precision int32) Decimal {
 	return Decimal{
 		value: new(big.Int).Set(value.Num()),
@@ -920,7 +919,10 @@ func (d Decimal) Ln(precision int32) (Decimal, error) {
 		// Halley's Iteration.
 		// Calculating n-th term of formula: a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z),
 		// until the difference between current and next term is smaller than epsilon
-		for {
+		var prevStep Decimal
+		maxIters := calcPrecision*2 + 10
+
+		for i := int32(0); i < maxIters; i++ {
 			// exp(a_n)
 			comp3, _ = comp1.ExpTaylor(calcPrecision)
 			// exp(a_n) - z
@@ -934,9 +936,17 @@ func (d Decimal) Ln(precision int32) (Decimal, error) {
 			// comp1 = a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z)
 			comp1 = comp1.Sub(comp3)
 
+			if prevStep.Add(comp3).IsZero() {
+				// If iteration steps oscillate we should return early and prevent an infinity loop
+				// NOTE(mwoss): This should be quite a rare case, returning error is not necessary
+				break
+			}
+
 			if comp3.Abs().Cmp(epsilon) <= 0 {
 				break
 			}
+
+			prevStep = comp3
 		}
 	}
 

@@ -3673,15 +3673,3 @@ func ExampleNewFromFloat() {
 	//0.123123123123123
 	//-10000000000000
 }
-
-func TestXDD(t *testing.T) {
-	d1 := NewFromFloat(4.0)
-	d2 := NewFromFloat(4.0)
-	res1 := d1.Pow(d2)
-	t.Log(res1.String()) // output: "16.0"
-
-	d3 := NewFromFloat(5.0)
-	d4 := NewFromFloat(5.73)
-	res2 := d3.Pow(d4)
-	t.Log(res2.String()) // output: "10118.080371595015625"
-}

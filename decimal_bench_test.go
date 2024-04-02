@@ -3,6 +3,7 @@ package decimal
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -182,6 +183,41 @@ func BenchmarkDecimal_IsInteger(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		d.IsInteger()
+	}
+}
+
+func BenchmarkDecimal_Pow(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := RequireFromString("6.3")
+
+	for i := 0; i < b.N; i++ {
+		d1.Pow(d2)
+	}
+}
+
+func BenchmarkDecimal_PowWithPrecision(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := RequireFromString("6.3")
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowWithPrecision(d2, 8)
+	}
+}
+func BenchmarkDecimal_PowInt32(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := int32(10)
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowInt32(d2)
+	}
+}
+
+func BenchmarkDecimal_PowBigInt(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := big.NewInt(10)
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowBigInt(d2)
 	}
 }
 

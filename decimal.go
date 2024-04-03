@@ -1229,29 +1229,23 @@ func (d Decimal) NumDigits() int {
 		return 1
 	}
 
-	if d.value.IsUint64() {
-		u64 := d.value.Uint64()
-		if u64 < (1 << 53) {
-			if u64 == 0 {
+	if d.value.IsInt64() {
+		i64 := d.value.Int64()
+		if i64 <= (1<<53) && i64 >= -(1<<53) {
+			if i64 == 0 {
 				return 1
 			}
-			return int(math.Log10(float64(u64))) + 1
-		}
-	} else if d.value.IsInt64() {
-		i64 := d.value.Int64()
-		if i64 > -(1 << 53) {
-			return int(math.Log10(float64(-i64))) + 1
+			return int(math.Log10(math.Abs(float64(i64)))) + 1
 		}
 	}
 
-	abs := new(big.Int).Abs(d.value)
-	estimatedNumDigits := int(float64(abs.BitLen()) / math.Log2(10))
+	estimatedNumDigits := int(float64(d.value.BitLen()) / math.Log2(10))
 
 	// estimatedNumDigits (lg10) may be off by 1, need to verify
 	digitsBigInt := big.NewInt(int64(estimatedNumDigits))
 	errorCorrectionUnit := digitsBigInt.Exp(tenInt, digitsBigInt, nil)
 
-	if abs.Cmp(errorCorrectionUnit) >= 0 {
+	if d.value.CmpAbs(errorCorrectionUnit) >= 0 {
 		return estimatedNumDigits + 1
 	}
 

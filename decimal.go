@@ -1245,10 +1245,17 @@ func (d Decimal) NumDigits() int {
 	}
 
 	abs := new(big.Int).Abs(d.value)
-	// lg10 may be off by 1, need to verify
-	lg10 := int(float64(abs.BitLen()) / math.Log2(10))
-	check := big.NewInt(int64(lg10))
-	return lg10 + abs.Cmp(check.Exp(tenInt, check, nil))
+	estimatedNumDigits := int(float64(abs.BitLen()) / math.Log2(10))
+
+	// estimatedNumDigits (lg10) may be off by 1, need to verify
+	digitsBigInt := big.NewInt(int64(estimatedNumDigits))
+	errorCorrectionUnit := digitsBigInt.Exp(tenInt, digitsBigInt, nil)
+
+	if abs.Cmp(errorCorrectionUnit) >= 0 {
+		return estimatedNumDigits + 1
+	}
+
+	return estimatedNumDigits
 }
 
 // IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.

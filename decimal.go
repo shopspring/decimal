@@ -1512,7 +1512,7 @@ func (d Decimal) MarshalBinary() (data []byte, err error) {
 		return nil, err
 	}
 
-	// Write the exponent in front since it's a fixed size
+	// Write the exponent in front, since it's a fixed size
 	expData := make([]byte, 4, len(valueData)+4)
 	binary.BigEndian.PutUint32(expData, uint32(d.exp))
 

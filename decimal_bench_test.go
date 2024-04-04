@@ -125,7 +125,7 @@ func numDigits(b *testing.B, want int, val Decimal) {
 	b.Helper()
 	for i := 0; i < b.N; i++ {
 		if have := val.NumDigits(); have != want {
-			b.Fatalf("\nHave: %q\nWant: %q", have, want)
+			b.Fatalf("\nHave: %d\nWant: %d", have, want)
 		}
 	}
 }

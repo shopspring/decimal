@@ -1224,14 +1224,33 @@ func (d Decimal) Ln(precision int32) (Decimal, error) {
 }
 
 // NumDigits returns the number of digits of the decimal coefficient (d.Value)
-// Note: Current implementation is extremely slow for large decimals and/or decimals with large fractional part
 func (d Decimal) NumDigits() int {
-	d.ensureInitialized()
-	// Note(mwoss): It can be optimized, unnecessary cast of big.Int to string
-	if d.IsNegative() {
-		return len(d.value.String()) - 1
+	if d.value == nil {
+		return 1
 	}
-	return len(d.value.String())
+
+	if d.value.IsInt64() {
+		i64 := d.value.Int64()
+		// restrict fast path to integers with exact conversion to float64
+		if i64 <= (1<<53) && i64 >= -(1<<53) {
+			if i64 == 0 {
+				return 1
+			}
+			return int(math.Log10(math.Abs(float64(i64)))) + 1
+		}
+	}
+
+	estimatedNumDigits := int(float64(d.value.BitLen()) / math.Log2(10))
+
+	// estimatedNumDigits (lg10) may be off by 1, need to verify
+	digitsBigInt := big.NewInt(int64(estimatedNumDigits))
+	errorCorrectionUnit := digitsBigInt.Exp(tenInt, digitsBigInt, nil)
+
+	if d.value.CmpAbs(errorCorrectionUnit) >= 0 {
+		return estimatedNumDigits + 1
+	}
+
+	return estimatedNumDigits
 }
 
 // IsInteger returns true when decimal can be represented as an integer value, otherwise, it returns false.

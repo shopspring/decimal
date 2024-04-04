@@ -1231,6 +1231,7 @@ func (d Decimal) NumDigits() int {
 
 	if d.value.IsInt64() {
 		i64 := d.value.Int64()
+		// restrict fast path to integers with exact conversion to float64
 		if i64 <= (1<<53) && i64 >= -(1<<53) {
 			if i64 == 0 {
 				return 1

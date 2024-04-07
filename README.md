@@ -63,11 +63,6 @@ func main() {
 
 http://godoc.org/github.com/shopspring/decimal
 
-## Production Usage
-
-* [Spring](https://shopspring.com/), since August 14, 2014.
-* If you are using this in production, please let us know!
-
 ## FAQ
 
 #### Why don't you just use float64?

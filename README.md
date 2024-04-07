@@ -24,6 +24,11 @@ Run `go get github.com/shopspring/decimal`
 
 Decimal library requires Go version `>=1.10`
 
+## Documentation
+
+http://godoc.org/github.com/shopspring/decimal
+
+
 ## Usage
 
 ```go
@@ -59,9 +64,16 @@ func main() {
 }
 ```
 
-## Documentation
+## Alternative libraries
 
-http://godoc.org/github.com/shopspring/decimal
+When working with decimal numbers, you might face problems this library is not perfectly suited for. 
+Fortunately, thanks to the wonderful community we have a dozen other libraries that you can choose from.  
+Explore other alternatives to find the one that best fits your needs :)  
+
+* [cockroachdb/apd](https://github.com/cockroachdb/apd) - high precision, mutable and rich API similar to `big.Int`, higher performance than this library 
+* [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), with fully compatible API to this library 
+* [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
+* [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork of this library, with out-of-the-box BSON marshaling support
 
 ## FAQ
 

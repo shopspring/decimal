@@ -130,6 +130,18 @@ func NewFromInt32(value int32) Decimal {
 	}
 }
 
+// NewFromUint64 converts an uint64 to Decimal.
+//
+// Example:
+//
+//	NewFromUint64(123).String() // output: "123"
+func NewFromUint64(value uint64) Decimal {
+	return Decimal{
+		value: new(big.Int).SetUint64(value),
+		exp:   0,
+	}
+}
+
 // NewFromBigInt returns a new Decimal from a big.Int, value * 10 ^ exp
 func NewFromBigInt(value *big.Int, exp int32) Decimal {
 	return Decimal{

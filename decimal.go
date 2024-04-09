@@ -1847,6 +1847,11 @@ func (d *Decimal) Scan(value interface{}) error {
 		*d = New(v, 0)
 		return nil
 
+	case uint64:
+		// while clickhouse may send 0 in db as uint64
+		*d = NewFromUint64(v)
+		return nil
+
 	default:
 		// default is trying to interpret value stored as string
 		str, err := unquoteIfQuoted(v)

@@ -70,10 +70,10 @@ When working with decimal numbers, you might face problems this library is not p
 Fortunately, thanks to the wonderful community we have a dozen other libraries that you can choose from.  
 Explore other alternatives to find the one that best fits your needs :)  
 
-* [cockroachdb/apd](https://github.com/cockroachdb/apd) - high precision, mutable and rich API similar to `big.Int`, more performant than this library 
+* [cockroachdb/apd](https://github.com/cockroachdb/apd) - arbitrary precision, mutable and rich API similar to `big.Int`, more performant than this library 
 * [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), fully compatible API with this library 
 * [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
-* [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork of this library, with out-of-the-box BSON marshaling support
+* [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork focusing on billing and e-commerce web application related use cases, includes out-of-the-box BSON marshaling support
 
 ## FAQ
 

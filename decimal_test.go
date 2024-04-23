@@ -1261,6 +1261,67 @@ func TestDecimal_RoundCeilAndStringFixed(t *testing.T) {
 	}
 }
 
+func TestDecimal_Format(t *testing.T) {
+	type testData struct {
+		input    string
+		places   int32
+		expected string
+	}
+	tests := []testData{
+		{"1.454", 0, "1"},
+		{"1.454", 1, "1.5"},
+		{"1.454", 2, "1.45"},
+		{"1.454", 3, "1.454"},
+		{"1.454", 4, "1.4540"},
+		{"1.454", 5, "1.45400"},
+		{"0.454", 0, "0"},
+		{"0.454", 1, "0.5"},
+		{"0.454", 2, "0.45"},
+		{"0.454", 3, "0.454"},
+		{"0.454", 4, "0.4540"},
+		{"0.454", 5, "0.45400"},
+		{"0", 0, "0"},
+		{"0", 1, "0.0"},
+		{"0", 2, "0.00"},
+		{"5", 2, "5.00"},
+		{"5", 1, "5.0"},
+		{"5", 0, "5"},
+		{"500", 2, "500.00"},
+		{"1.1001", 2, "1.10"},
+		{"-1.1001", 2, "-1.10"},
+		{"-1.454", 0, "-1"},
+		{"-1.454", 1, "-1.5"},
+		{"-1.454", 2, "-1.45"},
+		{"-1.454", 3, "-1.454"},
+		{"-1.454", 4, "-1.4540"},
+		{"-1.454", 5, "-1.45400"},
+		{"-1.554", 0, "-2"},
+		{"-1.554", 1, "-1.6"},
+		{"-1.554", 2, "-1.55"},
+		{"-0.554", 0, "-1"},
+		{"-0.454", 0, "0"},
+		{"-0.454", 5, "-0.45400"},
+		{"-500", 2, "-500.00"},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+		formatIndicator := "%." + fmt.Sprintf("%d", test.places) + "f"
+		got := fmt.Sprintf(formatIndicator, d)
+		if got != test.expected {
+			t.Errorf("format indicator: %s: got %s, expected %s",
+				formatIndicator, got, test.expected)
+		}
+	}
+}
+
 func TestDecimal_RoundFloorAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string

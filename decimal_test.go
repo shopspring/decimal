@@ -2,6 +2,7 @@ package decimal
 
 import (
 	"database/sql/driver"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -3646,4 +3647,19 @@ func ExampleNewFromFloat() {
 	//123.123123123123
 	//0.123123123123123
 	//-10000000000000
+}
+
+func TestMsgPack(t *testing.T) {
+	d, _ := NewFromString("79228162514264337593543950334.123222")
+	out, err := d.MarshalMsg(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(base64.StdEncoding.EncodeToString(out))
+
+	var d2 = Decimal{}
+	if _, err = d2.UnmarshalMsg(out); err != nil {
+		t.Fatal(err)
+	}
+	t.Log(d2.String())
 }

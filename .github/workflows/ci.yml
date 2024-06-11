@@ -1,0 +1,21 @@
+name: ci
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+jobs:
+  ci-job:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: [ '1.10.x', '1.19', '1.20', '1.21', '1.22', '1.x' ]
+    name: Go ${{ matrix.go }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go build .
+      - run: go test -v

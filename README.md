@@ -1,22 +1,33 @@
 # decimal
 
-[![Build Status](https://travis-ci.org/shopspring/decimal.png?branch=master)](https://travis-ci.org/shopspring/decimal) [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) [![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
+[![ci](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
+[![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) 
+[![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
-NOTE: can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
+_Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
 
 ## Features
 
- * the zero-value is 0, and is safe to use without initialization
- * addition, subtraction, multiplication with no loss of precision
- * division with specified precision
- * database/sql serialization/deserialization
- * json and xml serialization/deserialization
+ * The zero-value is 0, and is safe to use without initialization
+ * Addition, subtraction, multiplication with no loss of precision
+ * Division with specified precision
+ * Database/sql serialization/deserialization
+ * JSON and XML serialization/deserialization
 
 ## Install
 
 Run `go get github.com/shopspring/decimal`
+
+## Requirements 
+
+Decimal library requires Go version `>=1.10`
+
+## Documentation
+
+http://godoc.org/github.com/shopspring/decimal
+
 
 ## Usage
 
@@ -34,7 +45,7 @@ func main() {
 		panic(err)
 	}
 
-	quantity := decimal.NewFromFloat(3)
+	quantity := decimal.NewFromInt(3)
 
 	fee, _ := decimal.NewFromString(".035")
 	taxRate, _ := decimal.NewFromString(".08875")
@@ -53,21 +64,23 @@ func main() {
 }
 ```
 
-## Documentation
+## Alternative libraries
 
-http://godoc.org/github.com/shopspring/decimal
+When working with decimal numbers, you might face problems this library is not perfectly suited for. 
+Fortunately, thanks to the wonderful community we have a dozen other libraries that you can choose from.  
+Explore other alternatives to find the one that best fits your needs :)  
 
-## Production Usage
-
-* [Spring](https://shopspring.com/), since August 14, 2014.
-* If you are using this in production, please let us know!
+* [cockroachdb/apd](https://github.com/cockroachdb/apd) - arbitrary precision, mutable and rich API similar to `big.Int`, more performant than this library 
+* [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), fully compatible API with this library 
+* [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
+* [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork focusing on billing and e-commerce web application related use cases, includes out-of-the-box BSON marshaling support
 
 ## FAQ
 
 #### Why don't you just use float64?
 
-Because float64s (or any binary floating point type, actually) can't represent
-numbers such as 0.1 exactly.
+Because float64 (or any binary floating point type, actually) can't represent
+numbers such as `0.1` exactly.
 
 Consider this code: http://play.golang.org/p/TQBd4yJe6B You might expect that
 it prints out `10`, but it actually prints `9.999999999999831`. Over time,

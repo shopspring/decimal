@@ -1513,7 +1513,7 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 	return rounded.string(false)
 }
 
-// Round rounds the decimal to places decimal places.
+// Round rounds the decimal to places decimal places (half away from zero).
 // If places < 0, it will round the integer part to the nearest 10^(-places).
 //
 // Example:
@@ -1544,6 +1544,37 @@ func (d Decimal) Round(places int32) Decimal {
 	return ret
 }
 
+// RoundHalfTowardZero rounds the decimal to places decimal places (half toward zero).
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Example:
+//
+//	NewFromFloat(5.45).RoundHalfTowardZero(1).String() // output: "5.4"
+//	NewFromFloat(545).RoundHalfTowardZero(-1).String() // output: "540"
+func (d Decimal) RoundHalfTowardZero(places int32) Decimal {
+	if d.exp == -places {
+		return d
+	}
+	// truncate to places + 1
+	ret := d.rescale(-places - 1)
+
+	// add sign(d) * 0.4
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fourInt)
+	} else {
+		ret.value.Add(ret.value, fourInt)
+	}
+
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp++
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
+	}
+
+	return ret
+}
+
 // RoundHalfUp rounds the decimal half towards +infinity.
 //
 // Example:
@@ -1560,7 +1591,7 @@ func (d Decimal) RoundHalfUp(places int32) Decimal {
 	// truncate to places + 1
 	ret := d.rescale(-places - 1)
 
-	// add sign(d) * 0.5
+	// add sign(d) * 0.5 if sign(d) >= 0 else sign(d) * 0.4
 	if ret.value.Sign() < 0 {
 		ret.value.Sub(ret.value, fourInt)
 	} else {
@@ -1593,7 +1624,7 @@ func (d Decimal) RoundHalfDown(places int32) Decimal {
 	// truncate to places + 1
 	ret := d.rescale(-places - 1)
 
-	// add sign(d) * 0.5
+	// add sign(d) * 0.5 if sign(d) < 0 else sign(d) * 0.4
 	if ret.value.Sign() < 0 {
 		ret.value.Sub(ret.value, fiveInt)
 	} else {

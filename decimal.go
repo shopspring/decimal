@@ -33,15 +33,15 @@ import (
 // Example:
 //
 //	d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
-//	d1.String() // output: "0.6666666666666667"
+//	d1.String() // output: "0.666666666666666667"
 //	d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000))
-//	d2.String() // output: "0.0000666666666667"
+//	d2.String() // output: "0.000066666666666667"
 //	d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3))
-//	d3.String() // output: "6666.6666666666666667"
+//	d3.String() // output: "6666.666666666666666667"
 //	decimal.DivisionPrecision = 3
 //	d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //	d4.String() // output: "0.667"
-var DivisionPrecision = 16
+var DivisionPrecision = 18
 
 // PowPrecisionNegativeExponent specifies the maximum precision of the result (digits after decimal point)
 // when calculating decimal power. Only used for cases where the exponent is a negative number.

@@ -1614,7 +1614,7 @@ func (d Decimal) RoundHalfUp(places int32) Decimal {
 //
 //	NewFromFloat(550).RoundHalfDown(-2).String()   // output: "500"
 //	NewFromFloat(560).RoundHalfDown(-2).String()   // output: "600"
-//	NewFromFloat(1.1001).RoundHalfDown(2).String() // output: "1.11"
+//	NewFromFloat(1.1001).RoundHalfDown(2).String() // output: "1.10"
 //	NewFromFloat(-1.454).RoundHalfDown(1).String() // output: "-1.5"
 //	NewFromFloat(-1.444).RoundHalfDown(1).String() // output: "-1.4"
 func (d Decimal) RoundHalfDown(places int32) Decimal {

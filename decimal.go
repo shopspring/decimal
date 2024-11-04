@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"gopkg.in/yaml.v3"
 )
 
 // DivisionPrecision is the number of decimal places in the result when it
@@ -64,6 +65,14 @@ var PowPrecisionNegativeExponent = 16
 // double-precision floating point numbers, which means you can potentially
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
+
+// MarshalYAMLWithoutQuotes should be set to true if you want the decimal to
+// be YAML marshaled as a number, instead of as a string.
+// WARNING: this is dangerous for decimals with many digits, since a YAML
+// unmarshallers may unmarshal a YAML numbers as an IEEE 754
+// double-precision floating point number, which means you can potentially
+// silently lose precision.
+var MarshalYAMLWithoutQuotes = false
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
@@ -1788,6 +1797,20 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 		str = "\"" + d.String() + "\""
 	}
 	return []byte(str), nil
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (d Decimal) MarshalYAML() (interface{}, error) {
+	if MarshalYAMLWithoutQuotes {
+		n := yaml.Node{
+			Kind: yaml.ScalarNode,
+			Style: yaml.TaggedStyle, // yaml_PLAIN_SCALAR_STYLE == TaggedStyle
+			Value: d.String(),
+		}
+		return n, nil
+	}
+
+	return d.String(), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation

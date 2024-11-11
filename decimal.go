@@ -1799,7 +1799,7 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 	return []byte(str), nil
 }
 
-// MarshalYAML implements the yaml.Marshaler interface.
+// MarshalYAML implements the [yaml.Marshaler] interface.
 func (d Decimal) MarshalYAML() (interface{}, error) {
 	if MarshalYAMLWithoutQuotes {
 		n := yaml.Node{

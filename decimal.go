@@ -1800,7 +1800,7 @@ func (d Decimal) MarshalJSON() ([]byte, error) {
 }
 
 // MarshalYAML implements the [yaml.Marshaler] interface.
-func (d Decimal) MarshalYAML() (interface{}, error) {
+func (d Decimal) MarshalYAML() (any, error) {
 	if MarshalYAMLWithoutQuotes {
 		n := yaml.Node{
 			Kind: yaml.ScalarNode,

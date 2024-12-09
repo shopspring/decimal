@@ -3,6 +3,7 @@ package decimal
 import (
 	"fmt"
 	"math"
+	"math/big"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -120,6 +121,34 @@ func BenchmarkDecimal_RoundCash_Five(b *testing.B) {
 	}
 }
 
+func numDigits(b *testing.B, want int, val Decimal) {
+	b.Helper()
+	for i := 0; i < b.N; i++ {
+		if have := val.NumDigits(); have != want {
+			b.Fatalf("\nHave: %d\nWant: %d", have, want)
+		}
+	}
+}
+
+func BenchmarkDecimal_NumDigits10(b *testing.B) {
+	numDigits(b, 10, New(3478512345, -3))
+}
+
+func BenchmarkDecimal_NumDigits100(b *testing.B) {
+	s := make([]byte, 102)
+	for i := range s {
+		s[i] = byte('0' + i%10)
+	}
+	s[0] = '-'
+	s[100] = '.'
+	d, err := NewFromString(string(s))
+	if err != nil {
+		b.Log(d)
+		b.Error(err)
+	}
+	numDigits(b, 100, d)
+}
+
 func Benchmark_Cmp(b *testing.B) {
 	decimals := DecimalSlice([]Decimal{})
 	for i := 0; i < 1000000; i++ {
@@ -131,7 +160,7 @@ func Benchmark_Cmp(b *testing.B) {
 	}
 }
 
-func Benchmark_decimal_Decimal_Add_different_precision(b *testing.B) {
+func BenchmarkDecimal_Add_different_precision(b *testing.B) {
 	d1 := NewFromFloat(1000.123)
 	d2 := NewFromFloat(500).Mul(NewFromFloat(0.12))
 
@@ -142,7 +171,7 @@ func Benchmark_decimal_Decimal_Add_different_precision(b *testing.B) {
 	}
 }
 
-func Benchmark_decimal_Decimal_Sub_different_precision(b *testing.B) {
+func BenchmarkDecimal_Sub_different_precision(b *testing.B) {
 	d1 := NewFromFloat(1000.123)
 	d2 := NewFromFloat(500).Mul(NewFromFloat(0.12))
 
@@ -153,7 +182,7 @@ func Benchmark_decimal_Decimal_Sub_different_precision(b *testing.B) {
 	}
 }
 
-func Benchmark_decimal_Decimal_Add_same_precision(b *testing.B) {
+func BenchmarkDecimal_Add_same_precision(b *testing.B) {
 	d1 := NewFromFloat(1000.123)
 	d2 := NewFromFloat(500.123)
 
@@ -164,7 +193,7 @@ func Benchmark_decimal_Decimal_Add_same_precision(b *testing.B) {
 	}
 }
 
-func Benchmark_decimal_Decimal_Sub_same_precision(b *testing.B) {
+func BenchmarkDecimal_Sub_same_precision(b *testing.B) {
 	d1 := NewFromFloat(1000.123)
 	d2 := NewFromFloat(500.123)
 
@@ -182,6 +211,41 @@ func BenchmarkDecimal_IsInteger(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		d.IsInteger()
+	}
+}
+
+func BenchmarkDecimal_Pow(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := RequireFromString("6.3")
+
+	for i := 0; i < b.N; i++ {
+		d1.Pow(d2)
+	}
+}
+
+func BenchmarkDecimal_PowWithPrecision(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := RequireFromString("6.3")
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowWithPrecision(d2, 8)
+	}
+}
+func BenchmarkDecimal_PowInt32(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := int32(10)
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowInt32(d2)
+	}
+}
+
+func BenchmarkDecimal_PowBigInt(b *testing.B) {
+	d1 := RequireFromString("5.2")
+	d2 := big.NewInt(10)
+
+	for i := 0; i < b.N; i++ {
+		_, _ = d1.PowBigInt(d2)
 	}
 }
 

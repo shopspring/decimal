@@ -476,10 +476,11 @@ func TestNewFromFloatWithExponent(t *testing.T) {
 
 func TestNewFromInt(t *testing.T) {
 	tests := map[int64]string{
-		0:                   "0",
-		1:                   "1",
-		323412345:           "323412345",
-		9223372036854775807: "9223372036854775807",
+		0:                    "0",
+		1:                    "1",
+		323412345:            "323412345",
+		9223372036854775807:  "9223372036854775807",
+		-9223372036854775808: "-9223372036854775808",
 	}
 
 	// add negatives
@@ -501,10 +502,11 @@ func TestNewFromInt(t *testing.T) {
 
 func TestNewFromInt32(t *testing.T) {
 	tests := map[int32]string{
-		0:          "0",
-		1:          "1",
-		323412345:  "323412345",
-		2147483647: "2147483647",
+		0:           "0",
+		1:           "1",
+		323412345:   "323412345",
+		2147483647:  "2147483647",
+		-2147483648: "-2147483648",
 	}
 
 	// add negatives
@@ -516,6 +518,25 @@ func TestNewFromInt32(t *testing.T) {
 
 	for input, s := range tests {
 		d := NewFromInt32(input)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
+		}
+	}
+}
+
+func TestNewFromUint64(t *testing.T) {
+	tests := map[uint64]string{
+		0:                    "0",
+		1:                    "1",
+		323412345:            "323412345",
+		9223372036854775807:  "9223372036854775807",
+		18446744073709551615: "18446744073709551615",
+	}
+
+	for input, s := range tests {
+		d := NewFromUint64(input)
 		if d.String() != s {
 			t.Errorf("expected %s, got %s (%s, %d)",
 				s, d.String(),
@@ -556,9 +577,58 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 	}
 }
 
+func TestNewFromBigRat(t *testing.T) {
+	mustParseRat := func(val string) *big.Rat {
+		num, _ := new(big.Rat).SetString(val)
+		return num
+	}
+
+	type Inp struct {
+		val  *big.Rat
+		prec int32
+	}
+
+	tests := map[Inp]string{
+		Inp{big.NewRat(0, 1), 16}:                                                     "0",
+		Inp{big.NewRat(4, 5), 16}:                                                     "0.8",
+		Inp{big.NewRat(10, 2), 16}:                                                    "5",
+		Inp{big.NewRat(1023427554493, 43432632), 16}:                                  "23563.5628642767953828", // rounded
+		Inp{big.NewRat(1, 434324545566634), 16}:                                       "0.0000000000000023",
+		Inp{big.NewRat(1, 3), 16}:                                                     "0.3333333333333333",
+		Inp{big.NewRat(2, 3), 2}:                                                      "0.67",               // rounded
+		Inp{big.NewRat(2, 3), 16}:                                                     "0.6666666666666667", // rounded
+		Inp{big.NewRat(10000, 3), 16}:                                                 "3333.3333333333333333",
+		Inp{mustParseRat("30702832066636633479"), 16}:                                 "30702832066636633479",
+		Inp{mustParseRat("487028320159896636679.1827512895753"), 16}:                  "487028320159896636679.1827512895753",
+		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), -2}: "127028320612589896636633500",                  // rounded
+		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 16}: "127028320612589896636633479.1735827512895753", // rounded
+		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 32}: "127028320612589896636633479.173582751289575278357832",
+	}
+
+	// add negatives
+	for p, s := range tests {
+		if p.val.Cmp(new(big.Rat)) > 0 {
+			tests[Inp{p.val.Neg(p.val), p.prec}] = "-" + s
+		}
+	}
+
+	for input, s := range tests {
+		d := NewFromBigRat(input.val, input.prec)
+		if d.String() != s {
+			t.Errorf("expected %s, got %s (%s, %d)",
+				s, d.String(),
+				d.value.String(), d.exp)
+		}
+	}
+}
+
 func TestCopy(t *testing.T) {
 	origin := New(1, 0)
 	cpy := origin.Copy()
+
+	if origin.value == cpy.value {
+		t.Error("expecting copy and origin to have different value pointers")
+	}
 
 	if cpy.Cmp(origin) != 0 {
 		t.Error("expecting copy and origin to be equals, but they are not")
@@ -2143,6 +2213,8 @@ func TestDecimal_Mod(t *testing.T) {
 		Inp{"-7.5", "2"}:                        "-1.5",
 		Inp{"7.5", "-2"}:                        "1.5",
 		Inp{"-7.5", "-2"}:                       "-1.5",
+		Inp{"41", "21"}:                         "20",
+		Inp{"400000000001", "200000000001"}:     "200000000000",
 	}
 
 	for inp, res := range inputs {
@@ -2344,104 +2416,57 @@ func TestDecimal_Max(t *testing.T) {
 	}
 }
 
-func TestDecimal_Scan(t *testing.T) {
-	// test the Scan method that implements the
-	// sql.Scanner interface
-	// check for the for different type of values
-	// that are possible to be received from the database
-	// drivers
+func scanHelper(t *testing.T, dbval interface{}, expected Decimal) {
+	t.Helper()
 
-	// in normal operations the db driver (sqlite at least)
-	// will return an int64 if you specified a numeric format
 	a := Decimal{}
+	if err := a.Scan(dbval); err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(%v) failed with message: %s", dbval, err)
+	} else if !a.Equal(expected) {
+		// Scan succeeded... test resulting values
+		t.Errorf("%s does not equal to %s", a, expected)
+	}
+}
+
+func TestDecimal_Scan(t *testing.T) {
+	// test the Scan method that implements the sql.Scanner interface
+	// check different types received from various database drivers
+
 	dbvalue := 54.33
 	expected := NewFromFloat(dbvalue)
-
-	err := a.Scan(dbvalue)
-	if err != nil {
-		// Scan failed... no need to test result value
-		t.Errorf("a.Scan(54.33) failed with message: %s", err)
-
-	} else {
-		// Scan succeeded... test resulting values
-		if !a.Equal(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
-		}
-	}
+	scanHelper(t, dbvalue, expected)
 
 	// apparently MySQL 5.7.16 and returns these as float32 so we need
 	// to handle these as well
 	dbvalueFloat32 := float32(54.33)
 	expected = NewFromFloat(float64(dbvalueFloat32))
-
-	err = a.Scan(dbvalueFloat32)
-	if err != nil {
-		// Scan failed... no need to test result value
-		t.Errorf("a.Scan(54.33) failed with message: %s", err)
-
-	} else {
-		// Scan succeeded... test resulting values
-		if !a.Equal(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
-		}
-	}
+	scanHelper(t, dbvalueFloat32, expected)
 
 	// at least SQLite returns an int64 when 0 is stored in the db
 	// and you specified a numeric format on the schema
 	dbvalueInt := int64(0)
 	expected = New(dbvalueInt, 0)
+	scanHelper(t, dbvalueInt, expected)
 
-	err = a.Scan(dbvalueInt)
-	if err != nil {
-		// Scan failed... no need to test result value
-		t.Errorf("a.Scan(0) failed with message: %s", err)
-
-	} else {
-		// Scan succeeded... test resulting values
-		if !a.Equal(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
-		}
-	}
+	// also test uint64
+	dbvalueUint64 := uint64(2)
+	expected = New(2, 0)
+	scanHelper(t, dbvalueUint64, expected)
 
 	// in case you specified a varchar in your SQL schema,
-	// the database driver will return byte slice []byte
+	// the database driver may return either []byte or string
 	valueStr := "535.666"
 	dbvalueStr := []byte(valueStr)
-	expected, err = NewFromString(valueStr)
+	expected, err := NewFromString(valueStr)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	err = a.Scan(dbvalueStr)
-	if err != nil {
-		// Scan failed... no need to test result value
-		t.Errorf("a.Scan('535.666') failed with message: %s", err)
-
-	} else {
-		// Scan succeeded... test resulting values
-		if !a.Equal(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
-		}
-	}
-
-	// lib/pq can also return strings
-	expected, err = NewFromString(valueStr)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = a.Scan(valueStr)
-	if err != nil {
-		// Scan failed... no need to test result value
-		t.Errorf("a.Scan('535.666') failed with message: %s", err)
-	} else {
-		// Scan succeeded... test resulting values
-		if !a.Equal(expected) {
-			t.Errorf("%s does not equal to %s", a, expected)
-		}
-	}
+	scanHelper(t, dbvalueStr, expected)
+	scanHelper(t, valueStr, expected)
 
 	type foo struct{}
+	a := Decimal{}
 	err = a.Scan(foo{})
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
@@ -2570,21 +2595,241 @@ func TestDecimal_Cmp2(t *testing.T) {
 	}
 }
 
-func TestPow(t *testing.T) {
-	a := New(4, 0)
-	b := New(2, 0)
-	x := a.Pow(b)
-	if x.String() != "16" {
-		t.Errorf("Error, saw %s", x.String())
+func TestDecimal_Pow(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+		Expected string
+	}{
+		{"0.0", "1.0", "0.0"},
+		{"0.0", "5.7", "0.0"},
+		{"0.0", "-3.2", "0.0"},
+		{"3.13", "0.0", "1.0"},
+		{"-591.5", "0.0", "1.0"},
+		{"3.0", "3.0", "27.0"},
+		{"3.0", "10.0", "59049.0"},
+		{"3.13", "5.0", "300.4150512793"},
+		{"4.0", "2.0", "16.0"},
+		{"4.0", "-2.0", "0.0625"},
+		{"629.25", "5.0", "98654323103449.5673828125"},
+		{"5.0", "5.73", "10118.08037159375"},
+		{"962.0", "3.2791", "6055212360.0000044205714144"},
+		{"5.69169126", "5.18515912", "8242.26344757948412597909547972726268869189399260047793106028930864"},
+		{"13.1337", "3.5196719618391835", "8636.856220644773844815693636723928750940666269885"},
+		{"67762386.283696923", "4.85917691669163916681738", "112761146905370140621385730157437443321.91755738117317148674362233906499698561022574811238435007575701773212242750262081945556470501"},
+		{"-3.0", "6.0", "729"},
+		{"-13.757", "5.0", "-492740.983929899460557"},
+		{"3.0", "-6.0", "0.0013717421124829"},
+		{"13.757", "-5.0", "0.000002029463821"},
+		{"66.12", "-7.61313", "0.000000000000013854086588876805036"},
+		{"6696871.12", "-2.61313", "0.000000000000000001455988684546983"},
+		{"-3.0", "-6.0", "0.0013717421124829"},
+		{"-13.757", "-5.0", "-0.000002029463821"},
+	} {
+		base, _ := NewFromString(testCase.Base)
+		exp, _ := NewFromString(testCase.Exponent)
+		expected, _ := NewFromString(testCase.Expected)
+
+		result := base.Pow(exp)
+
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for %s^%s", testCase.Expected, result.String(), testCase.Base, testCase.Exponent)
+		}
 	}
 }
 
-func TestNegativePow(t *testing.T) {
-	a := New(4, 0)
-	b := New(-2, 0)
-	x := a.Pow(b)
-	if x.String() != "0.0625" {
-		t.Errorf("Error, saw %s", x.String())
+func TestDecimal_PowWithPrecision(t *testing.T) {
+	for _, testCase := range []struct {
+		Base      string
+		Exponent  string
+		Precision int32
+		Expected  string
+	}{
+		{"0.0", "1.0", 2, "0.0"},
+		{"0.0", "5.7", 2, "0.0"},
+		{"0.0", "-3.2", 2, "0.0"},
+		{"3.13", "0.0", 2, "1.0"},
+		{"-591.5", "0.0", 2, "1.0"},
+		{"3.0", "3.0", 2, "27.0"},
+		{"3.0", "10.0", 2, "59049.0"},
+		{"3.13", "5.0", 5, "300.4150512793"},
+		{"4.0", "2.0", 2, "16.0"},
+		{"4.0", "-2.0", 2, "0.06"},
+		{"4.0", "-2.0", 4, "0.0625"},
+		{"629.25", "5.0", 6, "98654323103449.5673828125"},
+		{"5.0", "5.73", 20, "10118.080371595019317118681359884375"},
+		{"962.0", "3.2791", 15, "6055212360.000004406551603058195732"},
+		{"5.69169126", "5.18515912", 4, "8242.26344757948412587366859330429895955552280978668983459852256"},
+		{"13.1337", "3.5196719618391835", 8, "8636.85622064477384481569363672392591908386390769375"},
+		{"67762386.283696923", "4.85917691669163916681738", 10, "112761146905370140621385730157437443321.917557381173174638304347353880676293576708009282115993465286373470882947470198597518762"},
+		{"-3.0", "6.0", 2, "729"},
+		{"-13.757", "5.0", 4, "-492740.983929899460557"},
+		{"3.0", "-6.0", 10, "0.0013717421"},
+		{"13.757", "-5.0", 20, "0.00000202946382098037"},
+		{"66.12", "-7.61313", 20, "0.00000000000001385381563049821591633907104023700216"},
+		{"6696871.12", "-2.61313", 24, "0.0000000000000000014558252733872790626400278983397459207418"},
+		{"-3.0", "-6.0", 8, "0.00137174"},
+		{"-13.757", "-5.0", 16, "-0.000002029463821"},
+	} {
+		base, _ := NewFromString(testCase.Base)
+		exp, _ := NewFromString(testCase.Exponent)
+		expected, _ := NewFromString(testCase.Expected)
+
+		result, _ := base.PowWithPrecision(exp, testCase.Precision)
+
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for %s^%s", testCase.Expected, result.String(), testCase.Base, testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_PowWithPrecision_Infinity(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+	}{
+		{"0.0", "0.0"},
+		{"0.0", "-2.0"},
+		{"0.0", "-4.6"},
+		{"-66.12", "7.61313"},      // Imaginary value
+		{"-5696871.12", "5.61313"}, // Imaginary value
+	} {
+		base, _ := NewFromString(testCase.Base)
+		exp, _ := NewFromString(testCase.Exponent)
+
+		_, err := base.PowWithPrecision(exp, 5)
+
+		if err == nil {
+			t.Errorf("lool it should be error")
+		}
+	}
+}
+
+func TestDecimal_PowWithPrecision_UndefinedResult(t *testing.T) {
+	base := RequireFromString("0")
+	exponent := RequireFromString("0")
+
+	_, err := base.PowWithPrecision(exponent, 4)
+
+	if err == nil {
+		t.Errorf("expected error, cannot be represent undefined value of 0**0")
+	}
+}
+
+func TestDecimal_PowWithPrecision_InfinityResult(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+	}{
+		{"0.0", "-2.0"},
+		{"0.0", "-4.6"},
+		{"0.0", "-9239.671333"},
+	} {
+		base, _ := NewFromString(testCase.Base)
+		exp, _ := NewFromString(testCase.Exponent)
+
+		_, err := base.PowWithPrecision(exp, 4)
+
+		if err == nil {
+			t.Errorf("expected error, cannot represent infinity value of 0 ** y, where y < 0")
+		}
+	}
+}
+
+func TestDecimal_PowWithPrecision_ImaginaryResult(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+	}{
+		{"-0.2261", "106.12"},
+		{"-66.12", "7.61313"},
+		{"-5696871.12", "5.61313"},
+	} {
+		base, _ := NewFromString(testCase.Base)
+		exp, _ := NewFromString(testCase.Exponent)
+
+		_, err := base.PowWithPrecision(exp, 4)
+
+		if err == nil {
+			t.Errorf("expected error, cannot represent imaginary value of x ** y, where x < 0 and y is non-integer decimal")
+		}
+	}
+}
+
+func TestDecimal_PowInt32(t *testing.T) {
+	for _, testCase := range []struct {
+		Decimal  string
+		Exponent int32
+		Expected string
+	}{
+		{"0.0", 1, "0.0"},
+		{"3.13", 0, "1.0"},
+		{"-591.5", 0, "1.0"},
+		{"3.0", 3, "27.0"},
+		{"3.0", 10, "59049.0"},
+		{"3.13", 5, "300.4150512793"},
+		{"629.25", 5, "98654323103449.5673828125"},
+		{"-3.0", 6, "729"},
+		{"-13.757", 5, "-492740.983929899460557"},
+		{"3.0", -6, "0.0013717421124829"},
+		{"-13.757", -5, "-0.000002029463821"},
+	} {
+		base, _ := NewFromString(testCase.Decimal)
+		expected, _ := NewFromString(testCase.Expected)
+
+		result, _ := base.PowInt32(testCase.Exponent)
+
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for %s**%d", testCase.Expected, result.String(), testCase.Decimal, testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_PowInt32_UndefinedResult(t *testing.T) {
+	base := RequireFromString("0")
+
+	_, err := base.PowInt32(0)
+
+	if err == nil {
+		t.Errorf("expected error, cannot be represent undefined value of 0**0")
+	}
+}
+
+func TestDecimal_PowBigInt(t *testing.T) {
+	for _, testCase := range []struct {
+		Decimal  string
+		Exponent *big.Int
+		Expected string
+	}{
+		{"3.13", big.NewInt(0), "1.0"},
+		{"-591.5", big.NewInt(0), "1.0"},
+		{"3.0", big.NewInt(3), "27.0"},
+		{"3.0", big.NewInt(10), "59049.0"},
+		{"3.13", big.NewInt(5), "300.4150512793"},
+		{"629.25", big.NewInt(5), "98654323103449.5673828125"},
+		{"-3.0", big.NewInt(6), "729"},
+		{"-13.757", big.NewInt(5), "-492740.983929899460557"},
+		{"3.0", big.NewInt(-6), "0.0013717421124829"},
+		{"-13.757", big.NewInt(-5), "-0.000002029463821"},
+	} {
+		base, _ := NewFromString(testCase.Decimal)
+		expected, _ := NewFromString(testCase.Expected)
+
+		result, _ := base.PowBigInt(testCase.Exponent)
+
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for %s**%d", testCase.Expected, result.String(), testCase.Decimal, testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_PowBigInt_UndefinedResult(t *testing.T) {
+	base := RequireFromString("0")
+
+	_, err := base.PowBigInt(big.NewInt(0))
+
+	if err == nil {
+		t.Errorf("expected error, undefined value of 0**0 cannot be represented")
 	}
 }
 
@@ -2745,6 +2990,68 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
+func TestDecimal_Ln(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec       string
+		Precision int32
+		Expected  string
+	}{
+		{"0.1", 25, "-2.3025850929940456840179915"},
+		{"0.01", 25, "-4.6051701859880913680359829"},
+		{"0.001", 25, "-6.9077552789821370520539744"},
+		{"0.00000001", 25, "-18.4206807439523654721439316"},
+		{"1.0", 10, "0.0"},
+		{"1.01", 25, "0.0099503308531680828482154"},
+		{"1.001", 25, "0.0009995003330835331668094"},
+		{"1.0001", 25, "0.0000999950003333083353332"},
+		{"1.1", 25, "0.0953101798043248600439521"},
+		{"1.13", 25, "0.1222176327242492005461486"},
+		{"3.13", 10, "1.1410330046"},
+		{"3.13", 25, "1.1410330045520618486427824"},
+		{"3.13", 50, "1.14103300455206184864278239988848193837089629107972"},
+		{"3.13", 100, "1.1410330045520618486427823998884819383708962910797239760817078430268177216960996098918971117211892839"},
+		{"5.71", 25, "1.7422190236679188486939833"},
+		{"5.7185108151957193571930205", 50, "1.74370842450178929149992165925283704012576949094645"},
+		{"839101.0351", 25, "13.6400864014410013994397240"},
+		{"839101.0351094726488848490572028502", 50, "13.64008640145229044389152437468283605382056561604272"},
+		{"5023583755703750094849.03519358513093500275017501750602739169823", 25, "49.9684305274348922267409953"},
+		{"5023583755703750094849.03519358513093500275017501750602739169823", -1, "50.0"},
+		{"66.12", 18, "4.191471272952823429"},
+	} {
+		d, _ := NewFromString(testCase.Dec)
+		expected, _ := NewFromString(testCase.Expected)
+
+		ln, err := d.Ln(testCase.Precision)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if ln.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for decimal %s", testCase.Expected, ln.String(), testCase.Dec)
+		}
+	}
+}
+
+func TestDecimal_LnZero(t *testing.T) {
+	d := New(0, 0)
+
+	_, err := d.Ln(5)
+
+	if err == nil {
+		t.Errorf("expected error, natural logarithm of 0 cannot be represented (-infinity)")
+	}
+}
+
+func TestDecimal_LnNegative(t *testing.T) {
+	d := New(-20, 2)
+
+	_, err := d.Ln(5)
+
+	if err == nil {
+		t.Errorf("expected error, natural logarithm cannot be calculated for nagative decimals")
+	}
+}
+
 func TestDecimal_NumDigits(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec               string
@@ -2764,6 +3071,7 @@ func TestDecimal_NumDigits(t *testing.T) {
 		{"-5.26", 3},
 		{"-5.2663117716", 11},
 		{"-26.1", 3},
+		{"", 1},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 

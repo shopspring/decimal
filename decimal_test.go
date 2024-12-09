@@ -3671,13 +3671,20 @@ func TestDecimal_String(t *testing.T) {
 			t.Errorf("expected %s, got %s", test.expected, d.String())
 		}
 	}
+}
+
+func TestDecimal_StringWithTrailing(t *testing.T) {
+	type testData struct {
+		input    string
+		expected string
+	}
 
 	defer func() {
 		TrimTrailingZeros = true
 	}()
 
 	TrimTrailingZeros = false
-	tests = []testData{
+	tests := []testData{
 		{"1.00", "1.00"},
 		{"0.00", "0.00"},
 		{"129.123000", "129.123000"},

@@ -1497,6 +1497,8 @@ func (d Decimal) String() string {
 //	NewFromFloat(5.45).StringFixed(2) // output: "5.45"
 //	NewFromFloat(5.45).StringFixed(3) // output: "5.450"
 //	NewFromFloat(545).StringFixed(-1) // output: "540"
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixed(places int32) string {
 	rounded := d.Round(places)
 	return rounded.string(false, true)
@@ -1514,6 +1516,8 @@ func (d Decimal) StringFixed(places int32) string {
 //	NewFromFloat(5.45).StringFixedBank(2) // output: "5.45"
 //	NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
 //	NewFromFloat(545).StringFixedBank(-1) // output: "540"
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)
 	return rounded.string(false, true)
@@ -1521,6 +1525,8 @@ func (d Decimal) StringFixedBank(places int32) string {
 
 // StringFixedCash returns a Swedish/Cash rounded fixed-point string. For
 // more details see the documentation at function RoundCash.
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedCash(interval uint8) string {
 	rounded := d.RoundCash(interval)
 	return rounded.string(false, true)
@@ -1532,7 +1538,7 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 // Example:
 //
 //	NewFromFloat(5.45).Round(1).String() // output: "5.5"
-//	NewFromFloat(545).Round(-1).String() // output: "550"
+//	NewFromFloat(545).Round(-1).String() // output: "550" (with AvoidScientificNotation, "5.5E2" otherwise)
 func (d Decimal) Round(places int32) Decimal {
 	if d.exp == -places {
 		return d

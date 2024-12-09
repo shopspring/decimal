@@ -3688,6 +3688,10 @@ func TestDecimal_StringWithTrailing(t *testing.T) {
 		{"1.00", "1.00"},
 		{"0.00", "0.00"},
 		{"129.123000", "129.123000"},
+		{"1.0000E3", "1000.0"}, // 1000 to the nearest tenth
+		{"1.000E3", "1000"},    // 1000 to the nearest one
+		{"1.0E3", "1.0E3"},     // 1000 to the nearest hundred
+		{"1E3", "1E3"},         // 1000 to the nearest thousand
 	}
 
 	for _, test := range tests {

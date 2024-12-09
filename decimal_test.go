@@ -3650,7 +3650,7 @@ func ExampleNewFromFloat() {
 
 func TestDecimal_String(t *testing.T) {
 	type testData struct {
-		input string
+		input    string
 		expected string
 	}
 
@@ -3664,7 +3664,7 @@ func TestDecimal_String(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		d, err := NewFromString(test.input);
+		d, err := NewFromString(test.input)
 		if err != nil {
 			t.Fatal(err)
 		} else if d.String() != test.expected {
@@ -3673,10 +3673,10 @@ func TestDecimal_String(t *testing.T) {
 	}
 
 	defer func() {
-		StringTrimTrailingZeros = true
+		TrimTrailingZeros = true
 	}()
 
-	StringTrimTrailingZeros = false
+	TrimTrailingZeros = false
 	tests = []testData{
 		{"1.00", "1.00"},
 		{"0.00", "0.00"},
@@ -3684,7 +3684,7 @@ func TestDecimal_String(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		d, err := NewFromString(test.input);
+		d, err := NewFromString(test.input)
 		if err != nil {
 			t.Fatal(err)
 		} else if d.String() != test.expected {

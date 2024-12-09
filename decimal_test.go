@@ -3689,9 +3689,7 @@ func TestDecimal_StringWithTrailing(t *testing.T) {
 		{"0.00", "0.00"},
 		{"129.123000", "129.123000"},
 		{"1.0000E3", "1000.0"}, // 1000 to the nearest tenth
-		{"1.000E3", "1000"},    // 1000 to the nearest one
-		{"1.0E3", "1.0E3"},     // 1000 to the nearest hundred
-		{"1E3", "1E3"},         // 1000 to the nearest thousand
+		{"10000E-1", "1000.0"}, // 1000 to the nearest tenth
 	}
 
 	for _, test := range tests {
@@ -3699,7 +3697,91 @@ func TestDecimal_StringWithTrailing(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		} else if d.String() != test.expected {
+			x := d.String()
+			fmt.Println(x)
 			t.Errorf("expected %s, got %s", test.expected, d.String())
+		}
+	}
+}
+
+func TestDecimal_StringWithScientificNotationWhenNeeded(t *testing.T) {
+	type testData struct {
+		input    string
+		expected string
+	}
+
+	defer func() {
+		AvoidScientificNotation = true
+	}()
+	AvoidScientificNotation = false
+
+	tests := []testData{
+		{"1.0E3", "1.0E3"},   // 1000 to the nearest hundred
+		{"1.00E3", "1.00E3"}, // 1000 to the nearest ten
+		{"1.000E3", "1000"},  // 1000 to the nearest one
+		{"1E3", "1E3"},       // 1000 to the nearest thousand
+		{"-1E3", "-1E3"},     // -1000 to the nearest thousand
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			t.Fatal(err)
+		} else if d.String() != test.expected {
+			x := d.String()
+			fmt.Println(x)
+			t.Errorf("expected %s, got %s", test.expected, d.String())
+		}
+	}
+}
+
+func TestDecimal_ScientificNotation(t *testing.T) {
+	type testData struct {
+		input    string
+		expected string
+	}
+
+	tests := []testData{
+		{"1", "1E0"},
+		{"1.0", "1.0E0"},
+		{"10", "1.0E1"},
+		{"123", "1.23E2"},
+		{"1234", "1.234E3"},
+		{"-1", "-1E0"},
+		{"-10", "-1.0E1"},
+		{"-123", "-1.23E2"},
+		{"-1234", "-1.234E3"},
+		{"0.1", "1E-1"},
+		{"0.01", "1E-2"},
+		{"0.123", "1.23E-1"},
+		{"1.23", "1.23E0"},
+		{"-0.1", "-1E-1"},
+		{"-0.01", "-1E-2"},
+		{"-0.010", "-1.0E-2"},
+		{"-0.123", "-1.23E-1"},
+		{"-1.23", "-1.23E0"},
+		{"1E6", "1E6"},
+		{"1e6", "1E6"},
+		{"1.23E6", "1.23E6"},
+		{"-1E6", "-1E6"},
+		{"1E-6", "1E-6"},
+		{"1.23E-6", "1.23E-6"},
+		{"-1E-6", "-1E-6"},
+		{"-1.0E-6", "-1.0E-6"},
+		{"12345600", "1.2345600E7"},
+		{"123456E2", "1.23456E7"},
+		{"0", "0"},
+		{"0E1", "0"},
+		{"-0", "0"},
+		{"-0.000", "0"},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			t.Fatal(err)
+		} else if d.ScientificNotationString() != test.expected {
+			t.Errorf("expected %s, got %s", test.expected, d.ScientificNotationString())
 		}
 	}
 }

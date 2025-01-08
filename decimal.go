@@ -952,10 +952,11 @@ func (d Decimal) Sqrt() Decimal {
 
 // SqtRound returns the square root of the decimal with a given precision.
 func (d Decimal) SqrtRound(precision int32) Decimal {
-	// rescale to make an integer with enough digits to reach the desired precision
-	bi := d.rescale(-2 * precision).Coefficient()
-	sqrt := new(big.Int).Sqrt(bi)
-	return NewFromBigInt(sqrt, -1*precision)
+	res, err := d.PowWithPrecision(NewFromFloat(0.5), precision)
+	if err != nil {
+		panic(err)
+	}
+	return res.Round(precision)
 }
 
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.

@@ -2833,6 +2833,54 @@ func TestDecimal_PowBigInt_UndefinedResult(t *testing.T) {
 	}
 }
 
+func TestDecimal_SqrtRound(t *testing.T) {
+	t.Run("panic on negative number", func(t *testing.T) {
+		if !didPanic(func() {
+			_ = NewFromInt(-1).Sqrt()
+		}) {
+			t.Fatal("should panic on negative numbers")
+		}
+	})
+
+	var tt = []struct {
+		In        string
+		Out       string
+		Precision int32
+	}{
+		{In: "0.0", Out: "0.0"},
+		{In: "1.0", Out: "1.0"},
+		{In: "4.0", Out: "2.0"},
+		{In: "3.0", Out: "1.7320508075688772"},
+		{In: "0.002342", Out: "0.0483942145302514"},
+		{In: "0.002342", Out: "0.0483", Precision: 4},
+		{In: "0.002342", Out: "0.04839421453025144409653399922499", Precision: 32},
+		{In: "4.5", Out: "2.1213203435596425"},
+		{In: "3289854.0", Out: "1813.7954680724064484"},
+	}
+	for _, tc := range tt {
+		t.Run(tc.In, func(t *testing.T) {
+			v, err := NewFromString(tc.In)
+			if err != nil {
+				t.Fatalf("error parsing test value into Decimal")
+			}
+
+			e, err := NewFromString(tc.Out)
+			if err != nil {
+				t.Fatalf("error parsing test expected value into Decimal")
+			}
+
+			if tc.Precision == 0 {
+				tc.Precision = int32(DivisionPrecision)
+			}
+
+			sqrt := v.SqrtRound(tc.Precision)
+			if !sqrt.Equal(e) {
+				t.Fatalf("Square root of %s should be %s, not %s", v, e, sqrt)
+			}
+		})
+	}
+}
+
 func TestDecimal_IsInteger(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec       string

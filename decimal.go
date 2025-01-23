@@ -2132,12 +2132,10 @@ func (d *NullDecimal) DecodeSpanner(value interface{}) error {
 	switch t := value.(type) {
 	case nil:
 		d.Valid = false
-
 		return nil
 	case *string:
 		if t == nil {
 			d.Valid = false
-
 			return nil
 		}
 		value = *t

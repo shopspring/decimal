@@ -1852,6 +1852,11 @@ func (d *Decimal) Scan(value interface{}) error {
 		*d = NewFromUint64(v)
 		return nil
 
+	case Decimal:
+		// while clickhouse return type Decimal
+		*d = v
+		return nil
+
 	default:
 		// default is trying to interpret value stored as string
 		str, err := unquoteIfQuoted(v)

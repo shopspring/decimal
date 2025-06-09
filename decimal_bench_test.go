@@ -312,3 +312,15 @@ func BenchmarkDecimal_ExpTaylor(b *testing.B) {
 		_, _ = d.ExpTaylor(10)
 	}
 }
+
+func BenchmarkDecimal_UnmarshalJSON(b *testing.B) {
+	b.ResetTimer()
+
+	bstr := []byte("1234.56789")
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = (&Decimal{}).UnmarshalJSON(bstr)
+	}
+}

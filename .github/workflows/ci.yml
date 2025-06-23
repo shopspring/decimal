@@ -1,9 +1,10 @@
 name: ci
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
   pull_request:
+    branches: [ master ]
+    types: [ opened, synchronize ]
 jobs:
   ci-job:
     runs-on: ubuntu-latest

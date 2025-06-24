@@ -470,8 +470,8 @@ func (d Decimal) Copy() Decimal {
 //
 // Example:
 //
-//	d := New(12345, -4)
-//	d2 := d.rescale(-1)
+//	d1 := New(12345, -4)
+//	d2 := d1.rescale(-1)
 //	d3 := d2.rescale(-4)
 //	println(d1)
 //	println(d2)

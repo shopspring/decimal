@@ -80,6 +80,11 @@ var testTableScientificNotation = map[string]string{
 	"123.456e10": "1234560000000",
 }
 
+var testMalformedDecimalStrings = map[string]error{
+	"1ee10":     fmt.Errorf("can't convert %s to decimal: multiple 'E' characters found", "1ee10"),
+	"123.45.66": fmt.Errorf("can't convert %s to decimal: too many .s", "123.45.66"),
+}
+
 func init() {
 	for _, s := range testTable {
 		s.exact = strconv.FormatFloat(s.float, 'f', 1500, 64)
@@ -237,6 +242,15 @@ func TestNewFromString(t *testing.T) {
 			t.Errorf("expected %s, got %s (%s, %d)",
 				s, d.String(),
 				d.value.String(), d.exp)
+		}
+	}
+
+	for s, e := range testMalformedDecimalStrings {
+		_, err := NewFromString(s)
+		if err == nil {
+			t.Errorf("expected an error, got nil %s", s)
+		} else if err.Error() != e.Error() {
+			t.Errorf("expected %v error, got %v", e, err)
 		}
 	}
 }

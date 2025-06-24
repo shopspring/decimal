@@ -186,7 +186,10 @@ func NewFromString(value string) (Decimal, error) {
 	eIndex := -1
 	pIndex := -1
 	for i, r := range value {
-		if eIndex == -1 && (r == 'E' || r == 'e') {
+		if r == 'E' || r == 'e' {
+			if eIndex > -1 {
+				return Decimal{}, fmt.Errorf("can't convert %s to decimal: multiple 'E' characters found", value)
+			}
 			eIndex = i
 			continue
 		}

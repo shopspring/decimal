@@ -1548,6 +1548,47 @@ func TestDecimal_RoundDownAndStringFixed(t *testing.T) {
 	}
 }
 
+func TestDecimal_Format(t *testing.T) {
+	type testData struct {
+		input              string
+		thousandsSeparator string
+		decimalSeparator   string
+		trimTrailingZeros  bool
+		expected           string
+	}
+	tests := []testData{
+		{"0", ",", ".", false, "0"},
+		{"0", ",", ".", true, "0"},
+		{"999", ",", ".", true, "999"},
+		{"1000", ",", ".", true, "1,000"},
+		{"123", ",", ".", true, "123"},
+		{"1234", ",", ".", true, "1,234"},
+		{"12345.67", "", ".", true, "12345.67"},
+		{"12345.00", ",", ".", true, "12,345"},
+		{"12345.00", ",", ".", false, "12,345.00"},
+		{"123456.00", ",", ".", false, "123,456.00"},
+		{"1234567.00", ",", ".", false, "1,234,567.00"},
+		{"1234567.00", ".", ",", false, "1.234.567,00"},
+		{"1234567.00", "_", ".", true, "1_234_567"},
+		{"-12.00", "_", ".", true, "-12"},
+		{"-123.00", "_", ".", true, "-123"},
+		{"-1234.00", "_", ".", true, "-1_234"},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.input)
+		if err != nil {
+			panic(err)
+		}
+
+		got := d.Format(test.thousandsSeparator, test.decimalSeparator, test.trimTrailingZeros)
+		if got != test.expected {
+			t.Errorf("Format %s got %s, expected %s",
+				d, got, test.expected)
+		}
+	}
+}
+
 func TestDecimal_BankRoundAndStringFixed(t *testing.T) {
 	type testData struct {
 		input         string

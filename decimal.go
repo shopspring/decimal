@@ -1479,6 +1479,73 @@ func (d Decimal) String() string {
 	return d.string(true)
 }
 
+// Format formats a decimal.
+// thousandsSeparator can be empty, in which case the integer value will be displayed without separation.
+// if decimalSeparator is empty and the value is a decimal this will panic.
+func (d Decimal) Format(thousandsSeparator string, decimalSeparator string, trimTrailingZeros bool) string {
+	if d.exp >= 0 {
+		d = d.rescale(0)
+	}
+
+	abs := new(big.Int).Abs(d.value)
+	str := abs.String()
+
+	var intPart, fractionalPart string
+
+	// NOTE(vadim): this cast to int will cause bugs if d.exp == INT_MIN
+	// and you are on a 32-bit machine. Won't fix this super-edge case.
+	dExpInt := int(d.exp)
+	if len(str) > -dExpInt {
+		intPart = str[:len(str)+dExpInt]
+		fractionalPart = str[len(str)+dExpInt:]
+	} else {
+		intPart = "0"
+
+		num0s := -dExpInt - len(str)
+		fractionalPart = strings.Repeat("0", num0s) + str
+	}
+
+	if thousandsSeparator != "" {
+		parts := 1 + (len(intPart)-1)/3
+		if parts > 1 {
+			intParts := make([]string, 1+(len(intPart)-1)/3)
+			offset := len(intPart) - (len(intParts)-1)*3
+			for i := 0; i < len(intParts); i++ {
+				if i == 0 {
+					intParts[i] = intPart[0:offset]
+				} else {
+					intParts[i] = intPart[(i-1)*3+offset : i*3+offset]
+				}
+			}
+			intPart = strings.Join(intParts, thousandsSeparator)
+		}
+	}
+
+	if trimTrailingZeros {
+		i := len(fractionalPart) - 1
+		for ; i >= 0; i-- {
+			if fractionalPart[i] != '0' {
+				break
+			}
+		}
+		fractionalPart = fractionalPart[:i+1]
+	}
+	if fractionalPart != "" && decimalSeparator == "" {
+		panic("no decimal separator for non-integer")
+	}
+
+	number := intPart
+	if len(fractionalPart) > 0 {
+		number += decimalSeparator + fractionalPart
+	}
+
+	if d.value.Sign() < 0 {
+		return "-" + number
+	}
+
+	return number
+}
+
 // StringFixed returns a rounded fixed-point string with places digits after
 // the decimal point.
 //
@@ -1912,48 +1979,7 @@ func (d Decimal) StringScaled(exp int32) string {
 }
 
 func (d Decimal) string(trimTrailingZeros bool) string {
-	if d.exp >= 0 {
-		return d.rescale(0).value.String()
-	}
-
-	abs := new(big.Int).Abs(d.value)
-	str := abs.String()
-
-	var intPart, fractionalPart string
-
-	// NOTE(vadim): this cast to int will cause bugs if d.exp == INT_MIN
-	// and you are on a 32-bit machine. Won't fix this super-edge case.
-	dExpInt := int(d.exp)
-	if len(str) > -dExpInt {
-		intPart = str[:len(str)+dExpInt]
-		fractionalPart = str[len(str)+dExpInt:]
-	} else {
-		intPart = "0"
-
-		num0s := -dExpInt - len(str)
-		fractionalPart = strings.Repeat("0", num0s) + str
-	}
-
-	if trimTrailingZeros {
-		i := len(fractionalPart) - 1
-		for ; i >= 0; i-- {
-			if fractionalPart[i] != '0' {
-				break
-			}
-		}
-		fractionalPart = fractionalPart[:i+1]
-	}
-
-	number := intPart
-	if len(fractionalPart) > 0 {
-		number += "." + fractionalPart
-	}
-
-	if d.value.Sign() < 0 {
-		return "-" + number
-	}
-
-	return number
+	return d.Format("", ".", trimTrailingZeros)
 }
 
 func (d *Decimal) ensureInitialized() {

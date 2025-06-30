@@ -3661,3 +3661,138 @@ func ExampleNewFromFloat() {
 	//0.123123123123123
 	//-10000000000000
 }
+
+func TestDecimal_RoundHalfUp(t *testing.T) {
+	tests := []struct {
+		name   string
+		d      Decimal
+		places int32
+		want   Decimal
+	}{
+		{
+			name:   "550",
+			d:      NewFromInt(550),
+			places: -2,
+			want:   NewFromInt(600),
+		},
+		{
+			name:   "545",
+			d:      NewFromInt(545),
+			places: -2,
+			want:   NewFromInt(500),
+		},
+		{
+			name:   "500",
+			d:      NewFromInt(500),
+			places: -2,
+			want:   NewFromInt(500),
+		},
+		{
+			name:   "1.1001",
+			d:      NewFromFloat(1.1001),
+			places: 2,
+			want:   NewFromFloat(1.10),
+		},
+		{
+			name:   "-1.454",
+			d:      NewFromFloat(-1.454),
+			places: 1,
+			want:   NewFromFloat(-1.4),
+		},
+		{
+			name:   "-1.464",
+			d:      NewFromFloat(-1.464),
+			places: 1,
+			want:   NewFromFloat(-1.5),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.RoundHalfUp(tt.places); !got.Equal(tt.want) {
+				t.Errorf("RoundHalfUp() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecimal_RoundHalfDown(t *testing.T) {
+	tests := []struct {
+		name   string
+		d      Decimal
+		places int32
+		want   Decimal
+	}{
+		{
+			name:   "550",
+			d:      NewFromInt(550),
+			places: -2,
+			want:   NewFromInt(500),
+		},
+		{
+			name:   "560",
+			d:      NewFromInt(560),
+			places: -2,
+			want:   NewFromInt(600),
+		},
+		{
+			name:   "500",
+			d:      NewFromInt(500),
+			places: -2,
+			want:   NewFromInt(500),
+		},
+		{
+			name:   "1.1001",
+			d:      NewFromFloat(1.1001),
+			places: 2,
+			want:   NewFromFloat(1.10),
+		},
+		{
+			name:   "-1.454",
+			d:      NewFromFloat(-1.454),
+			places: 1,
+			want:   NewFromFloat(-1.5),
+		},
+		{
+			name:   "-1.444",
+			d:      NewFromFloat(-1.444),
+			places: 1,
+			want:   NewFromFloat(-1.4),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.RoundHalfDown(tt.places); !got.Equal(tt.want) {
+				t.Errorf("RoundHalfDown() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDecimal_RoundHalfTowardZero(t *testing.T) {
+	tests := []struct {
+		name   string
+		d      Decimal
+		places int32
+		want   Decimal
+	}{
+		{
+			name:   "5.45",
+			d:      NewFromFloat(5.45),
+			places: 1,
+			want:   NewFromFloat(5.4),
+		},
+		{
+			name:   "545",
+			d:      NewFromInt(545),
+			places: -1,
+			want:   NewFromInt(540),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.d.RoundHalfTowardZero(tt.places); !got.Equal(tt.want) {
+				t.Errorf("RoundHalfDown() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

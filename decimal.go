@@ -1520,7 +1520,7 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 	return rounded.string(false)
 }
 
-// Round rounds the decimal to places decimal places.
+// Round rounds the decimal to places decimal places (half away from zero).
 // If places < 0, it will round the integer part to the nearest 10^(-places).
 //
 // Example:
@@ -1539,6 +1539,103 @@ func (d Decimal) Round(places int32) Decimal {
 		ret.value.Sub(ret.value, fiveInt)
 	} else {
 		ret.value.Add(ret.value, fiveInt)
+	}
+
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp++
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
+	}
+
+	return ret
+}
+
+// RoundHalfTowardZero rounds the decimal to places decimal places (half toward zero).
+// If places < 0, it will round the integer part to the nearest 10^(-places).
+//
+// Example:
+//
+//	NewFromFloat(5.45).RoundHalfTowardZero(1).String() // output: "5.4"
+//	NewFromFloat(545).RoundHalfTowardZero(-1).String() // output: "540"
+func (d Decimal) RoundHalfTowardZero(places int32) Decimal {
+	if d.exp == -places {
+		return d
+	}
+	// truncate to places + 1
+	ret := d.rescale(-places - 1)
+
+	// add sign(d) * 0.4
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fourInt)
+	} else {
+		ret.value.Add(ret.value, fourInt)
+	}
+
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp++
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
+	}
+
+	return ret
+}
+
+// RoundHalfUp rounds the decimal half towards +infinity.
+//
+// Example:
+//
+//	NewFromFloat(545).RoundHalfUp(-2).String()   // output: "500"
+//	NewFromFloat(500).RoundHalfUp(-2).String()   // output: "500"
+//	NewFromFloat(1.1001).RoundHalfUp(2).String() // output: "1.10"
+//	NewFromFloat(-1.454).RoundHalfUp(1).String() // output: "-1.4"
+//	NewFromFloat(-1.464).RoundHalfUp(1).String() // output: "-1.5"
+func (d Decimal) RoundHalfUp(places int32) Decimal {
+	if d.exp == -places {
+		return d
+	}
+	// truncate to places + 1
+	ret := d.rescale(-places - 1)
+
+	// add sign(d) * 0.5 if sign(d) >= 0 else sign(d) * 0.4
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fourInt)
+	} else {
+		ret.value.Add(ret.value, fiveInt)
+	}
+
+	// floor for positive numbers, ceil for negative numbers
+	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	ret.exp++
+	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+		ret.value.Add(ret.value, oneInt)
+	}
+
+	return ret
+}
+
+// RoundHalfDown rounds the decimal half towards -infinity.
+//
+// Example:
+//
+//	NewFromFloat(550).RoundHalfDown(-2).String()   // output: "500"
+//	NewFromFloat(560).RoundHalfDown(-2).String()   // output: "600"
+//	NewFromFloat(1.1001).RoundHalfDown(2).String() // output: "1.10"
+//	NewFromFloat(-1.454).RoundHalfDown(1).String() // output: "-1.5"
+//	NewFromFloat(-1.444).RoundHalfDown(1).String() // output: "-1.4"
+func (d Decimal) RoundHalfDown(places int32) Decimal {
+	if d.exp == -places {
+		return d
+	}
+	// truncate to places + 1
+	ret := d.rescale(-places - 1)
+
+	// add sign(d) * 0.5 if sign(d) < 0 else sign(d) * 0.4
+	if ret.value.Sign() < 0 {
+		ret.value.Sub(ret.value, fiveInt)
+	} else {
+		ret.value.Add(ret.value, fourInt)
 	}
 
 	// floor for positive numbers, ceil for negative numbers

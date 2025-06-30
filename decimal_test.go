@@ -2485,6 +2485,66 @@ func TestDecimal_Scan(t *testing.T) {
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
 	}
+
+	dbvalueInt8 := int8(32)
+	expected = New(int64(32), 0)
+
+	err = a.Scan(dbvalueInt8)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(32) failed with message: %s", err)
+
+	} else {
+		// Scan succeeded... test resulting values
+		if !a.Equal(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	dbvalueInt16 := int16(21)
+	expected = New(int64(21), 0)
+
+	err = a.Scan(dbvalueInt16)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(21) failed with message: %s", err)
+
+	} else {
+		// Scan succeeded... test resulting values
+		if !a.Equal(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	dbvalueInt32 := int32(32)
+	expected = New(int64(32), 0)
+
+	err = a.Scan(dbvalueInt32)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(32) failed with message: %s", err)
+
+	} else {
+		// Scan succeeded... test resulting values
+		if !a.Equal(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
+
+	dbvalueIntNatural := 3264
+	expected = New(int64(3264), 0)
+
+	err = a.Scan(dbvalueIntNatural)
+	if err != nil {
+		// Scan failed... no need to test result value
+		t.Errorf("a.Scan(3264) failed with message: %s", err)
+
+	} else {
+		// Scan succeeded... test resulting values
+		if !a.Equal(expected) {
+			t.Errorf("%s does not equal to %s", a, expected)
+		}
+	}
 }
 
 func TestDecimal_Value(t *testing.T) {

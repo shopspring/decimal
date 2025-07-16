@@ -2333,3 +2333,14 @@ func (d Decimal) Tan() Decimal {
 	}
 	return y
 }
+
+// Matches is a gomock match helper.
+// It allows for equal numbers with different internal representations to match successfully in tests.
+func (d Decimal) Matches(other interface{}) bool {
+	otherDecimal, ok := other.(Decimal)
+	if !ok {
+		return false
+	}
+
+	return d.Equal(otherDecimal)
+}

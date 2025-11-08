@@ -1864,6 +1864,10 @@ func (d *Decimal) Scan(value interface{}) error {
 		*d, err = NewFromString(unquoteIfQuoted(string(v)))
 		return err
 
+	case big.Int:
+		*d = NewFromBigInt(&v, 0)
+		return nil
+
 	default:
 		return fmt.Errorf("could not convert value '%+v' to any known type", value)
 	}

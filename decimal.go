@@ -501,7 +501,7 @@ func (d Decimal) rescale(exp int32) Decimal {
 
 	// NOTE(vadim): must convert exps to float64 before - to prevent overflow
 	diff := int64(exp) - int64(d.exp)
-	diff = int64(uint64(diff) &^ (1 << 63))
+	diff = (diff ^ (diff >> 63)) - (diff >> 63)
 	value := new(big.Int).Set(d.value)
 
 	expScale := new(big.Int).Exp(tenInt, big.NewInt(diff), nil)

@@ -65,6 +65,19 @@ var PowPrecisionNegativeExponent = 16
 // silently lose precision.
 var MarshalJSONWithoutQuotes = false
 
+// TrimTrailingZeros specifies whether trailing zeroes should be trimmed from a string representation of decimal.
+// If set to true, trailing zeroes will be truncated (2.00 -> 2, 3.11 -> 3.11, 13.000 -> 13),
+// otherwise trailing zeroes will be preserved (2.00 -> 2.00, 3.11 -> 3.11, 13.000 -> 13.000).
+// Setting this value to false can be useful for APIs where exact decimal string representation matters.
+var TrimTrailingZeros = true
+
+// AvoidScientificNotation specifies whether scientific notation should be used when decimal is turned
+// into a string that has a "negative" precision.
+//
+// For example, 1200 rounded to the nearest 100 cannot accurately be shown as "1200" because the last two
+// digits are unknown. With this set to false, that number would be expressed as "1.2E3" instead.
+var AvoidScientificNotation = true
+
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
@@ -1476,7 +1489,7 @@ func (d Decimal) InexactFloat64() float64 {
 //
 //	-12.345
 func (d Decimal) String() string {
-	return d.string(true)
+	return d.string(TrimTrailingZeros, AvoidScientificNotation)
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after
@@ -1490,10 +1503,12 @@ func (d Decimal) String() string {
 //	NewFromFloat(5.45).StringFixed(1) // output: "5.5"
 //	NewFromFloat(5.45).StringFixed(2) // output: "5.45"
 //	NewFromFloat(5.45).StringFixed(3) // output: "5.450"
-//	NewFromFloat(545).StringFixed(-1) // output: "550"
+//	NewFromFloat(545).StringFixed(-1) // output: "540"
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixed(places int32) string {
 	rounded := d.Round(places)
-	return rounded.string(false)
+	return rounded.string(false, true)
 }
 
 // StringFixedBank returns a banker rounded fixed-point string with places digits
@@ -1508,16 +1523,20 @@ func (d Decimal) StringFixed(places int32) string {
 //	NewFromFloat(5.45).StringFixedBank(2) // output: "5.45"
 //	NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
 //	NewFromFloat(545).StringFixedBank(-1) // output: "540"
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)
-	return rounded.string(false)
+	return rounded.string(false, true)
 }
 
 // StringFixedCash returns a Swedish/Cash rounded fixed-point string. For
 // more details see the documentation at function RoundCash.
+//
+// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedCash(interval uint8) string {
 	rounded := d.RoundCash(interval)
-	return rounded.string(false)
+	return rounded.string(false, true)
 }
 
 // Round rounds the decimal to places decimal places.
@@ -1526,7 +1545,7 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 // Example:
 //
 //	NewFromFloat(5.45).Round(1).String() // output: "5.5"
-//	NewFromFloat(545).Round(-1).String() // output: "550"
+//	NewFromFloat(545).Round(-1).String() // output: "550" (with AvoidScientificNotation, "5.5E2" otherwise)
 func (d Decimal) Round(places int32) Decimal {
 	if d.exp == -places {
 		return d
@@ -1911,9 +1930,16 @@ func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()
 }
 
-func (d Decimal) string(trimTrailingZeros bool) string {
-	if d.exp >= 0 {
+func (d Decimal) string(trimTrailingZeros, avoidScientificNotation bool) string {
+	if d.exp == 0 {
 		return d.rescale(0).value.String()
+	}
+	if d.exp >= 0 {
+		if avoidScientificNotation {
+			return d.rescale(0).value.String()
+		} else {
+			return d.ScientificNotationString()
+		}
 	}
 
 	abs := new(big.Int).Abs(d.value)
@@ -1953,6 +1979,31 @@ func (d Decimal) string(trimTrailingZeros bool) string {
 		return "-" + number
 	}
 
+	return number
+}
+
+// ScientificNotationString serializes the decimal into standard scientific notation.
+//
+// The notation is normalized to have one non-zero digit followed by a decimal point and
+// the remaining significant digits followed by "E" and the base-10 exponent.
+//
+// A zero, which has no significant digits, is simply serialized to "0".
+func (d Decimal) ScientificNotationString() string {
+	exp := int(d.exp)
+	intStr := new(big.Int).Abs(d.value).String()
+	if intStr == "0" {
+		return intStr
+	}
+	first := intStr[0]
+	var remaining string
+	if len(intStr) > 1 {
+		remaining = "." + intStr[1:]
+		exp = exp + len(intStr) - 1
+	}
+	number := string(first) + remaining + "E" + strconv.Itoa(exp)
+	if d.value.Sign() < 0 {
+		return "-" + number
+	}
 	return number
 }
 

@@ -3173,6 +3173,25 @@ func TestDecimal_CoefficientInt64(t *testing.T) {
 	}
 }
 
+func TestDecimal_Matches(t *testing.T) {
+	type Inp struct {
+		d1 Decimal
+		d2 Decimal
+	}
+
+	testCases := map[Inp]bool{
+		{d1: Decimal{value: big.NewInt(100), exp: 0}, d2: Decimal{value: big.NewInt(100), exp: 0}}: true,
+		{d1: Decimal{value: big.NewInt(100), exp: 0}, d2: Decimal{value: big.NewInt(1), exp: 2}}:   true,
+		{d1: Decimal{value: big.NewInt(1), exp: 0}, d2: Decimal{value: big.NewInt(2), exp: 0}}:     false,
+	}
+
+	for input, matchExpected := range testCases {
+		if input.d1.Matches(input.d2) != matchExpected {
+			t.Errorf("expected %s and %s to be %t", input.d1, input.d2, matchExpected)
+		}
+	}
+}
+
 func TestNullDecimal_Scan(t *testing.T) {
 	// test the Scan method that implements the
 	// sql.Scanner interface

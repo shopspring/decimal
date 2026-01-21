@@ -1923,6 +1923,19 @@ func (d *Decimal) GobDecode(data []byte) error {
 	return d.UnmarshalBinary(data)
 }
 
+// GoString implements fmt.GoStringer and formats %#v to be printed in Go
+// source code.
+func (d *Decimal) GoString() string {
+
+	if d.value.IsInt64() {
+		return fmt.Sprintf("decimal.New(%d,%d)", d.value.Int64(), d.exp)
+	}
+	if d.value.Sign() < 0 {
+		return fmt.Sprintf("decimal.NewFromBigInt(new(big.Int).Neg(new(big.Int).SetBits(%#v)),%d)", d.value.Bits(), d.exp)
+	}
+	return fmt.Sprintf("decimal.NewFromBigInt(new(big.Int).SetBits(%#v),%d)", d.value.Bits(), d.exp)
+}
+
 // StringScaled first scales the decimal then calls .String() on it.
 //
 // Deprecated: buggy and unintuitive. Use StringFixed instead.
@@ -2162,6 +2175,15 @@ func (d NullDecimal) MarshalText() (text []byte, err error) {
 		return []byte{}, nil
 	}
 	return d.Decimal.MarshalText()
+}
+
+// GoString implements fmt.GoStringer and formats %#v to be printed in Go
+// source code.
+func (d NullDecimal) GoString() string {
+	if !d.Valid {
+		return "decimal.NullDecimal{Valid: false}"
+	}
+	return `decimal.NewNullDecimal(` + d.Decimal.GoString() + `)`
 }
 
 // Trig functions

@@ -3799,14 +3799,3 @@ func ExampleNewFromFloat() {
 	//0.123123123123123
 	//-10000000000000
 }
-
-func Test_XD1(t *testing.T) {
-    t.Log(New(0,1).Cmp(Zero))
-    t.Log(New(0,1).Equal(Zero))
-	t.Error(New(1,2))
-
-	// OUTPUT:
-	//123.123123123123
-	//0.123123123123123
-	//-10000000000000
-}

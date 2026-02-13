@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"testing/quick"
 	"time"
@@ -648,7 +649,7 @@ func TestCopy(t *testing.T) {
 		t.Error("expecting copy and origin to be equals, but they are not")
 	}
 
-	//change value
+	// change value
 	cpy = cpy.Add(New(1, 0))
 
 	if cpy.Cmp(origin) == 0 {
@@ -3075,6 +3076,88 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
+// TestDecimal_ExpTaylor_Concurrency tests the concurrency safety of the
+// ExpTaylor method, particularly focusing on the shared state caching mechanism
+// for factorial calculations.
+func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
+	resetFactorials := func() {
+		factorialsMutex.Lock()
+		factorials = []Decimal{New(1, 0)}
+		factorialsMutex.Unlock()
+	}
+	t.Run("concurrent calculation works as expected", func(t *testing.T) {
+		resetFactorials()
+
+		// Run multiple goroutines calculating exp concurrently
+		// This should trigger concurrent factorial calculations.
+		var wg sync.WaitGroup
+		numGoroutines := 50
+		results := make([]Decimal, numGoroutines)
+		errors := make([]error, numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				d := NewFromFloat(5.0)
+				result, err := d.ExpTaylor(10)
+				results[index] = result
+				errors[index] = err
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Check all goroutines succeeded.
+		for i, err := range errors {
+			if err != nil {
+				t.Errorf("goroutine %d: ExpTaylor failed: %v", i, err)
+			}
+		}
+
+		// All results should be identical.
+		expected := results[0]
+		for i, result := range results[1:] {
+			if !result.Equal(expected) {
+				t.Errorf("goroutine %d: result mismatch: expected %s, got %s", i+1, expected.String(), result.String())
+			}
+		}
+
+		// Verify factorials slice doesn't have duplicate Zero values
+		// (which would indicate the double-check locking failed).
+		factorialsMutex.RLock()
+		for i, f := range factorials {
+			if i > 0 && f.IsZero() {
+				t.Errorf("factorial at index %d is Zero, double-check locking may have failed", i)
+			}
+		}
+		factorialsMutex.RUnlock()
+	})
+
+	t.Run("race detection", func(t *testing.T) {
+		// NOTE: Factorials from previous subtests are intentionally reused here.
+		// This tests that concurrent access works correctly with a pre-populated cache,
+		// which is the real-world scenario. Run with `go test -race`.
+
+		var wg sync.WaitGroup
+		numGoroutines := 100
+
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(val float64) {
+				defer wg.Done()
+				d := NewFromFloat(val)
+				_, err := d.ExpTaylor(10)
+				if err != nil {
+					t.Errorf("ExpTaylor failed for value %f: %v", val, err)
+				}
+			}(float64(i%10) + 0.5)
+		}
+
+		wg.Wait()
+	})
+}
+
 func TestDecimal_Ln(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec       string
@@ -3810,9 +3893,9 @@ func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(.123123123123123).String())
 	fmt.Println(NewFromFloat32(-1e13).String())
 	// OUTPUT:
-	//123.12312
-	//0.123123124
-	//-10000000000000
+	// 123.12312
+	// 0.123123124
+	// -10000000000000
 }
 
 func ExampleNewFromFloat() {
@@ -3820,9 +3903,9 @@ func ExampleNewFromFloat() {
 	fmt.Println(NewFromFloat(.123123123123123).String())
 	fmt.Println(NewFromFloat(-1e13).String())
 	// OUTPUT:
-	//123.123123123123
-	//0.123123123123123
-	//-10000000000000
+	// 123.123123123123
+	// 0.123123123123123
+	// -10000000000000
 }
 
 func TestDecimal_String(t *testing.T) {

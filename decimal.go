@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // DivisionPrecision is the number of decimal places in the result when it
@@ -95,6 +96,7 @@ var tenInt = big.NewInt(10)
 var twentyInt = big.NewInt(20)
 
 var factorials = []Decimal{New(1, 0)}
+var factorialsMutex sync.RWMutex
 
 // Decimal represents a fixed-point decimal. It is immutable.
 // number = value * 10 ^ exp
@@ -1107,15 +1109,21 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 		i++
 
 		// Calculate next factorial number or retrieve cached value
+		factorialsMutex.RLock()
 		if len(factorials) >= int(i) && !factorials[i-1].IsZero() {
 			factorial = factorials[i-1]
+			factorialsMutex.RUnlock()
 		} else {
-			// To avoid any race conditions, firstly the zero value is appended to a slice to create
-			// a spot for newly calculated factorial. After that, the zero value is replaced by calculated
-			// factorial using the index notation.
-			factorial = factorials[i-2].Mul(New(i, 0))
-			factorials = append(factorials, Zero)
-			factorials[i-1] = factorial
+			prevFactorial := factorials[i-2]
+			factorialsMutex.RUnlock()
+			factorial = prevFactorial.Mul(New(i, 0))
+			factorialsMutex.Lock()
+			// Check again in case another goroutine already added it.
+			if len(factorials) < int(i) || factorials[i-1].IsZero() {
+				factorials = append(factorials, Zero)
+				factorials[i-1] = factorial
+			}
+			factorialsMutex.Unlock()
 		}
 	}
 
@@ -2368,10 +2376,10 @@ var _tanP = [...]Decimal{
 }
 var _tanQ = [...]Decimal{
 	NewFromFloat(1.00000000000000000000e+0),
-	NewFromFloat(1.36812963470692954678e+4),  //0x40cab8a5eeb36572
-	NewFromFloat(-1.32089234440210967447e+6), //0xc13427bc582abc96
-	NewFromFloat(2.50083801823357915839e+7),  //0x4177d98fc2ead8ef
-	NewFromFloat(-5.38695755929454629881e+7), //0xc189afe03cbe5a31
+	NewFromFloat(1.36812963470692954678e+4),  // 0x40cab8a5eeb36572
+	NewFromFloat(-1.32089234440210967447e+6), // 0xc13427bc582abc96
+	NewFromFloat(2.50083801823357915839e+7),  // 0x4177d98fc2ead8ef
+	NewFromFloat(-5.38695755929454629881e+7), // 0xc189afe03cbe5a31
 }
 
 // Tan returns the tangent of the radian argument x.

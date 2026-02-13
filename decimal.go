@@ -1923,6 +1923,16 @@ func (d *Decimal) GobDecode(data []byte) error {
 	return d.UnmarshalBinary(data)
 }
 
+// DecodeSpanner decodes a Spanner value into a Decimal
+func (d *Decimal) DecodeSpanner(val interface{}) error {
+	return d.Scan(val)
+}
+
+// EncodeSpanner encodes a Decimal into a Spanner value
+func (d Decimal) EncodeSpanner() (interface{}, error) {
+	return d.String(), nil
+}
+
 // StringScaled first scales the decimal then calls .String() on it.
 //
 // Deprecated: buggy and unintuitive. Use StringFixed instead.
@@ -2162,6 +2172,32 @@ func (d NullDecimal) MarshalText() (text []byte, err error) {
 		return []byte{}, nil
 	}
 	return d.Decimal.MarshalText()
+}
+
+// DecodeSpanner decodes a Spanner value into a Decimal
+func (d *NullDecimal) DecodeSpanner(value interface{}) error {
+	switch t := value.(type) {
+	case nil:
+		d.Valid = false
+		return nil
+	case *string:
+		if t == nil {
+			d.Valid = false
+			return nil
+		}
+		value = *t
+	}
+	d.Valid = true
+
+	return d.Decimal.Scan(value)
+}
+
+// EncodeSpanner encodes a Decimal into a Spanner value
+func (d NullDecimal) EncodeSpanner() (interface{}, error) {
+	if !d.Valid {
+		return nil, nil
+	}
+	return d.Decimal.String(), nil
 }
 
 // Trig functions

@@ -576,7 +576,7 @@ func TestNewFromBigIntWithExponent(t *testing.T) {
 
 	// add negatives
 	for p, s := range tests {
-		if p.val.Cmp(Zero.value) > 0 {
+		if p.val.Cmp(zeroInt) > 0 {
 			tests[Inp{p.val.Neg(p.val), p.exp}] = "-" + s
 		}
 	}
@@ -1969,7 +1969,7 @@ func TestDecimal_QuoRem(t *testing.T) {
 			t.Errorf("remainder too large: d=%v, d2= %v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
-		if r.value.Sign()*d.value.Sign() < 0 {
+		if r.Sign()*d.Sign() < 0 {
 			t.Errorf("signum of divisor and rest do not match: d=%v, d2= %v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
 		}
@@ -2034,7 +2034,7 @@ func TestDecimal_QuoRem2(t *testing.T) {
 				d, d2, prec, q, r)
 		}
 		// rule 4: r and d have the same sign
-		if r.value.Sign()*d.value.Sign() < 0 {
+		if r.Sign()*d.Sign() < 0 {
 			t.Errorf("signum of divisor and rest do not match, "+
 				"d=%v, d2=%v, prec=%d, q=%v, r=%v",
 				d, d2, prec, q, r)
@@ -2061,7 +2061,7 @@ func (d Decimal) DivOld(d2 Decimal, prec int) Decimal {
 }
 
 func sign(d Decimal) int {
-	return d.value.Sign()
+	return d.Sign()
 }
 
 // rules for rounded divide, rounded to integer
@@ -3642,26 +3642,6 @@ func TestNewNullDecimal(t *testing.T) {
 	}
 }
 
-func ExampleNewFromFloat32() {
-	fmt.Println(NewFromFloat32(123.123123123123).String())
-	fmt.Println(NewFromFloat32(.123123123123123).String())
-	fmt.Println(NewFromFloat32(-1e13).String())
-	// OUTPUT:
-	//123.12312
-	//0.123123124
-	//-10000000000000
-}
-
-func ExampleNewFromFloat() {
-	fmt.Println(NewFromFloat(123.123123123123).String())
-	fmt.Println(NewFromFloat(.123123123123123).String())
-	fmt.Println(NewFromFloat(-1e13).String())
-	// OUTPUT:
-	//123.123123123123
-	//0.123123123123123
-	//-10000000000000
-}
-
 func TestDecimal_String(t *testing.T) {
 	type testData struct {
 		input    string
@@ -3798,4 +3778,35 @@ func TestDecimal_ScientificNotation(t *testing.T) {
 			t.Errorf("expected %s, got %s", test.expected, d.ScientificNotationString())
 		}
 	}
+}
+
+func ExampleNewFromFloat32() {
+	fmt.Println(NewFromFloat32(123.123123123123).String())
+	fmt.Println(NewFromFloat32(.123123123123123).String())
+	fmt.Println(NewFromFloat32(-1e13).String())
+	// OUTPUT:
+	//123.12312
+	//0.123123124
+	//-10000000000000
+}
+
+func ExampleNewFromFloat() {
+	fmt.Println(NewFromFloat(123.123123123123).String())
+	fmt.Println(NewFromFloat(.123123123123123).String())
+	fmt.Println(NewFromFloat(-1e13).String())
+	// OUTPUT:
+	//123.123123123123
+	//0.123123123123123
+	//-10000000000000
+}
+
+func Test_XD1(t *testing.T) {
+    t.Log(New(0,1).Cmp(Zero))
+    t.Log(New(0,1).Equal(Zero))
+	t.Error(New(1,2))
+
+	// OUTPUT:
+	//123.123123123123
+	//0.123123123123123
+	//-10000000000000
 }

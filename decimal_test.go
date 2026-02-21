@@ -3611,6 +3611,40 @@ func TestAvg(t *testing.T) {
 	}
 }
 
+func TestSqrtRound(t *testing.T) {
+	i := NewFromFloat(-1)
+	if _, err := i.Sqrt(); err != ErrImaginaryResult {
+		t.Errorf("Square root of -1 should produce error")
+	}
+
+	var vals = map[string]string{
+		// value : Sqrt(value)
+		"0.0":       "0.0",
+		"0.002342":  "0.0483942145302514",
+		"1.0":       "1.0",
+		"3.0":       "1.7320508075688773",
+		"4.0":       "2.0",
+		"4.5":       "2.1213203435596426",
+		"3289854.0": "1813.7954680724064485",
+	}
+
+	for val, expected := range vals {
+		v, err := NewFromString(val)
+		if err != nil {
+			t.Errorf("error parsing test value into Decimal")
+		}
+
+		e, err := NewFromString(expected)
+		if err != nil {
+			t.Errorf("error parsing test expected value into Decimal")
+		}
+
+		if sqrt, err := v.Sqrt(); err != nil || !sqrt.Equal(e) {
+			t.Errorf("Square root of %s should be %s, not %s (error: %s)", v, e, sqrt, err)
+		}
+	}
+}
+
 func TestRoundBankAnomaly(t *testing.T) {
 	a := New(25, -1)
 	b := New(250, -2)

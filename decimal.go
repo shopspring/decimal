@@ -9,7 +9,7 @@
 //
 // To use Decimal as part of a struct:
 //
-//	type StructName struct {
+//	type Struct struct {
 //	    Number Decimal
 //	}
 //
@@ -1371,6 +1371,13 @@ func (d Decimal) LessThanOrEqual(d2 Decimal) bool {
 	return cmp == -1 || cmp == 0
 }
 
+// Betwee (LTE) return true when d is between d1 and d2 inclusive
+func (d Decimal) IsBetween(d1 Decimal, d2 Decimal) bool {
+	cmp1 := d.Cmp(d1)
+	cmp2 := d.Cmp(d2)
+	return (cmp1 == 1 || cmp1 == 0) && (cmp2 == -1 || cmp2 == 0)
+}
+
 // Sign returns:
 //
 //	-1 if d <  0
@@ -1577,7 +1584,7 @@ func (d Decimal) Round(places int32) Decimal {
 //	NewFromFloat(545).RoundCeil(-2).String()   // output: "600"
 //	NewFromFloat(500).RoundCeil(-2).String()   // output: "500"
 //	NewFromFloat(1.1001).RoundCeil(2).String() // output: "1.11"
-//	NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.4"
+//	NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.5"
 func (d Decimal) RoundCeil(places int32) Decimal {
 	if d.exp >= -places {
 		return d
@@ -1602,7 +1609,7 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 //	NewFromFloat(545).RoundFloor(-2).String()   // output: "500"
 //	NewFromFloat(-500).RoundFloor(-2).String()   // output: "-500"
 //	NewFromFloat(1.1001).RoundFloor(2).String() // output: "1.1"
-//	NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.5"
+//	NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.4"
 func (d Decimal) RoundFloor(places int32) Decimal {
 	if d.exp >= -places {
 		return d
@@ -1627,7 +1634,7 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 //	NewFromFloat(545).RoundUp(-2).String()   // output: "600"
 //	NewFromFloat(500).RoundUp(-2).String()   // output: "500"
 //	NewFromFloat(1.1001).RoundUp(2).String() // output: "1.11"
-//	NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.5"
+//	NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.4"
 func (d Decimal) RoundUp(places int32) Decimal {
 	if d.exp >= -places {
 		return d
@@ -1654,7 +1661,7 @@ func (d Decimal) RoundUp(places int32) Decimal {
 //	NewFromFloat(545).RoundDown(-2).String()   // output: "500"
 //	NewFromFloat(-500).RoundDown(-2).String()   // output: "-500"
 //	NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
-//	NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.4"
+//	NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.5"
 func (d Decimal) RoundDown(places int32) Decimal {
 	if d.exp >= -places {
 		return d

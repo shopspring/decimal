@@ -965,6 +965,20 @@ func (d Decimal) powBigIntWithPrecision(exp *big.Int, precision int32) (Decimal,
 	return result, nil
 }
 
+// Sqrt returns the square root of d, accurate to [DivisionPrecision] decimal places.
+func (d Decimal) Sqrt() Decimal {
+	return d.SqrtRound(int32(DivisionPrecision))
+}
+
+// SqtRound returns the square root of the decimal with a given precision.
+func (d Decimal) SqrtRound(precision int32) Decimal {
+	res, err := d.PowWithPrecision(NewFromFloat(0.5), precision)
+	if err != nil {
+		panic(err)
+	}
+	return res.Round(precision)
+}
+
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
 // OverallPrecision argument specifies the overall precision of the result (integer part + decimal part).
 //

@@ -1297,7 +1297,7 @@ func (d Decimal) IsInteger() bool {
 	q := new(big.Int).Set(d.value)
 	for z := abs(d.exp); z > 0; z-- {
 		q.QuoRem(q, tenInt, &r)
-		if r.Cmp(zeroInt) != 0 {
+		if r.Sign() != 0 {
 			return false
 		}
 	}
@@ -1563,7 +1563,7 @@ func (d Decimal) Round(places int32) Decimal {
 	// floor for positive numbers, ceil for negative numbers
 	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
 	ret.exp++
-	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
+	if ret.value.Sign() < 0 && m.Sign() != 0 {
 		ret.value.Add(ret.value, oneInt)
 	}
 
@@ -1765,7 +1765,7 @@ func (d Decimal) Ceil() Decimal {
 	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
 
 	z, m := new(big.Int).DivMod(d.value, exp, new(big.Int))
-	if m.Cmp(zeroInt) != 0 {
+	if m.Sign() != 0 {
 		z.Add(z, oneInt)
 	}
 	return Decimal{value: z, exp: 0}

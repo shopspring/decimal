@@ -2479,6 +2479,11 @@ func TestDecimal_Scan(t *testing.T) {
 	scanHelper(t, dbvalueStr, expected)
 	scanHelper(t, valueStr, expected)
 
+	// test big.Int
+	value := big.NewInt(dbvalueInt)
+	expected = NewFromBigInt(value, 0)
+	scanHelper(t, *value, expected)
+
 	type foo struct{}
 	a := Decimal{}
 	err = a.Scan(foo{})

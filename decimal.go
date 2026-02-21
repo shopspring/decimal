@@ -1312,6 +1312,16 @@ func abs(n int32) int32 {
 	return n
 }
 
+func (d Decimal) Format(f fmt.State, verb rune) {
+	switch verb {
+	case 'f':
+		places, _ := f.Precision()
+		fmt.Fprintf(f, d.StringFixed(int32(places)))
+	case 's':
+		fmt.Fprintf(f, d.String())
+	}
+}
+
 // Cmp compares the numbers represented by d and d2 and returns:
 //
 //	-1 if d <  d2

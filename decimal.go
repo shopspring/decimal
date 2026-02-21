@@ -33,15 +33,15 @@ import (
 // Example:
 //
 //	d1 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
-//	d1.String() // output: "0.6666666666666667"
+//	d1.String() // output: "0.666666666666666667"
 //	d2 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(30000))
-//	d2.String() // output: "0.0000666666666667"
+//	d2.String() // output: "0.000066666666666667"
 //	d3 := decimal.NewFromFloat(20000).Div(decimal.NewFromFloat(3))
-//	d3.String() // output: "6666.6666666666666667"
+//	d3.String() // output: "6666.666666666666666667"
 //	decimal.DivisionPrecision = 3
 //	d4 := decimal.NewFromFloat(2).Div(decimal.NewFromFloat(3))
 //	d4.String() // output: "0.667"
-var DivisionPrecision = 16
+var DivisionPrecision = 18
 
 // PowPrecisionNegativeExponent specifies the maximum precision of the result (digits after decimal point)
 // when calculating decimal power. Only used for cases where the exponent is a negative number.
@@ -50,12 +50,12 @@ var DivisionPrecision = 16
 // Example:
 //
 //	d1, err := decimal.NewFromFloat(15.2).PowInt32(-2)
-//	d1.String() // output: "0.0043282548476454"
+//	d1.String() // output: "0.004328254847645429"
 //
 //	decimal.PowPrecisionNegativeExponent = 24
 //	d2, err := decimal.NewFromFloat(15.2).PowInt32(-2)
 //	d2.String() // output: "0.004328254847645429362881"
-var PowPrecisionNegativeExponent = 16
+var PowPrecisionNegativeExponent = 18
 
 // MarshalJSONWithoutQuotes should be set to true if you want the decimal to
 // be JSON marshaled as a number, instead of as a string.
@@ -86,13 +86,15 @@ var ExpMaxIterations = 1000
 // Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
 var Zero = New(0, 1)
 
-var zeroInt = big.NewInt(0)
-var oneInt = big.NewInt(1)
-var twoInt = big.NewInt(2)
-var fourInt = big.NewInt(4)
-var fiveInt = big.NewInt(5)
-var tenInt = big.NewInt(10)
-var twentyInt = big.NewInt(20)
+var (
+	zeroInt   = big.NewInt(0)
+	oneInt    = big.NewInt(1)
+	twoInt    = big.NewInt(2)
+	fourInt   = big.NewInt(4)
+	fiveInt   = big.NewInt(5)
+	tenInt    = big.NewInt(10)
+	twentyInt = big.NewInt(20)
+)
 
 var factorials = []Decimal{New(1, 0)}
 
@@ -676,7 +678,7 @@ func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
 	// now rv2 = abs(r.value) * 2
 	r2 := Decimal{value: &rv2, exp: r.exp + precision}
 	// r2 is now 2 * r * 10 ^ precision
-	var c = r2.Cmp(d2.Abs())
+	c := r2.Cmp(d2.Abs())
 
 	if c < 0 {
 		return q
@@ -1682,7 +1684,6 @@ func (d Decimal) RoundDown(places int32) Decimal {
 //	NewFromFloat(5.55).RoundBank(1).String() // output: "5.6"
 //	NewFromFloat(555).RoundBank(-1).String() // output: "560"
 func (d Decimal) RoundBank(places int32) Decimal {
-
 	round := d.Round(places)
 	remainder := d.Sub(round).Abs()
 
@@ -2316,7 +2317,6 @@ var _cos = [...]Decimal{
 
 // Cos returns the cosine of the radian argument x.
 func (d Decimal) Cos() Decimal {
-
 	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
 	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
 	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
@@ -2366,17 +2366,17 @@ var _tanP = [...]Decimal{
 	NewFromFloat(1.15351664838587416140e+6),  // 0x413199eca5fc9ddd
 	NewFromFloat(-1.79565251976484877988e+7), // 0xc1711fead3299176
 }
+
 var _tanQ = [...]Decimal{
 	NewFromFloat(1.00000000000000000000e+0),
-	NewFromFloat(1.36812963470692954678e+4),  //0x40cab8a5eeb36572
-	NewFromFloat(-1.32089234440210967447e+6), //0xc13427bc582abc96
-	NewFromFloat(2.50083801823357915839e+7),  //0x4177d98fc2ead8ef
-	NewFromFloat(-5.38695755929454629881e+7), //0xc189afe03cbe5a31
+	NewFromFloat(1.36812963470692954678e+4),  // 0x40cab8a5eeb36572
+	NewFromFloat(-1.32089234440210967447e+6), // 0xc13427bc582abc96
+	NewFromFloat(2.50083801823357915839e+7),  // 0x4177d98fc2ead8ef
+	NewFromFloat(-5.38695755929454629881e+7), // 0xc189afe03cbe5a31
 }
 
 // Tan returns the tangent of the radian argument x.
 func (d Decimal) Tan() Decimal {
-
 	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
 	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
 	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,

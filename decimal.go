@@ -1969,7 +1969,7 @@ func (d Decimal) string(trimTrailingZeros, avoidScientificNotation bool) string 
 // A zero, which has no significant digits, is simply serialized to "0".
 func (d Decimal) ScientificNotationString() string {
 	exp := int(d.exp)
-	intStr := new(big.Int).Abs(d.value).String()
+	intStr := new(big.Int).Abs(d.getValue()).String()
 	if intStr == "0" {
 		return intStr
 	}

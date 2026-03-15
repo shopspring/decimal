@@ -71,12 +71,12 @@ var MarshalJSONWithoutQuotes = false
 // Setting this value to false can be useful for APIs where exact decimal string representation matters.
 var TrimTrailingZeros = true
 
-// AvoidScientificNotation specifies whether scientific notation should be used when decimal is turned
+// UseScientificNotation specifies whether scientific notation should be used when a decimal is turned
 // into a string that has a "negative" precision.
 //
 // For example, 1200 rounded to the nearest 100 cannot accurately be shown as "1200" because the last two
-// digits are unknown. With this set to false, that number would be expressed as "1.2E3" instead.
-var AvoidScientificNotation = true
+// digits are unknown. With this set to true, that number would be expressed as "1.2E3" instead.
+var UseScientificNotation = false
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
@@ -1473,7 +1473,7 @@ func (d Decimal) InexactFloat64() float64 {
 //
 //	-12.345
 func (d Decimal) String() string {
-	return d.string(TrimTrailingZeros, AvoidScientificNotation)
+	return d.string(TrimTrailingZeros, UseScientificNotation)
 }
 
 // StringFixed returns a rounded fixed-point string with places digits after
@@ -1489,10 +1489,10 @@ func (d Decimal) String() string {
 //	NewFromFloat(5.45).StringFixed(3) // output: "5.450"
 //	NewFromFloat(545).StringFixed(-1) // output: "540"
 //
-// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
+// Regardless of the UseScientificNotation option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixed(places int32) string {
 	rounded := d.Round(places)
-	return rounded.string(false, true)
+	return rounded.string(false, false)
 }
 
 // StringFixedBank returns a banker rounded fixed-point string with places digits
@@ -1508,19 +1508,19 @@ func (d Decimal) StringFixed(places int32) string {
 //	NewFromFloat(5.45).StringFixedBank(3) // output: "5.450"
 //	NewFromFloat(545).StringFixedBank(-1) // output: "540"
 //
-// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
+// Regardless of the UseScientificNotation option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedBank(places int32) string {
 	rounded := d.RoundBank(places)
-	return rounded.string(false, true)
+	return rounded.string(false, false)
 }
 
 // StringFixedCash returns a Swedish/Cash rounded fixed-point string. For
 // more details see the documentation at function RoundCash.
 //
-// Regardless of the `AvoidScientificNotation` option, the returned string will never be in scientific notation.
+// Regardless of the UseScientificNotation option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixedCash(interval uint8) string {
 	rounded := d.RoundCash(interval)
-	return rounded.string(false, true)
+	return rounded.string(false, false)
 }
 
 // Round rounds the decimal to places decimal places.
@@ -1529,7 +1529,7 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 // Example:
 //
 //	NewFromFloat(5.45).Round(1).String() // output: "5.5"
-//	NewFromFloat(545).Round(-1).String() // output: "550" (with AvoidScientificNotation, "5.5E2" otherwise)
+//	NewFromFloat(545).Round(-1).String() // output: "550" (with UseScientificNotation false, "5.5E2" if true)
 func (d Decimal) Round(places int32) Decimal {
 	if d.exp == -places {
 		return d
@@ -1919,15 +1919,15 @@ func (d Decimal) StringScaled(exp int32) string {
 	return d.rescale(exp).String()
 }
 
-func (d Decimal) string(trimTrailingZeros, avoidScientificNotation bool) string {
+func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 	if d.exp == 0 {
 		return d.rescale(0).getValue().String()
 	}
 	if d.exp >= 0 {
-		if avoidScientificNotation {
-			return d.rescale(0).value.String()
-		} else {
+		if useScientificNotation {
 			return d.ScientificNotationString()
+		} else {
+			return d.rescale(0).value.String()
 		}
 	}
 

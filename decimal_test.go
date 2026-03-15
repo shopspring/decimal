@@ -3868,9 +3868,9 @@ func TestDecimal_StringWithScientificNotationWhenNeeded(t *testing.T) {
 	}
 
 	defer func() {
-		AvoidScientificNotation = true
+		UseScientificNotation = false
 	}()
-	AvoidScientificNotation = false
+	UseScientificNotation = true
 
 	tests := []testData{
 		{"1.0E3", "1.0E3"},   // 1000 to the nearest hundred

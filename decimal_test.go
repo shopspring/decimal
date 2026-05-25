@@ -3157,6 +3157,14 @@ func TestDecimal_NumDigits(t *testing.T) {
 		{"-5.2663117716", 11},
 		{"-26.1", 3},
 		{"", 1},
+		// Regression for #420: float64 math.Log10 rounds 1eN down to
+		// N-1 for some N (e.g. log10(1e15) == 14.999...), so the old
+		// fast path under-reported by one for exact-power coefficients.
+		{"1000000000000000", 16},
+		{"-1000000000000000", 16},
+		{"1000000000000000E20", 16},
+		{"9007199254740992", 16}, // 1<<53, the old fast-path boundary
+		{"-9007199254740992", 16},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 

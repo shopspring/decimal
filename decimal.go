@@ -1256,13 +1256,26 @@ func (d Decimal) NumDigits() int {
 	v := d.getValue()
 	if v.IsInt64() {
 		i64 := v.Int64()
-		// restrict fast path to integers with exact conversion to float64
-		if i64 <= (1<<53) && i64 >= -(1<<53) {
-			if i64 == 0 {
-				return 1
-			}
-			return int(math.Log10(math.Abs(float64(i64)))) + 1
+		if i64 == 0 {
+			return 1
 		}
+		// Count digits via the underlying int64 instead of math.Log10,
+		// which rounds an exact 1eN like 1e15 down to 14.999... and would
+		// then under-report by one (see #420). Negation is safe because
+		// math.MinInt64 has IsInt64() true but its absolute value also
+		// needs counting; treat it explicitly.
+		if i64 == math.MinInt64 {
+			return 19
+		}
+		if i64 < 0 {
+			i64 = -i64
+		}
+		n := 0
+		for i64 > 0 {
+			n++
+			i64 /= 10
+		}
+		return n
 	}
 
 	estimatedNumDigits := int(float64(v.BitLen()) / math.Log2(10))

@@ -315,12 +315,13 @@ func RequireFromString(value string) Decimal {
 
 // NewFromFloat converts a float64 to Decimal.
 //
-// The converted number will contain the number of significant digits that can be
-// represented in a float with reliable roundtrip.
-// This is typically 15 digits, but may be more in some cases.
-// See https://www.exploringbinary.com/decimal-precision-of-binary-floating-point-numbers/ for more information.
+// The result is the exact decimal value of the IEEE 754 binary64 number:
+// the terminating decimal equal to the float's true value (no rounding to
+// a “shortest” printable form). Values such as 0.1 therefore have many
+// fractional digits.
 //
-// For slightly faster conversion, use NewFromFloatWithExponent where you can specify the precision in absolute terms.
+// For conversion with a limited number of fractional digits, use
+// NewFromFloatWithExponent.
 //
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat(value float64) Decimal {
@@ -332,12 +333,11 @@ func NewFromFloat(value float64) Decimal {
 
 // NewFromFloat32 converts a float32 to Decimal.
 //
-// The converted number will contain the number of significant digits that can be
-// represented in a float with reliable roundtrip.
-// This is typically 6-8 digits depending on the input.
-// See https://www.exploringbinary.com/decimal-precision-of-binary-floating-point-numbers/ for more information.
+// The result is the exact decimal value of the IEEE 754 binary32 number; see
+// NewFromFloat for details.
 //
-// For slightly faster conversion, use NewFromFloatWithExponent where you can specify the precision in absolute terms.
+// For conversion with a limited number of fractional digits, use
+// NewFromFloatWithExponent.
 //
 // NOTE: this will panic on NaN, +/-inf
 func NewFromFloat32(value float32) Decimal {
@@ -367,32 +367,49 @@ func newFromFloat(val float64, bits uint64, flt *floatInfo) Decimal {
 	}
 	exp += flt.bias
 
-	var d decimal
-	d.Assign(mant)
-	d.Shift(exp - int(flt.mantbits))
-	d.neg = bits>>(flt.expbits+flt.mantbits) != 0
+	neg := bits>>(flt.expbits+flt.mantbits) != 0
+	return floatMantExpToExactDecimal(mant, exp, int(flt.mantbits), neg)
+}
 
-	roundShortest(&d, mant, exp, flt)
-	// If less than 19 digits, we can do calculation in an int64.
-	if d.nd < 19 {
-		tmp := int64(0)
-		m := int64(1)
-		for i := d.nd - 1; i >= 0; i-- {
-			tmp += m * int64(d.d[i]-'0')
-			m *= 10
-		}
-		if d.neg {
-			tmp *= -1
-		}
-		return Decimal{value: big.NewInt(tmp), exp: int32(d.dp) - int32(d.nd)}
+// floatMantExpToExactDecimal returns mant*2^(exp-mantbits) as a Decimal, using
+// the same mant/exp convention as newFromFloat after unpacking IEEE bits.
+func floatMantExpToExactDecimal(mant uint64, exp, mantbits int, neg bool) Decimal {
+	if mant == 0 {
+		return New(0, 0)
 	}
-	dValue := new(big.Int)
-	dValue, ok := dValue.SetString(string(d.d[:d.nd]), 10)
-	if ok {
-		return Decimal{value: dValue, exp: int32(d.dp) - int32(d.nd)}
-	}
+	coeff := new(big.Int).SetUint64(mant)
+	shift := exp - mantbits
 
-	return NewFromFloatWithExponent(val, int32(d.dp)-int32(d.nd))
+	var exp10 int32
+	if shift >= 0 {
+		coeff.Lsh(coeff, uint(shift))
+	} else {
+		k := int64(-shift)
+		pow5 := new(big.Int).Exp(fiveInt, big.NewInt(k), nil)
+		coeff.Mul(coeff, pow5)
+		exp10 = -int32(k)
+	}
+	if neg {
+		coeff.Neg(coeff)
+	}
+	return normalizeCoeffTenExp(coeff, exp10)
+}
+
+// normalizeCoeffTenExp factors powers of ten out of coeff into exp (trailing zeros).
+func normalizeCoeffTenExp(coeff *big.Int, exp int32) Decimal {
+	if coeff.Sign() == 0 {
+		return Decimal{value: big.NewInt(0), exp: 0}
+	}
+	rem := new(big.Int)
+	for {
+		rem.Rem(coeff, tenInt)
+		if rem.Sign() != 0 {
+			break
+		}
+		coeff.Div(coeff, tenInt)
+		exp++
+	}
+	return Decimal{value: coeff, exp: exp}
 }
 
 // NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary

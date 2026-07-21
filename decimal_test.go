@@ -2870,6 +2870,33 @@ func TestDecimal_PowInt32(t *testing.T) {
 	}
 }
 
+func TestDecimal_PowNegativeIntegerPowersOfTen(t *testing.T) {
+	// Regression for #394: default PowPrecisionNegativeExponent (16) used to
+	// DivRound 1/10**n to zero for n > 16 even though the value is exact.
+	for _, exp := range []int32{-16, -17, -18, -20} {
+		base := NewFromInt(10)
+		got, err := base.PowInt32(exp)
+		if err != nil {
+			t.Fatalf("PowInt32(10, %d) unexpected error: %v", exp, err)
+		}
+		want := New(1, exp) // 10**(-n) == 1e-n
+		if !got.Equal(want) {
+			t.Errorf("PowInt32(10, %d) = %s, want %s", exp, got, want)
+		}
+		got2 := base.Pow(NewFromInt(int64(exp)))
+		if !got2.Equal(want) {
+			t.Errorf("Pow(10, %d) = %s, want %s", exp, got2, want)
+		}
+		got3, err := base.PowBigInt(big.NewInt(int64(exp)))
+		if err != nil {
+			t.Fatalf("PowBigInt(10, %d) unexpected error: %v", exp, err)
+		}
+		if !got3.Equal(want) {
+			t.Errorf("PowBigInt(10, %d) = %s, want %s", exp, got3, want)
+		}
+	}
+}
+
 func TestDecimal_PowInt32_UndefinedResult(t *testing.T) {
 	base := RequireFromString("0")
 

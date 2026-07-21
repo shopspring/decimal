@@ -907,7 +907,7 @@ func (d Decimal) PowInt32(exp int32) (Decimal, error) {
 	}
 
 	if isExpNeg {
-		return New(1, 0).DivRound(result, int32(PowPrecisionNegativeExponent)), nil
+		return divForNegativePow(result, int32(PowPrecisionNegativeExponent)), nil
 	}
 
 	return result, nil
@@ -955,10 +955,28 @@ func (d Decimal) powBigIntWithPrecision(exp *big.Int, precision int32) (Decimal,
 	}
 
 	if isExpNeg {
-		return New(1, 0).DivRound(result, precision), nil
+		return divForNegativePow(result, precision), nil
 	}
 
 	return result, nil
+}
+
+// divForNegativePow computes 1/result with DivRound(precision).
+// If the configured precision is too small to represent a non-zero reciprocal
+// (e.g. 10**-17 with PowPrecisionNegativeExponent=16), retry with enough digits
+// so exact powers of ten are not collapsed to zero (#394).
+func divForNegativePow(result Decimal, precision int32) Decimal {
+	q := New(1, 0).DivRound(result, precision)
+	if !q.IsZero() || result.IsZero() {
+		return q
+	}
+	needed := int32(result.NumDigits())
+	if needed < precision {
+		needed = precision
+	}
+	// One extra digit covers borderline powers of ten such as 10**n (n digits of 1
+	// followed by zeros? 10**17 has 18 digits) — NumDigits already returns 18.
+	return New(1, 0).DivRound(result, needed)
 }
 
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.

@@ -1774,13 +1774,16 @@ func (d Decimal) Ceil() Decimal {
 
 // Truncate truncates off digits from the number, without rounding.
 //
-// NOTE: precision is the last digit that will not be truncated (must be >= 0).
+// NOTE: precision is the last digit that will not be truncated.
+// Positive values truncate decimal places; negative values truncate
+// integer digits (e.g., -2 rounds to nearest hundred).
 //
 // Example:
 //
 //	decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
+//	decimal.NewFromString("5432").Truncate(-2).String()   // "5400"
 func (d Decimal) Truncate(precision int32) Decimal {
-	if precision >= 0 && -precision > d.exp {
+	if -precision > d.exp {
 		return d.rescale(-precision)
 	}
 	return d

@@ -4053,3 +4053,99 @@ func ExampleNewFromFloat() {
 	// 0.123123123123123
 	// -10000000000000
 }
+
+// TestTruncateNegativePrecision verifies that Truncate correctly handles
+// negative precision values, truncating the integer part towards zero.
+func TestTruncateNegativePrecision(t *testing.T) {
+	type testCase struct {
+		input     string
+		places    int32
+		want      string
+		wantExp   int32
+	}
+	tests := []testCase{
+		// negative precision: truncate integer part
+		{"5432", -2, "5400", 2},
+		{"-5432", -2, "-5400", 2},
+		{"5499", -2, "5400", 2},
+		{"5500", -2, "5500", 2},
+		{"5501", -2, "5500", 2},
+		{"999", -3, "0", 3},
+		{"1000", -3, "1000", 3},
+		{"1001", -3, "1000", 3},
+		{"-999", -3, "0", 3},
+		{"-1000", -3, "-1000", 3},
+		// positive precision still works as before
+		{"123.456", 2, "123.45", -2},
+		{"123.456", 0, "123", 0},
+		{"123.456", 5, "123.456", -3},
+	}
+
+	for _, tc := range tests {
+		d := RequireFromString(tc.input)
+		got := d.Truncate(tc.places)
+		if got.String() != tc.want {
+			t.Errorf("(%s).Truncate(%d): got %s, want %s", tc.input, tc.places, got.String(), tc.want)
+		}
+		if got.exp != tc.wantExp {
+			t.Errorf("(%s).Truncate(%d): got exponent %d, want %d", tc.input, tc.places, got.exp, tc.wantExp)
+		}
+	}
+}
+
+// TestRoundingExponentNormalization verifies that RoundUp, RoundDown,
+// RoundCeil, and RoundFloor return a result with the exponent normalized
+// to the requested number of places, even when the value is already exact.
+func TestRoundingExponentNormalization(t *testing.T) {
+	type testCase struct {
+		fn      string
+		input   string
+		places  int32
+		wantStr string
+		wantExp int32
+	}
+
+	tests := []testCase{
+		// RoundUp
+		{"RoundUp", "100.0", 0, "100", 0},
+		{"RoundUp", "100.00", 0, "100", 0},
+		{"RoundUp", "3.14", 2, "3.14", -2},
+		{"RoundUp", "500", -2, "500", 2},
+		// RoundDown
+		{"RoundDown", "100.0", 0, "100", 0},
+		{"RoundDown", "100.00", 0, "100", 0},
+		{"RoundDown", "3.14", 2, "3.14", -2},
+		{"RoundDown", "500", -2, "500", 2},
+		// RoundFloor
+		{"RoundFloor", "100.0", 0, "100", 0},
+		{"RoundFloor", "100.00", 0, "100", 0},
+		{"RoundFloor", "-100.0", 0, "-100", 0},
+		{"RoundFloor", "500", -2, "500", 2},
+		// RoundCeil
+		{"RoundCeil", "100.0", 0, "100", 0},
+		{"RoundCeil", "100.00", 0, "100", 0},
+		{"RoundCeil", "-100.0", 0, "-100", 0},
+		{"RoundCeil", "500", -2, "500", 2},
+	}
+
+	for _, tc := range tests {
+		d := RequireFromString(tc.input)
+		var got Decimal
+		switch tc.fn {
+		case "RoundUp":
+			got = d.RoundUp(tc.places)
+		case "RoundDown":
+			got = d.RoundDown(tc.places)
+		case "RoundFloor":
+			got = d.RoundFloor(tc.places)
+		case "RoundCeil":
+			got = d.RoundCeil(tc.places)
+		}
+		if got.String() != tc.wantStr {
+			t.Errorf("(%s).%s(%d): got %s, want %s", tc.input, tc.fn, tc.places, got.String(), tc.wantStr)
+		}
+		if got.exp != tc.wantExp {
+			t.Errorf("(%s).%s(%d): got exponent %d, want %d", tc.input, tc.fn, tc.places, got.exp, tc.wantExp)
+		}
+	}
+}

@@ -1590,7 +1590,7 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 
 	rescaled := d.rescale(-places)
 	if d.Equal(rescaled) {
-		return d
+		return rescaled
 	}
 
 	if d.getValue().Sign() > 0 {
@@ -1615,7 +1615,7 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 
 	rescaled := d.rescale(-places)
 	if d.Equal(rescaled) {
-		return d
+		return rescaled
 	}
 
 	if d.getValue().Sign() < 0 {
@@ -1640,7 +1640,7 @@ func (d Decimal) RoundUp(places int32) Decimal {
 
 	rescaled := d.rescale(-places)
 	if d.Equal(rescaled) {
-		return d
+		return rescaled
 	}
 
 	if d.getValue().Sign() > 0 {
@@ -1667,7 +1667,7 @@ func (d Decimal) RoundDown(places int32) Decimal {
 
 	rescaled := d.rescale(-places)
 	if d.Equal(rescaled) {
-		return d
+		return rescaled
 	}
 	return rescaled
 }
@@ -1774,13 +1774,17 @@ func (d Decimal) Ceil() Decimal {
 
 // Truncate truncates off digits from the number, without rounding.
 //
-// NOTE: precision is the last digit that will not be truncated (must be >= 0).
+// If precision >= 0, it specifies the number of decimal places to keep.
+// If precision < 0, it truncates the integer part to the nearest 10^(-precision)
+// towards zero.
 //
 // Example:
 //
-//	decimal.NewFromString("123.456").Truncate(2).String() // "123.45"
+//	decimal.NewFromString("123.456").Truncate(2).String()  // "123.45"
+//	decimal.NewFromString("5432").Truncate(-2).String()    // "5400"
+//	decimal.NewFromString("-5432").Truncate(-2).String()   // "-5400"
 func (d Decimal) Truncate(precision int32) Decimal {
-	if precision >= 0 && -precision > d.exp {
+	if -precision > d.exp {
 		return d.rescale(-precision)
 	}
 	return d

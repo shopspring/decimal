@@ -204,6 +204,9 @@ func NewFromString(value string) (Decimal, error) {
 	var intString string
 	var exp int64
 
+	// Accept Unicode minus sign (U+2212) in addition to ASCII '-'.
+	value = strings.Replace(value, "\u2212", "-", -1)
+
 	// Check if number is using scientific notation and find dots
 	eIndex := -1
 	pIndex := -1

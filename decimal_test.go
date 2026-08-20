@@ -307,6 +307,26 @@ func TestFloat64(t *testing.T) {
 	}
 }
 
+func TestNewFromStringUnicodeMinus(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"\u2212123.45", "-123.45"},
+		{"\u2212.5", "-0.5"},
+		{"1e\u22122", "0.01"},
+	}
+	for _, tc := range cases {
+		d, err := NewFromString(tc.in)
+		if err != nil {
+			t.Errorf("NewFromString(%q) unexpected error: %v", tc.in, err)
+			continue
+		}
+		if d.String() != tc.want {
+			t.Errorf("NewFromString(%q) = %q, want %q", tc.in, d.String(), tc.want)
+		}
+	}
+}
+
 func TestNewFromStringErrs(t *testing.T) {
 	tests := []string{
 		"",

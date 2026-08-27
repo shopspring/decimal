@@ -79,6 +79,14 @@ var TrimTrailingZeros = true
 // digits are unknown. With this set to true, that number would be expressed as "1.2E3" instead.
 var UseScientificNotation = false
 
+// ExpMaxLimit limits the maximum allowed exponent when parsing or operating on decimals.
+// Extremely large exponents can cause memory leaks/OOM panics due to how math/big.Int allocates memory.
+// By default, this is set to math.MaxInt32 for backwards compatibility, but it's strongly recommended
+// to set this to a lower bound (e.g., 10000) for APIs that accept user input.
+var ExpMaxLimit = int32(math.MaxInt32)
+
+// ExpMinLimit limits the minimum allowed exponent when parsing decimals.
+var ExpMinLimit = int32(math.MinInt32)
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
@@ -269,6 +277,10 @@ func NewFromString(value string) (Decimal, error) {
 	if exp < math.MinInt32 || exp > math.MaxInt32 {
 		// NOTE(vadim): I doubt a string could realistically be this long
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", originalInput)
+	}
+
+	if exp < int64(ExpMinLimit) || exp > int64(ExpMaxLimit) {
+		return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent out of bounds", originalInput)
 	}
 
 	return Decimal{

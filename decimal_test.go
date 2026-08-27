@@ -4053,3 +4053,33 @@ func ExampleNewFromFloat() {
 	// 0.123123123123123
 	// -10000000000000
 }
+
+func TestNewFromStringExpLimit(t *testing.T) {
+	oldMax := ExpMaxLimit
+	oldMin := ExpMinLimit
+	defer func() {
+		ExpMaxLimit = oldMax
+		ExpMinLimit = oldMin
+	}()
+
+	ExpMaxLimit = 10000
+	ExpMinLimit = -10000
+
+	// Should pass
+	_, err := NewFromString("1e10000")
+	if err != nil {
+		t.Fatalf("expected 1e10000 to pass, got %v", err)
+	}
+
+	// Should fail (exceeds max)
+	_, err = NewFromString("1e10001")
+	if err == nil {
+		t.Fatal("expected 1e10001 to fail")
+	}
+
+	// Should fail (exceeds min)
+	_, err = NewFromString("1e-10001")
+	if err == nil {
+		t.Fatal("expected 1e-10001 to fail")
+	}
+}

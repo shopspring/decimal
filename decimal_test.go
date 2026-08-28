@@ -2981,17 +2981,17 @@ func TestDecimal_ExpHullAbrham(t *testing.T) {
 		{"-0.569297", 20, "0.56592314285957604443"},
 		{"-1.0", 1, "0.4"},
 		{"-1.0", 5, "0.36788"},
-		{"-3.0", 1, "0"},
+		{"-3.0", 1, "0.05"},
 		{"-3.0", 2, "0.05"},
-		{"-3.0", 10, "0.0497870684"},
-		{"-5.26", 2, "0.01"},
-		{"-5.26", 10, "0.0051953047"},
-		{"-5.2663117716", 2, "0.01"},
-		{"-5.2663117716", 10, "0.0051626164"},
-		{"-26.1", 2, "0"},
-		{"-26.1", 15, "0.000000000004623"},
-		{"-50.1591", 10, "0"},
-		{"-50.1591", 30, "0.000000000000000000000164505208"},
+		{"-3.0", 10, "0.04978706837"},
+		{"-5.26", 2, "0.0052"},
+		{"-5.26", 10, "0.005195304719"},
+		{"-5.2663117716", 2, "0.0052"},
+		{"-5.2663117716", 10, "0.005162616411"},
+		{"-26.1", 2, "0.0000000000046"},
+		{"-26.1", 15, "0.00000000000462289492466867"},
+		{"-50.1591", 10, "0.0000000000000000000001645052084"},
+		{"-50.1591", 30, "0.000000000000000000000164505208424152908216198963722"},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 		expected, _ := NewFromString(testCase.ExpectedDec)
@@ -3005,6 +3005,43 @@ func TestDecimal_ExpHullAbrham(t *testing.T) {
 			t.Errorf("expected %s, got %s, for decimal %s", testCase.ExpectedDec, exp.String(), testCase.Dec)
 		}
 
+	}
+}
+
+// ExpHullAbrham is documented to return overallPrecision significant figures.
+// It used to round the result to overallPrecision decimal places whenever the
+// result was < 1, discarding the leading-zero positions, so every sufficiently
+// negative argument lost significant figures (exp(-50).ExpHullAbrham(10)
+// returned 0). Check the delivered precision against exp(x) computed to 40
+// digits with mpmath, across the negative half-line.
+func TestDecimal_ExpHullAbrham_significantFigures(t *testing.T) {
+	trueExp := map[string]string{
+		"-2.5": "8.20849986238987951695286744671598078378041e-2",
+		"-5":   "6.73794699908546709663604842314842424884959e-3",
+		"-10":  "4.53999297624848515355915155605506102379181e-5",
+		"-20":  "2.06115362243855782796594038015582097637581e-9",
+		"-30":  "9.35762296884017460491583222337870674495832e-14",
+		"-50":  "1.92874984796391778301734281652701257475283e-22",
+	}
+	for _, x := range []string{"-2.5", "-5", "-10", "-20", "-30", "-50"} {
+		d := RequireFromString(x)
+		want := RequireFromString(trueExp[x])
+		for _, prec := range []uint32{10, 20, 30} {
+			got, err := d.ExpHullAbrham(prec)
+			if err != nil {
+				t.Fatalf("exp(%s).ExpHullAbrham(%d): %v", x, prec, err)
+			}
+			if got.IsZero() {
+				t.Errorf("exp(%s).ExpHullAbrham(%d) = 0, want ~%s", x, prec, want)
+				continue
+			}
+			relErr := got.Sub(want).Abs().DivRound(want, 45)
+			tol := New(1, -int32(prec)+1) // one unit in the prec-th significant figure
+			if relErr.Cmp(tol) > 0 {
+				t.Errorf("exp(%s).ExpHullAbrham(%d) = %s: relative error %s > %s, fewer than %d significant figures",
+					x, prec, got, relErr, tol, prec)
+			}
+		}
 	}
 }
 

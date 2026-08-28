@@ -1039,14 +1039,11 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 		res = res.Mul(sum)
 	}
 
+	// Round to overallPrecision significant figures. This holds whether res is
+	// >=1 or <1; the old <1 branch rounded to a fixed number of decimal places,
+	// dropping leading zeros (so e.g. exp(-50).ExpHullAbrham(10) returned 0).
 	resNumDigits := int32(res.NumDigits())
-
-	var roundDigits int32
-	if resNumDigits > abs(res.exp) {
-		roundDigits = int32(currentPrecision) - resNumDigits - res.exp
-	} else {
-		roundDigits = int32(currentPrecision)
-	}
+	roundDigits := int32(currentPrecision) - resNumDigits - res.exp
 
 	res = res.Round(roundDigits)
 

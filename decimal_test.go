@@ -3702,6 +3702,361 @@ func TestAvg(t *testing.T) {
 	}
 }
 
+func TestSum_Single(t *testing.T) {
+	type testData struct {
+		value    string
+		expected string
+	}
+
+	tests := []testData{
+		{"0", "0"},
+		{"5", "5"},
+		{"-5", "-5"},
+		{"3.14159", "3.14159"},
+		{"100.00", "100.00"},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.value)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		result := Sum(d)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Sum(%s): expected %s, got %s",
+				test.value, test.expected, result.String())
+		}
+	}
+}
+
+func TestSum_Multiple(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"1", "2", "3"}, "6"},
+		{[]string{"10", "20", "30", "40"}, "100"},
+		{[]string{"1.5", "2.5", "3.5"}, "7.5"},
+		{[]string{"0.1", "0.2", "0.3"}, "0.6"},
+		{[]string{"100.123", "200.456", "300.789"}, "601.368"},
+		{[]string{"999999999999", "1"}, "1000000000000"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Sum(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Sum(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestSum_WithNegatives(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"10", "-5"}, "5"},
+		{[]string{"-10", "5"}, "-5"},
+		{[]string{"-1", "-2", "-3"}, "-6"},
+		{[]string{"10", "-5", "3", "-2"}, "6"},
+		{[]string{"100", "-50", "-25", "-10", "-5"}, "10"},
+		{[]string{"0.5", "-0.3"}, "0.2"},
+		{[]string{"-3.14159", "2.71828"}, "-0.42331"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Sum(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Sum(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestSum_WithZero(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"0"}, "0"},
+		{[]string{"0", "0", "0"}, "0"},
+		{[]string{"5", "0"}, "5"},
+		{[]string{"0", "5"}, "5"},
+		{[]string{"-5", "0"}, "-5"},
+		{[]string{"0", "-5"}, "-5"},
+		{[]string{"10", "0", "20", "0", "30"}, "60"},
+		{[]string{"0.0", "0.00", "0.000"}, "0.0"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Sum(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Sum(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestSum_Large(t *testing.T) {
+	count := 1000
+	values := make([]Decimal, count)
+	expectedSum := New(0, 0)
+
+	for i := 0; i < count; i++ {
+		values[i] = New(int64(i+1), 0)
+		expectedSum = expectedSum.Add(New(int64(i+1), 0))
+	}
+
+	result := Sum(values[0], values[1:]...)
+	if !result.Equal(expectedSum) {
+		t.Errorf("Sum of 1..%d: expected %s, got %s",
+			count, expectedSum.String(), result.String())
+	}
+
+	expectedAvg := expectedSum.Div(New(int64(count), 0))
+	avgResult := Avg(values[0], values[1:]...)
+	if !avgResult.Equal(expectedAvg) {
+		t.Errorf("Avg of 1..%d: expected %s, got %s",
+			count, expectedAvg.String(), avgResult.String())
+	}
+}
+
+func TestSum_Precision(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"0.1", "0.1", "0.1", "0.1", "0.1", "0.1", "0.1", "0.1", "0.1", "0.1"}, "1.0"},
+		{[]string{"0.123456789", "0.987654321"}, "1.11111111"},
+		{[]string{"3.1415926535", "2.7182818284"}, "5.8598744819"},
+		{[]string{"0.0000000001", "0.0000000001"}, "0.0000000002"},
+		{[]string{"1000000000000.0000000001", "0.9999999999"}, "1000000000001.0"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Sum(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Sum(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestAvg_Single(t *testing.T) {
+	type testData struct {
+		value    string
+		expected string
+	}
+
+	tests := []testData{
+		{"0", "0"},
+		{"5", "5"},
+		{"-5", "-5"},
+		{"3.14159", "3.14159"},
+		{"100.00", "100.00"},
+	}
+
+	for _, test := range tests {
+		d, err := NewFromString(test.value)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		result := Avg(d)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Avg(%s): expected %s, got %s",
+				test.value, test.expected, result.String())
+		}
+	}
+}
+
+func TestAvg_Multiple(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"1", "2", "3"}, "2"},
+		{[]string{"10", "20", "30", "40"}, "25"},
+		{[]string{"1", "2", "3", "4", "5"}, "3"},
+		{[]string{"0", "0", "0"}, "0"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Avg(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Avg(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestAvg_WithNegatives(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"10", "-10"}, "0"},
+		{[]string{"-1", "-2", "-3"}, "-2"},
+		{[]string{"10", "-5", "3", "-2"}, "1.5"},
+		{[]string{"0", "-5", "5"}, "0"},
+		{[]string{"-3.14159", "3.14159"}, "0"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Avg(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Avg(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
+func TestAvg_Precision(t *testing.T) {
+	type testData struct {
+		values   []string
+		expected string
+	}
+
+	tests := []testData{
+		{[]string{"1", "2", "3", "4"}, "2.5"},
+		{[]string{"1", "1", "1", "1", "2"}, "1.2"},
+		{[]string{"10", "20", "30"}, "20"},
+		{[]string{"1.5", "2.5"}, "2"},
+		{[]string{"0.1", "0.2", "0.3"}, "0.2"},
+		{[]string{"3.14159", "2.71828"}, "2.929935"},
+	}
+
+	for _, test := range tests {
+		decimals := make([]Decimal, len(test.values))
+		for i, v := range test.values {
+			d, err := NewFromString(v)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decimals[i] = d
+		}
+
+		result := Avg(decimals[0], decimals[1:]...)
+		expected, err := NewFromString(test.expected)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if !result.Equal(expected) {
+			t.Errorf("Avg(%v): expected %s, got %s",
+				test.values, test.expected, result.String())
+		}
+	}
+}
+
 func TestRoundBankAnomaly(t *testing.T) {
 	a := New(25, -1)
 	b := New(250, -2)

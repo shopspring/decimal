@@ -1382,6 +1382,21 @@ func (d Decimal) LessThanOrEqual(d2 Decimal) bool {
 	return cmp == -1 || cmp == 0
 }
 
+// Clamp returns min if d is less than min, max if d is greater than max,
+// and d otherwise. If min > max, it will panic with an error message.
+func (d Decimal) Clamp(min, max Decimal) Decimal {
+	if min.GreaterThan(max) {
+		panic(fmt.Sprintf("decimal: min (%s) is greater than max (%s)", min.String(), max.String()))
+	}
+	if d.LessThan(min) {
+		return min
+	}
+	if d.GreaterThan(max) {
+		return max
+	}
+	return d
+}
+
 // Sign returns:
 //
 //	-1 if d <  0

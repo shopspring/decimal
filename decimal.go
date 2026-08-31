@@ -1850,6 +1850,11 @@ func (d Decimal) MarshalBinary() (data []byte, err error) {
 
 // Scan implements the sql.Scanner interface for database deserialization.
 func (d *Decimal) Scan(value interface{}) error {
+	if value == nil {
+		d = nil
+		return nil
+	}
+
 	// first try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
 

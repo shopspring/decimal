@@ -1854,7 +1854,7 @@ func (d *Decimal) Scan(value interface{}) error {
 	switch v := value.(type) {
 
 	case float32:
-		*d = NewFromFloat(float64(v))
+		*d = NewFromFloat32(v)
 		return nil
 
 	case float64:

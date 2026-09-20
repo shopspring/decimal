@@ -2455,7 +2455,7 @@ func TestDecimal_Scan(t *testing.T) {
 	// apparently MySQL 5.7.16 and returns these as float32 so we need
 	// to handle these as well
 	dbvalueFloat32 := float32(54.33)
-	expected = NewFromFloat(float64(dbvalueFloat32))
+	expected = RequireFromString("54.33")
 	scanHelper(t, dbvalueFloat32, expected)
 
 	// at least SQLite returns an int64 when 0 is stored in the db
@@ -2485,6 +2485,21 @@ func TestDecimal_Scan(t *testing.T) {
 	err = a.Scan(foo{})
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
+	}
+}
+
+func TestDecimalScanFloat32Precision(t *testing.T) {
+	for _, input := range []float32{0, 0.1, -54.33, math.SmallestNonzeroFloat32, math.MaxFloat32} {
+		t.Run(fmt.Sprint(input), func(t *testing.T) {
+			var got Decimal
+			if err := got.Scan(input); err != nil {
+				t.Fatal(err)
+			}
+			want := strconv.FormatFloat(float64(input), 'f', -1, 32)
+			if got.String() != want {
+				t.Errorf("Scan(%v) = %s, want %s", input, got, want)
+			}
+		})
 	}
 }
 

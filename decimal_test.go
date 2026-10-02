@@ -2711,6 +2711,8 @@ func TestDecimal_Pow(t *testing.T) {
 		{"6696871.12", "-2.61313", "0.000000000000000001455988684546983"},
 		{"-3.0", "-6.0", "0.0013717421124829"},
 		{"-13.757", "-5.0", "-0.000002029463821"},
+		{"10", "-18", "0.000000000000000001"},
+		{"10", "-25", "0.0000000000000000000000001"},
 	} {
 		base, _ := NewFromString(testCase.Base)
 		exp, _ := NewFromString(testCase.Exponent)
@@ -2720,6 +2722,29 @@ func TestDecimal_Pow(t *testing.T) {
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for %s^%s", testCase.Expected, result.String(), testCase.Base, testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_Pow_NegativeExponentRegression(t *testing.T) {
+	tests := []struct {
+		base     int64
+		exp      int64
+		expected string
+	}{
+		{10, -17, "0.00000000000000001"},
+		{10, -18, "0.000000000000000001"},
+		{10, -25, "0.0000000000000000000000001"},
+	}
+
+	for _, tt := range tests {
+		result := NewFromInt(tt.base).Pow(NewFromInt(tt.exp))
+		expected, _ := NewFromString(tt.expected)
+		if result.Cmp(expected) != 0 {
+			t.Errorf("expected %s, got %s, for %d^%d", tt.expected, result.String(), tt.base, tt.exp)
+		}
+		if result.String() != tt.expected {
+			t.Errorf("expected string %s, got %s, for %d^%d", tt.expected, result.String(), tt.base, tt.exp)
 		}
 	}
 }

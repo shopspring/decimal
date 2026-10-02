@@ -694,7 +694,7 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 }
 
 // Pow returns d to the power of d2.
-// When exponent is negative the returned decimal will have maximum precision of PowPrecisionNegativeExponent places after decimal point.
+// When exponent is negative the returned decimal will have precision of at least PowPrecisionNegativeExponent places after decimal point.
 //
 // Pow returns 0 (zero-value of Decimal) instead of error for power operation edge cases, to handle those edge cases use PowWithPrecision
 // Edge cases not handled by Pow:
@@ -741,7 +741,23 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 		return Decimal{}
 	}
 
-	intPartPow, _ := d.PowBigInt(expIntPart.getValue())
+	intPartPrecision := int32(PowPrecisionNegativeExponent)
+	if expSign < 0 {
+		expMag := d2.Abs().IntPart()
+		minPrecision := int64(intPartPrecision)
+		if int64(DivisionPrecision) > minPrecision {
+			minPrecision = int64(DivisionPrecision)
+		}
+		if expMag > minPrecision {
+			expPrecision := expMag + int64(DivisionPrecision)
+			if expPrecision > int64(math.MaxInt32) {
+				expPrecision = int64(math.MaxInt32)
+			}
+			intPartPrecision = int32(expPrecision)
+		}
+	}
+
+	intPartPow, _ := d.powBigIntWithPrecision(expIntPart.getValue(), intPartPrecision)
 
 	// if exponent is an integer we don't need to calculate d1**frac(d2)
 	if expFracPart.getValue().Sign() == 0 {

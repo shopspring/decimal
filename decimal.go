@@ -598,10 +598,16 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 // It shifts left when shift is positive and right if shift is negative.
 // In simpler terms, the given value for shift is added to the exponent
 // of the decimal.
+// Shift panics if the resulting exponent does not fit in an int32.
 func (d Decimal) Shift(shift int32) Decimal {
+	// An int32 sum wraps, which would flip the scale of the number.
+	exp := int64(d.exp) + int64(shift)
+	if exp > math.MaxInt32 || exp < math.MinInt32 {
+		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))
+	}
 	return Decimal{
 		value: new(big.Int).Set(d.getValue()),
-		exp:   d.exp + shift,
+		exp:   int32(exp),
 	}
 }
 

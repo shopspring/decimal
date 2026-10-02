@@ -1844,6 +1844,32 @@ func TestDecimal_Shift(t *testing.T) {
 	}
 }
 
+func TestDecimal_ShiftExponentOverflow(t *testing.T) {
+	// The sum still fits, so the exponent is unchanged by the overflow check.
+	got := New(5, math.MaxInt32-1).Shift(1)
+	if !got.Equal(New(5, math.MaxInt32)) {
+		t.Fatalf("shift onto MaxInt32: exp %d", got.Exponent())
+	}
+
+	cases := []struct {
+		exp   int32
+		shift int32
+	}{
+		{math.MaxInt32, 1},
+		{math.MinInt32, -1},
+	}
+	for _, c := range cases {
+		func() {
+			defer func() {
+				if recover() == nil {
+					t.Errorf("Shift(%d) of exp %d returned a decimal", c.shift, c.exp)
+				}
+			}()
+			New(5, c.exp).Shift(c.shift)
+		}()
+	}
+}
+
 func TestDecimal_Div(t *testing.T) {
 	type Inp struct {
 		a string

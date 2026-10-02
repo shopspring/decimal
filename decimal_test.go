@@ -1633,6 +1633,52 @@ func TestDecimal_BankRoundAndStringFixed(t *testing.T) {
 	}
 }
 
+func TestDecimal_Truncate(t *testing.T) {
+	tests := []struct {
+		input     string
+		precision int32
+		expected  string
+	}{
+		{"5432", -2, "5400"},
+		{"123", -1, "120"},
+		{"999", -3, "0"},
+		{"-5432", -2, "-5400"},
+		{"-123", -1, "-120"},
+		{"-999", -3, "0"},
+		{"123.456", 2, "123.45"},
+		{"123.456", 1, "123.4"},
+		{"123.456", 0, "123"},
+		{"123.456", -1, "120"},
+		{"123.456", -2, "100"},
+		{"123.456", -3, "0"},
+		{"123.456", 3, "123.456"},
+		{"123.456", 4, "123.456"},
+		{"0", -2, "0"},
+		{"0", 2, "0"},
+		{"500", -2, "500"},
+	}
+
+	for _, tc := range tests {
+		d, err := NewFromString(tc.input)
+		if err != nil {
+			t.Fatalf("failed to parse %s: %v", tc.input, err)
+		}
+		expected, err := NewFromString(tc.expected)
+		if err != nil {
+			t.Fatalf("failed to parse %s: %v", tc.expected, err)
+		}
+		got := d.Truncate(tc.precision)
+		if got.String() != tc.expected {
+			t.Errorf("(%s).Truncate(%d): got %s, expected %s",
+				tc.input, tc.precision, got.String(), tc.expected)
+		}
+		if !got.Equal(expected) {
+			t.Errorf("(%s).Truncate(%d): expected %s, got %s",
+				tc.input, tc.precision, expected, got)
+		}
+	}
+}
+
 func TestDecimal_Uninitialized(t *testing.T) {
 	a := Decimal{}
 	b := Decimal{}

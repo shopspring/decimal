@@ -307,6 +307,56 @@ func TestFloat64(t *testing.T) {
 	}
 }
 
+func TestFloat64OutOfRange(t *testing.T) {
+	type tc struct {
+		d     Decimal
+		f     float64
+		exact bool
+	}
+	tests := []tc{
+		// near the float64 limits, still converted the normal way
+		{New(1, 308), 1e308, false},
+		{New(-1, 308), -1e308, false},
+		{New(1, 309), math.Inf(1), false},
+		{New(-1, 309), math.Inf(-1), false},
+		{New(5, -324), 5e-324, false},
+		{New(1, -325), 0, false},
+		{New(-1, -325), math.Copysign(0, -1), false},
+		{New(123456789, -340), 1.23456789e-332, false},
+		{New(0, -1<<30), 0, true},
+		{New(0, 1<<30), 0, true},
+		// far outside the float64 range (issue #226)
+		{New(100, -1<<30), 0, false},
+		{New(-100, -1<<30), math.Copysign(0, -1), false},
+		{New(100, 1<<30), math.Inf(1), false},
+		{New(-100, 1<<30), math.Inf(-1), false},
+		{New(1, math.MinInt32), 0, false},
+		{New(1, math.MaxInt32), math.Inf(1), false},
+		{NewFromBigInt(new(big.Int).Exp(tenInt, big.NewInt(400), nil), -1<<30), 0, false},
+	}
+
+	for _, test := range tests {
+		done := make(chan struct{})
+		var f float64
+		var exact bool
+		go func() {
+			f, exact = test.d.Float64()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Float64() of %de%d did not return within 5s", test.d.Coefficient(), test.d.Exponent())
+		}
+
+		if math.Float64bits(f) != math.Float64bits(test.f) || exact != test.exact {
+			t.Errorf("%de%d: expected (%v, %v), got (%v, %v)",
+				test.d.Coefficient(), test.d.Exponent(), test.f, test.exact, f, exact)
+		}
+	}
+}
+
 func TestNewFromStringErrs(t *testing.T) {
 	tests := []string{
 		"",

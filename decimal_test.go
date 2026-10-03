@@ -355,6 +355,25 @@ func TestNewFromStringErrs(t *testing.T) {
 	}
 }
 
+func TestMaxExponent(t *testing.T) {
+	for _, s := range []string{"1e100000", "1e-100000", "0.1e-99999"} {
+		if _, err := NewFromString(s); err != nil {
+			t.Errorf("NewFromString(%q): %v", s, err)
+		}
+	}
+	for _, s := range []string{"1e100001", "1e-100001", "0.1e-100000", "1e-2147483648", "1e2147483647"} {
+		if _, err := NewFromString(s); err == nil {
+			t.Errorf("NewFromString(%q) accepted an exponent beyond MaxExponent", s)
+		}
+	}
+
+	huge, _ := New(1, math.MinInt32).MarshalBinary()
+	var d Decimal
+	if err := d.UnmarshalBinary(huge); err == nil {
+		t.Error("UnmarshalBinary accepted an exponent beyond MaxExponent")
+	}
+}
+
 func TestNewFromStringDeepEquals(t *testing.T) {
 	type StrCmp struct {
 		str1     string
@@ -2877,6 +2896,9 @@ func TestDecimal_PowWithPrecision_ImaginaryResult(t *testing.T) {
 }
 
 func TestDecimal_PowInt32(t *testing.T) {
+	defer func(m int) { MaxExponent = m }(MaxExponent)
+	MaxExponent = math.MaxInt32
+
 	for _, testCase := range []struct {
 		Decimal  string
 		Exponent int32

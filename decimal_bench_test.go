@@ -249,6 +249,15 @@ func BenchmarkDecimal_PowBigInt(b *testing.B) {
 	}
 }
 
+func BenchmarkDecimal_PowNegativeExponent(b *testing.B) {
+	d1 := RequireFromString("1.0041666666666667")
+	d2 := RequireFromString("-360")
+
+	for i := 0; i < b.N; i++ {
+		d1.Pow(d2)
+	}
+}
+
 func BenchmarkDecimal_NewFromString(b *testing.B) {
 	count := 72
 	prices := make([]string, 0, count)

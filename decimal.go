@@ -45,10 +45,10 @@ import (
 //	d4.String() // output: "0.667"
 var DivisionPrecision = 16
 
-// PowPrecisionNegativeExponent specifies the precision of the result (digits after decimal point)
-// when calculating decimal power with a negative or non-integer exponent.
-// Results that would round to zero keep PowPrecisionNegativeExponent significant digits instead.
-// This constant applies to Pow, PowInt32 and PowBigInt methods, PowWithPrecision method is not constrained by it.
+// PowPrecisionNegativeExponent specifies the number of digits after the decimal point in the results of
+// Pow, PowInt32 and PowBigInt for negative or non-integer exponents. A result that would round to 0 keeps
+// PowPrecisionNegativeExponent significant digits instead (at least one).
+// PowWithPrecision is not affected, it takes the precision as an argument.
 //
 // Example:
 //
@@ -696,11 +696,11 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 }
 
 // Pow returns d to the power of d2.
-// Positive integer exponents give the exact result. Any other result is rounded (half away from zero)
-// to PowPrecisionNegativeExponent places after the decimal point, or to PowPrecisionNegativeExponent
-// significant digits when that would round to zero.
+// The result is exact for non-negative integer exponents. For negative or non-integer exponents it is
+// rounded half away from zero to PowPrecisionNegativeExponent places after the decimal point. A result
+// that would round to 0 keeps PowPrecisionNegativeExponent significant digits instead (at least one).
 //
-// Pow returns 0 (zero-value of Decimal) instead of error for power operation edge cases, to handle those edge cases use PowWithPrecision
+// Pow returns 0 (zero-value of Decimal) instead of error for power operation edge cases, to handle those edge cases use PowWithPrecision.
 // Edge cases not handled by Pow:
 //   - 0 ** 0 => undefined value
 //   - 0 ** y, where y < 0 => infinity
@@ -718,6 +718,11 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 //	d4 := decimal.NewFromFloat(5.73)
 //	res2 := d3.Pow(d4)
 //	res2.String() // output: "10118.0803715950193171"
+//
+//	d5 := decimal.NewFromInt(10)
+//	d6 := decimal.NewFromInt(-18)
+//	res3 := d5.Pow(d6)
+//	res3.String() // output: "0.000000000000000001"
 func (d Decimal) Pow(d2 Decimal) Decimal {
 	res, err := d.PowWithPrecision(d2, int32(PowPrecisionNegativeExponent))
 	if err != nil {
@@ -727,9 +732,9 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 }
 
 // PowWithPrecision returns d to the power of d2.
-// Positive integer exponents give the exact result. Any other result is rounded (half away from zero)
-// to precision places after the decimal point, or to precision (at least one) significant digits
-// when that would round to zero.
+// The result is exact for non-negative integer exponents. For negative or non-integer exponents it is
+// rounded half away from zero to precision places after the decimal point. A result that would round
+// to 0 keeps precision significant digits instead (at least one).
 //
 // PowWithPrecision returns error when:
 //   - 0 ** 0 => undefined value
@@ -778,8 +783,9 @@ func (d Decimal) PowWithPrecision(d2 Decimal, precision int32) (Decimal, error) 
 // PowInt32 returns d to the power of exp, where exp is int32.
 // Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose magnitude is too large to represent.
 //
-// When exponent is negative the result is rounded (half away from zero) to PowPrecisionNegativeExponent
-// places after the decimal point, or to PowPrecisionNegativeExponent significant digits when that would round to zero.
+// For negative exponents the result is rounded half away from zero to PowPrecisionNegativeExponent places
+// after the decimal point. A result that would round to 0 keeps PowPrecisionNegativeExponent significant
+// digits instead (at least one).
 //
 // Example:
 //
@@ -795,8 +801,9 @@ func (d Decimal) PowInt32(exp int32) (Decimal, error) {
 // PowBigInt returns d to the power of exp, where exp is big.Int.
 // Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose magnitude is too large to represent.
 //
-// When exponent is negative the result is rounded (half away from zero) to PowPrecisionNegativeExponent
-// places after the decimal point, or to PowPrecisionNegativeExponent significant digits when that would round to zero.
+// For negative exponents the result is rounded half away from zero to PowPrecisionNegativeExponent places
+// after the decimal point. A result that would round to 0 keeps PowPrecisionNegativeExponent significant
+// digits instead (at least one).
 //
 // Example:
 //

@@ -46,7 +46,7 @@ import (
 var DivisionPrecision = 16
 
 // PowPrecisionNegativeExponent specifies the precision of the result (digits after decimal point)
-// when calculating decimal power with a negative or non-integer exponent, i.e. whenever the result cannot be exact.
+// when calculating decimal power with a negative or non-integer exponent.
 // Results that would round to zero keep PowPrecisionNegativeExponent significant digits instead.
 // This constant applies to Pow, PowInt32 and PowBigInt methods, PowWithPrecision method is not constrained by it.
 //
@@ -705,7 +705,7 @@ func (d Decimal) Mod(d2 Decimal) Decimal {
 //   - 0 ** 0 => undefined value
 //   - 0 ** y, where y < 0 => infinity
 //   - x ** y, where x < 0 and y is non-integer decimal => imaginary value
-//   - x ** y, where the exponent of the result does not fit into int32
+//   - x ** y, where the magnitude of the result or the precision is too large to represent
 //
 // Example:
 //
@@ -735,7 +735,7 @@ func (d Decimal) Pow(d2 Decimal) Decimal {
 //   - 0 ** 0 => undefined value
 //   - 0 ** y, where y < 0 => infinity
 //   - x ** y, where x < 0 and y is non-integer decimal => imaginary value
-//   - x ** y, where the exponent of the result does not fit into int32
+//   - x ** y, where the magnitude of the result or the precision is too large to represent
 //
 // Example:
 //
@@ -776,7 +776,7 @@ func (d Decimal) PowWithPrecision(d2 Decimal, precision int32) (Decimal, error) 
 }
 
 // PowInt32 returns d to the power of exp, where exp is int32.
-// Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose exponent does not fit into int32.
+// Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose magnitude is too large to represent.
 //
 // When exponent is negative the result is rounded (half away from zero) to PowPrecisionNegativeExponent
 // places after the decimal point, or to PowPrecisionNegativeExponent significant digits when that would round to zero.
@@ -793,7 +793,7 @@ func (d Decimal) PowInt32(exp int32) (Decimal, error) {
 }
 
 // PowBigInt returns d to the power of exp, where exp is big.Int.
-// Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose exponent does not fit into int32.
+// Returns error for 0 ** 0, 0 ** exp where exp < 0, and results whose magnitude is too large to represent.
 //
 // When exponent is negative the result is rounded (half away from zero) to PowPrecisionNegativeExponent
 // places after the decimal point, or to PowPrecisionNegativeExponent significant digits when that would round to zero.
@@ -809,16 +809,16 @@ func (d Decimal) PowBigInt(exp *big.Int) (Decimal, error) {
 	return d.powBigIntWithPrecision(exp, int32(PowPrecisionNegativeExponent))
 }
 
-var errPowOutOfRange = fmt.Errorf("cannot represent result of power operation, its exponent does not fit into int32")
+var errPowOutOfRange = fmt.Errorf("cannot represent result of power operation, its magnitude or precision is too large")
 
-// powExactBits is the largest estimated coefficient size of d^n computed exactly for negative n.
+// powExactBits is the largest estimated cost of computing d^n exactly for negative n.
 // Bigger powers are approximated with truncated intermediates, which is cheaper.
 const powExactBits = 3000
 
 func (d Decimal) powBigIntWithPrecision(exp *big.Int, precision int32) (Decimal, error) {
 	switch {
 	case exp.Sign() > 0:
-		return d.powExact(exp), nil
+		return d.powExact(exp)
 	case d.IsZero() && exp.Sign() == 0:
 		return Decimal{}, fmt.Errorf("cannot represent undefined value of 0**0")
 	case exp.Sign() == 0:
@@ -830,61 +830,81 @@ func (d Decimal) powBigIntWithPrecision(exp *big.Int, precision int32) (Decimal,
 }
 
 // powExact returns d^n for n > 0.
-func (d Decimal) powExact(n *big.Int) Decimal {
+func (d Decimal) powExact(n *big.Int) (Decimal, error) {
 	exp := new(big.Int).Mul(n, big.NewInt(int64(d.exp)))
 	if !exp.IsInt64() || exp.Int64() > math.MaxInt32 || exp.Int64() < math.MinInt32 {
-		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))
+		return Decimal{}, errPowOutOfRange
 	}
-	return Decimal{new(big.Int).Exp(d.getValue(), n, nil), int32(exp.Int64())}
+	return Decimal{new(big.Int).Exp(d.getValue(), n, nil), int32(exp.Int64())}, nil
 }
 
 // powNegInt returns d^-n for n > 0, rounded as described in PowWithPrecision.
 func (d Decimal) powNegInt(n *big.Int, precision int32) (Decimal, error) {
-	nd := int64(d.NumDigits())
-	if nd-1+int64(d.exp) == 0 && d.getValue().CmpAbs(pow10(nd-1)) == 0 {
-		// |d| = 1, only the parity of n matters
+	if d.absIsOne() {
+		// only the parity of n matters
 		n = big.NewInt(2 - int64(n.Bit(0)))
 	}
 
-	// |log10(d^-n)| <= n*(nd+|exp|) cheaply rules out an out of range result for small n
-	if n.IsInt64() && n.Int64() <= powExactBits/int64(d.getValue().BitLen()) &&
-		powInRange(float64(n.Int64()*(nd+abs64(int64(d.exp)))), precision) {
-		return d.powNegIntExact(n, precision), nil
+	// small powers are cheap to compute exactly, and |log10(d^-n)| <= cost keeps them in range
+	if n.IsInt64() && n.Int64() <= powExactBits {
+		cost := n.Int64() * (int64(d.getValue().BitLen()) + abs64(int64(d.exp)))
+		if cost <= powExactBits && powInRange(float64(cost), precision) {
+			return d.powNegIntExact(n, precision)
+		}
 	}
 
 	nf, _ := new(big.Float).SetInt(n).Float64()
 	lg := -nf * d.log10Abs()
-	// ponytail: n is capped so the digit shifts of c^n fit into int64, far beyond any practical exponent
-	if !powInRange(lg, precision) || !n.IsInt64() || n.Int64() > math.MaxInt64/(4*nd) {
+	if !powInRange(lg, precision) {
 		return Decimal{}, errPowOutOfRange
 	}
 
-	c := new(big.Int).Abs(d.getValue())
-	w := powSigDigits(lg, precision) + int64(len(n.String())) + 6
-	for i := 0; i < 5; i, w = i+1, w+20 {
-		if res, ok := powNegIntApprox(c, int64(d.exp), n, w, precision); ok {
-			if d.Sign() < 0 && n.Bit(0) == 1 {
-				res.value.Neg(res.value)
+	// the digit shifts of the truncated c^n must fit into int64
+	if nd := int64(d.NumDigits()); n.IsInt64() && n.Int64() <= math.MaxInt64/(4*nd) {
+		c := new(big.Int).Abs(d.getValue())
+		w := powSigDigits(lg, precision) + int64(len(n.String())) + 6
+		// each try adds 20 digits, failing 5 times means an exact tie or a value extremely close to one
+		for i := 0; i < 5; i, w = i+1, w+20 {
+			if res, ok := powNegIntApprox(c, int64(d.exp), n, w, precision); ok {
+				if d.Sign() < 0 && n.Bit(0) == 1 {
+					res.value.Neg(res.value)
+				}
+				return res, nil
 			}
-			return res, nil
 		}
 	}
-	return d.powNegIntExact(n, precision), nil
+
+	// same as for non-integer exponents, which handles any n and exact ties
+	res, err := d.Abs().powFrac(Decimal{value: new(big.Int).Neg(n)}, precision)
+	if err == nil && d.Sign() < 0 && n.Bit(0) == 1 {
+		res.value.Neg(res.value)
+	}
+	return res, err
 }
 
 // powNegIntExact returns d^-n for n > 0, dividing by the exact d^n.
-func (d Decimal) powNegIntExact(n *big.Int, precision int32) Decimal {
-	x := d.powExact(n)
+func (d Decimal) powNegIntExact(n *big.Int, precision int32) (Decimal, error) {
+	x, err := d.powExact(n)
+	if err != nil {
+		return Decimal{}, err
+	}
 	res := New(1, 0).DivRound(x, precision)
 	if res.IsZero() {
-		res = New(1, 0).DivRound(x, int32(powMinSig(precision))-1+int32(x.NumDigits())+x.exp)
+		// first significant digit of 1/x is at place NumDigits+exp, one earlier when x is a power of ten
+		nd := int32(x.NumDigits())
+		places := int32(powMinSig(precision)) - 1 + nd + x.exp
+		if x.getValue().CmpAbs(pow10(int64(nd)-1)) == 0 {
+			places--
+		}
+		res = New(1, 0).DivRound(x, places)
 	}
-	return res
+	return res, nil
 }
 
 // powNegIntApprox rounds |1 / (c^n * 10^(e*n))| as described in PowWithPrecision. c^n is approximated
 // from below by m*10^s, truncating m to w digits after every multiplication. Each truncation shrinks
-// the result by a factor of at most 1-10^(1-w), and the errors add up to less than 5n*10^(1-w).
+// the result by a factor of at most 1-10^(1-w), and the errors add up to less than 5n*10^(1-w),
+// lo below allows ten times that.
 func powNegIntApprox(c *big.Int, e int64, n *big.Int, w int64, precision int32) (Decimal, bool) {
 	cw := new(big.Int).Set(c)
 	cs, exact := truncDigits(cw, w)
@@ -930,10 +950,20 @@ func truncDigits(m *big.Int, w int64) (int64, bool) {
 	return drop, r.Sign() == 0
 }
 
-// powFrac returns d^y for d > 0 and non-integer y, rounded as described in PowWithPrecision.
-// It evaluates d^y = 10^q * e^s, where y*ln(d) = q*ln(10) + s and 0 <= s < ln(10), in binary
-// fixed-point arithmetic, adding working digits until the error bounds decide the rounding.
+// powFrac returns d^y for d > 0 and non-integer (or negative integer) y, rounded as described in
+// PowWithPrecision. It evaluates d^y = 10^q * e^s, where y*ln(d) = q*ln(10) + s and 0 <= s < ln(10),
+// in binary fixed-point arithmetic, adding working digits until the error bounds decide the rounding.
 func (d Decimal) powFrac(y Decimal, precision int32) (Decimal, error) {
+	if d.absIsOne() {
+		// 1^y = 1, also for y beyond float64 range
+		if !powInRange(0, precision) {
+			return Decimal{}, errPowOutOfRange
+		}
+		k := int64(abs(precision)) + 2
+		res, _ := roundBounds(pow10(k), pow10(k), k, precision)
+		return res, nil
+	}
+
 	yf := y.InexactFloat64()
 	lg := yf * d.log10Abs()
 	if !powInRange(lg, precision) {
@@ -943,13 +973,82 @@ func (d Decimal) powFrac(y Decimal, precision int32) (Decimal, error) {
 	k := int64(d.NumDigits()) - 1 + int64(d.exp)
 	// covers the working error amplified by |y| and |k|, see powFracFixed
 	extra := int64(math.Log10(math.Abs(yf)*(math.Abs(float64(k))+64)+math.Abs(lg)+1)) + 4
+	// 9 guard digits make a retry unlikely, each retry adds 20 more
 	f := powSigDigits(lg, precision) + 9
+	exactTie := false
 	for i := 0; ; i, f = i+1, f+20 {
-		// an exact tie never resolves, after 8 tries round it away from zero
-		if res, ok := powFracFixed(d, y, k, f, extra, precision, i >= 8); ok {
+		if res, ok := powFracFixed(d, y, k, f, extra, precision, exactTie); ok {
 			return res, nil
 		}
+		// only a terminating result can sit exactly on a rounding boundary, which no working
+		// precision resolves, then the upper bound rounds it away from zero
+		if i == 8 {
+			exactTie = powIsTerminating(d, y)
+		}
 	}
+}
+
+// powIsTerminating reports whether d^y is a terminating decimal, for d > 0.
+func powIsTerminating(d, y Decimal) bool {
+	p, q := powRatio(y)
+	num, den := powRatio(d)
+	if !q.IsInt64() {
+		return false
+	}
+	// d^(p/q) is rational only when num and den are perfect q-th powers
+	rn, ok := iroot(num, q.Int64())
+	if !ok {
+		return false
+	}
+	rd, ok := iroot(den, q.Int64())
+	if !ok {
+		return false
+	}
+	// (rn/rd)^p terminates when its denominator has no prime factors other than 2 and 5
+	if p.Sign() < 0 {
+		rd = rn
+	}
+	rd = new(big.Int).Set(rd)
+	for _, f := range []*big.Int{twoInt, fiveInt} {
+		for r := new(big.Int); rd.Cmp(oneInt) > 0 && r.Rem(rd, f).Sign() == 0; {
+			rd.Quo(rd, f)
+		}
+	}
+	return rd.Cmp(oneInt) == 0
+}
+
+// powRatio returns d as a fraction p/q in lowest terms, q > 0.
+func powRatio(d Decimal) (*big.Int, *big.Int) {
+	if d.exp >= 0 {
+		return new(big.Int).Mul(d.getValue(), pow10(int64(d.exp))), big.NewInt(1)
+	}
+	p, q := new(big.Int).Set(d.getValue()), new(big.Int).Set(pow10(-int64(d.exp)))
+	g := new(big.Int).GCD(nil, nil, new(big.Int).Abs(p), q)
+	return p.Quo(p, g), q.Quo(q, g)
+}
+
+// iroot returns the integer k-th root of x >= 1 and whether it is exact.
+func iroot(x *big.Int, k int64) (*big.Int, bool) {
+	if k == 1 || x.Cmp(oneInt) == 0 {
+		return x, true
+	}
+	if int64(x.BitLen()) <= k {
+		// 1 < x < 2^k has no integer k-th root
+		return nil, false
+	}
+	// Newton's method from above converges to the floor of the root
+	kb, km1 := big.NewInt(k), big.NewInt(k-1)
+	r := new(big.Int).Lsh(oneInt, uint((int64(x.BitLen())+k-1)/k))
+	t, u := new(big.Int), new(big.Int)
+	for {
+		t.Quo(x, t.Exp(r, km1, nil))
+		t.Add(t, u.Mul(r, km1)).Quo(t, kb)
+		if t.Cmp(r) >= 0 {
+			break
+		}
+		r.Set(t)
+	}
+	return r, t.Exp(r, kb, nil).Cmp(x) == 0
 }
 
 // powFracFixed computes d^y (see powFrac) as an interval of e^s * 10^f with f+extra working digits
@@ -997,15 +1096,15 @@ func powFracFixed(d, y Decimal, k, f, extra int64, precision int32, force bool) 
 	return roundBounds(lo, hi, f-q.Int64(), precision)
 }
 
-// lnFixed returns ln(m) * 2^b for m = M / 2^b in [1, 10], with its error bound in ulps.
-func lnFixed(M *big.Int, b uint) (*big.Int, int64) {
+// lnFixed returns ln(m / 2^b) * 2^b for m / 2^b in [1, 10], with its error bound in ulps.
+func lnFixed(m *big.Int, b uint) (*big.Int, int64) {
 	// a = math.Log(m) is accurate to ~1e-15, so ln(m) = a + ln(1+z), where z = m*e^-a - 1 is tiny
 	// and the series ln(1+z) = z - z^2/2 + z^3/3 - ... gains ~50 bits per term.
-	top, sh := new(big.Int), M.BitLen()-60
+	top, sh := new(big.Int), m.BitLen()-60
 	if sh > 0 {
-		top.Rsh(M, uint(sh))
+		top.Rsh(m, uint(sh))
 	} else {
-		top.Lsh(M, uint(-sh))
+		top.Lsh(m, uint(-sh))
 	}
 	a := big.NewInt(int64(math.Ldexp(math.Log(math.Ldexp(float64(top.Uint64()), sh-int(b))), 52)))
 	if b >= 52 {
@@ -1015,7 +1114,7 @@ func lnFixed(M *big.Int, b uint) (*big.Int, int64) {
 	}
 
 	e, eErr := expFixed(new(big.Int).Neg(a), b)
-	z := e.Mul(e, M).Rsh(e, b)
+	z := e.Mul(e, m).Rsh(e, b)
 	z.Sub(z, new(big.Int).Lsh(oneInt, b))
 
 	sum, p, term, iv := new(big.Int).Set(z), new(big.Int).Set(z), new(big.Int), new(big.Int)
@@ -1037,18 +1136,18 @@ func lnFixed(M *big.Int, b uint) (*big.Int, int64) {
 	return sum.Add(sum, a), 10*eErr + 2*terms + 3
 }
 
-// expFixed returns e^x * 2^b for x = X / 2^b with |x| <= 2.4, with its error bound in ulps.
-func expFixed(X *big.Int, b uint) (*big.Int, int64) {
+// expFixed returns e^(x / 2^b) * 2^b for |x / 2^b| <= 2.4, with its error bound in ulps.
+func expFixed(x *big.Int, b uint) (*big.Int, int64) {
 	// e^x = (e^(x/2^j))^(2^j): Taylor series of the reduced argument, then j squarings.
 	// Guard bits cover the error of up to ~g Taylor terms, amplified up to 11*2^j times by squaring.
 	j := uint(math.Sqrt(float64(b))) + 1
 	g := b + j + uint(bits.Len(33*(b+j+64)+363)) + 2
 
-	x := new(big.Int).Lsh(X, g-b)
-	x.Rsh(x, j)
+	xr := new(big.Int).Lsh(x, g-b)
+	xr.Rsh(xr, j)
 	sum, term, iv := new(big.Int).Lsh(oneInt, g), new(big.Int).Lsh(oneInt, g), new(big.Int)
 	for i := int64(1); ; i++ {
-		term.Mul(term, x).Rsh(term, g)
+		term.Mul(term, xr).Rsh(term, g)
 		term.Quo(term, iv.SetInt64(i))
 		if term.Sign() == 0 {
 			break
@@ -1099,12 +1198,15 @@ func roundBounds(lo, hi *big.Int, scale int64, precision int32) (Decimal, bool) 
 	if g < 1 {
 		return Decimal{}, false
 	}
-	if q := roundHalfUp(hi, g); q.Sign() != 0 {
-		return Decimal{q, -precision}, q.Cmp(roundHalfUp(lo, g)) == 0
+	dhi := int64(Decimal{value: hi}.NumDigits())
+	// with fewer than g digits hi rounds to 0, skip building 10^g for tiny results
+	if g <= dhi {
+		if q := roundHalfUp(hi, g); q.Sign() != 0 {
+			return Decimal{q, -precision}, q.Cmp(roundHalfUp(lo, g)) == 0
+		}
 	}
 
 	sig := powMinSig(precision)
-	dhi := int64(Decimal{value: hi}.NumDigits())
 	g = dhi - sig
 	if g < 2 {
 		return Decimal{}, false
@@ -1149,6 +1251,12 @@ func powMinSig(precision int32) int64 {
 // that fits into int32.
 func powInRange(lg float64, precision int32) bool {
 	return math.Abs(lg)+math.Abs(float64(precision)) < math.MaxInt32/2
+}
+
+// absIsOne reports whether |d| = 1.
+func (d Decimal) absIsOne() bool {
+	nd := int64(d.NumDigits())
+	return nd-1+int64(d.exp) == 0 && d.getValue().CmpAbs(pow10(nd-1)) == 0
 }
 
 // log10Abs approximates log10(|d|) for d != 0.

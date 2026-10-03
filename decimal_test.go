@@ -2732,6 +2732,7 @@ func TestDecimal_Pow(t *testing.T) {
 		{"2", "0.5", "1.414213562373095"},
 		{"1.28", "0.0833333333333333", "1.0207847284895002"},
 		{"0.0208333333333333", "0.33", "0.2787342852450195"},
+		{"1", "1" + strings.Repeat("0", 400) + ".5", "1"},
 	} {
 		base, _ := NewFromString(testCase.Base)
 		exp, _ := NewFromString(testCase.Exponent)
@@ -2783,6 +2784,8 @@ func TestDecimal_PowWithPrecision(t *testing.T) {
 		{"123.456", "7.89", 10, "31771028258180977.3090686597"},
 		{"0.3", "-2.5", 16, "20.2860206483394857"},
 		{"6.25", "0.5", 0, "3"},
+		{"6.24" + strings.Repeat("9", 200), "0.5", 0, "2"},
+		{"1.0041666666666667", "-360", -1, "0.2"},
 		{"0.0625", "0.5", 1, "0.3"},
 		{"0.00000625", "0.5", 1, "0.003"},
 		{"2", "0.5", -1, "1"},
@@ -2893,6 +2896,8 @@ func TestDecimal_PowInt32(t *testing.T) {
 		{"10", -18, "0.000000000000000001"},
 		{"12345", -5, "0.000000000000000000003487743424943423"},
 		{"-1.5", -1001, "-5.403183104351711e-177"},
+		{"1.5", math.MinInt32, "4.189793427303781e-378153100"},
+		{"3e50000000", -1, "3.333333333333333e-50000001"},
 	} {
 		base, _ := NewFromString(testCase.Decimal)
 		expected, _ := NewFromString(testCase.Expected)
@@ -2921,6 +2926,33 @@ func TestDecimal_Pow_InexactResultExponent(t *testing.T) {
 	}
 }
 
+func TestDecimal_Pow_RoundedToZeroResultExponent(t *testing.T) {
+	for _, testCase := range []struct {
+		Exponent int32
+		Expected int32
+	}{
+		{-18, -33},
+		{-1018, -1033},
+	} {
+		result, _ := New(10, 0).PowInt32(testCase.Exponent)
+		if result.Exponent() != testCase.Expected {
+			t.Errorf("expected exponent %d, got %d, for 10**%d", testCase.Expected, result.Exponent(), testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_PowWithPrecision_HighPrecision(t *testing.T) {
+	two := New(2, 0)
+	for _, precision := range []int32{700, 3500} {
+		result, _ := two.PowWithPrecision(RequireFromString("0.5"), precision)
+		half := New(5, -precision-1)
+		lo, hi := result.Sub(half), result.Add(half)
+		if result.Exponent() != -precision || lo.Mul(lo).Cmp(two) >= 0 || hi.Mul(hi).Cmp(two) <= 0 {
+			t.Errorf("2^0.5 is not correctly rounded to %d places", precision)
+		}
+	}
+}
+
 func TestDecimal_Pow_OutOfRange(t *testing.T) {
 	for _, testCase := range []struct {
 		Base     string
@@ -2929,6 +2961,7 @@ func TestDecimal_Pow_OutOfRange(t *testing.T) {
 		{"10", "3000000000.5"},
 		{"1.5", "-1000000000000"},
 		{"0.5", "-4000000000.5"},
+		{"0.1", "3000000000"},
 	} {
 		base, exp := RequireFromString(testCase.Base), RequireFromString(testCase.Exponent)
 
@@ -2942,6 +2975,9 @@ func TestDecimal_Pow_OutOfRange(t *testing.T) {
 
 	if _, err := RequireFromString("1.5").PowBigInt(big.NewInt(-1000000000000)); err == nil {
 		t.Errorf("expected out of range error for 1.5**-1000000000000")
+	}
+	if _, err := New(1, -2).PowInt32(1<<30 + 1); err == nil {
+		t.Errorf("expected out of range error for 0.01**1073741825")
 	}
 }
 
@@ -2983,6 +3019,8 @@ func TestDecimal_PowBigInt(t *testing.T) {
 		{"10", big.NewInt(-18), "0.000000000000000001"},
 		{"12345", big.NewInt(-5), "0.000000000000000000003487743424943423"},
 		{"-1.5", big.NewInt(-1001), "-5.403183104351711e-177"},
+		{"1.0000000000000000000000000000001", big.NewInt(-100000000000000000), "0.99999999999999"},
+		{"-1", new(big.Int).Neg(new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil)), "1"},
 	} {
 		base, _ := NewFromString(testCase.Decimal)
 		expected, _ := NewFromString(testCase.Expected)

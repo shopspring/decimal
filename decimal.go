@@ -1338,6 +1338,28 @@ var pow10Table = func() []*big.Int {
 	return t
 }()
 
+// pow10Uint64 holds 10^0 ... 10^19.
+var pow10Uint64 = func() (t [20]uint64) {
+	t[0] = 1
+	for i := 1; i < len(t); i++ {
+		t[i] = t[i-1] * 10
+	}
+	return t
+}()
+
+// float64Pow10 holds 10^0 ... 10^22, the powers of ten that float64 represents exactly.
+var float64Pow10 = [...]float64{1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10,
+	1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22}
+
+// pow5Int64 holds 5^0 ... 5^22.
+var pow5Int64 = func() (t [23]int64) {
+	t[0] = 1
+	for i := 1; i < len(t); i++ {
+		t[i] = t[i-1] * 5
+	}
+	return t
+}()
+
 // pow10 returns 10^n for n >= 0, the result must not be modified.
 func pow10(n int64) *big.Int {
 	if n < int64(len(pow10Table)) {
@@ -1653,25 +1675,18 @@ func (d Decimal) Ln(precision int32) (Decimal, error) {
 func (d Decimal) NumDigits() int {
 	v := d.getValue()
 	if v.IsInt64() {
-		i64 := v.Int64()
-		if i64 == 0 {
+		u := uint64(v.Int64())
+		if u == 0 {
 			return 1
 		}
-		// Count digits via the underlying int64 instead of math.Log10,
-		// which rounds an exact 1eN like 1e15 down to 14.999... and would
-		// then under-report by one (see #420). Negation is safe because
-		// math.MinInt64 has IsInt64() true but its absolute value also
-		// needs counting; treat it explicitly.
-		if i64 == math.MinInt64 {
-			return 19
+		if v.Sign() < 0 {
+			u = -u
 		}
-		if i64 < 0 {
-			i64 = -i64
-		}
-		n := 0
-		for i64 > 0 {
+		// Not math.Log10, which rounds an exact 1eN like 1e15 down (see #420).
+		// bits.Len64(u)*1233>>12 is floor(log10(2^bits)), the digit count or one less.
+		n := bits.Len64(u) * 1233 >> 12
+		if u >= pow10Uint64[n] {
 			n++
-			i64 /= 10
 		}
 		return n
 	}
@@ -1679,10 +1694,7 @@ func (d Decimal) NumDigits() int {
 	estimatedNumDigits := int(float64(v.BitLen()) / math.Log2(10))
 
 	// estimatedNumDigits (lg10) may be off by 1, need to verify
-	digitsBigInt := big.NewInt(int64(estimatedNumDigits))
-	errorCorrectionUnit := digitsBigInt.Exp(tenInt, digitsBigInt, nil)
-
-	if v.CmpAbs(errorCorrectionUnit) >= 0 {
+	if v.CmpAbs(pow10(int64(estimatedNumDigits))) >= 0 {
 		return estimatedNumDigits + 1
 	}
 
@@ -1695,10 +1707,17 @@ func (d Decimal) IsInteger() bool {
 	if d.exp >= 0 {
 		return true
 	}
+	v := d.getValue()
+	if v.Sign() == 0 {
+		return true
+	}
+	if d.exp >= -18 && v.IsInt64() {
+		return v.Int64()%int64(pow10Uint64[-d.exp]) == 0
+	}
 	// When the exponent is negative we have to check every number after the decimal place
 	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
 	var r big.Int
-	q := new(big.Int).Set(d.getValue())
+	q := new(big.Int).Set(v)
 	for z := abs(d.exp); z > 0; z-- {
 		q.QuoRem(q, tenInt, &r)
 		if r.Cmp(zeroInt) != 0 {
@@ -1837,6 +1856,9 @@ func (d Decimal) CoefficientInt64() int64 {
 
 // IntPart returns the integer component of the decimal.
 func (d Decimal) IntPart() int64 {
+	if v := d.getValue(); d.exp <= 0 && d.exp >= -18 && v.IsInt64() {
+		return v.Int64() / int64(pow10Uint64[-d.exp])
+	}
 	scaledD := d.rescale(0)
 	return scaledD.getValue().Int64()
 }
@@ -1876,6 +1898,13 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	sign := d.Sign()
 	if sign == 0 {
 		return 0, true
+	}
+	// Both operands are exact here, so the division is correctly rounded like Rat().Float64(),
+	// and the result is exact when the 5^k part of 10^k divides the coefficient.
+	if v := d.getValue(); d.exp <= 0 && d.exp >= -22 && v.IsInt64() {
+		if i := v.Int64(); i >= -1<<53 && i <= 1<<53 {
+			return float64(i) / float64Pow10[-d.exp], i%pow5Int64[-d.exp] == 0
+		}
 	}
 	// |d| lies in [10^(magnitude-1), 10^magnitude). float64 spans roughly
 	// 1e-324..1e308, so ±400 is safely outside it with margin to spare.

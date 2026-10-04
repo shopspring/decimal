@@ -3494,6 +3494,45 @@ func TestDecimal_NumDigits(t *testing.T) {
 			t.Errorf("expected %d digits for decimal %s, got %d", testCase.ExpectedNumDigits, testCase.Dec, nums)
 		}
 	}
+
+	// every power of ten and of two in int64, and their neighbours
+	values := []int64{math.MaxInt64, math.MinInt64}
+	for p := int64(1); p <= math.MaxInt64/10; p *= 10 {
+		values = append(values, p-1, p, p+1, -p+1, -p, -p-1)
+	}
+	for j := uint(0); j < 63; j++ {
+		p := int64(1) << j
+		values = append(values, p-1, p, p+1, -p+1, -p, -p-1)
+	}
+	for _, v := range values {
+		want := len(strconv.FormatInt(v, 10))
+		if v < 0 {
+			want--
+		}
+		if got := New(v, 0).NumDigits(); got != want {
+			t.Errorf("expected %d digits for %d, got %d", want, v, got)
+		}
+	}
+}
+
+func TestDecimal_Float64MatchesRat(t *testing.T) {
+	// coefficients and exponents in the range of the Float64 fast path
+	rng := rand.New(rand.NewSource(7))
+	for i := 0; i < 100000; i++ {
+		v := rng.Int63n(1<<54+1) - 1<<53
+		if i%3 == 0 {
+			v /= 1e10 // shorter coefficients, so more exact results
+		}
+		d := New(v, -int32(rng.Intn(23)))
+		f, exact := d.Float64()
+		wantF, wantExact := d.Rat().Float64()
+		if v == 0 {
+			wantF, wantExact = 0, true
+		}
+		if math.Float64bits(f) != math.Float64bits(wantF) || exact != wantExact {
+			t.Fatalf("%s.Float64() = %v, %v; want %v, %v", d, f, exact, wantF, wantExact)
+		}
+	}
 }
 
 func TestDecimal_Sign(t *testing.T) {

@@ -650,6 +650,11 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 //
 // Note that precision<0 is allowed as input.
 func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
+	return d.quoRem(d2, precision, nil)
+}
+
+// quoRem is QuoRem that also sets bb, if not nil, to the divisor in the units of the remainder.
+func (d Decimal) quoRem(d2 Decimal, precision int32, bb *big.Int) (Decimal, Decimal) {
 	if d2.getValue().Sign() == 0 {
 		panic("decimal division by 0")
 	}
@@ -658,29 +663,28 @@ func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 	if e > math.MaxInt32 || e < math.MinInt32 {
 		panic("overflow in decimal QuoRem")
 	}
-	var aa, bb, expo big.Int
+	if bb == nil {
+		bb = new(big.Int)
+	}
+	var aa big.Int
 	var scalerest int32
 	// d = a 10^ea
 	// d2 = b 10^eb
 	if e < 0 {
 		aa = *d.getValue()
-		expo.SetInt64(-e)
-		bb.Exp(tenInt, &expo, nil)
-		bb.Mul(d2.getValue(), &bb)
+		bb.Mul(d2.getValue(), pow10(-e))
 		scalerest = d.exp
 		// now aa = a
 		//     bb = b 10^(scale + eb - ea)
 	} else {
-		expo.SetInt64(e)
-		aa.Exp(tenInt, &expo, nil)
-		aa.Mul(d.getValue(), &aa)
-		bb = *d2.getValue()
+		aa.Mul(d.getValue(), pow10(e))
+		*bb = *d2.getValue()
 		scalerest = scale + d2.exp
 		// now aa = a ^ (ea - eb - scale)
 		//     bb = b
 	}
 	var q, r big.Int
-	q.QuoRem(&aa, &bb, &r)
+	q.QuoRem(&aa, bb, &r)
 	dq := Decimal{value: &q, exp: scale}
 	dr := Decimal{value: &r, exp: scalerest}
 	return dq, dr
@@ -694,27 +698,24 @@ func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 //
 // Note that precision<0 is allowed as input.
 func (d Decimal) DivRound(d2 Decimal, precision int32) Decimal {
-	// QuoRem already checks initialization
-	q, r := d.QuoRem(d2, precision)
-	// the actual rounding decision is based on comparing r*10^precision and d2/2
-	// instead compare 2 r 10 ^precision and d2
+	// quoRem already checks initialization
+	var bb big.Int
+	q, r := d.quoRem(d2, precision, &bb)
+	// the actual rounding decision is based on comparing r*10^precision and d2/2,
+	// which is comparing 2*|r.value| and |bb|
 	var rv2 big.Int
 	rv2.Abs(r.getValue())
 	rv2.Lsh(&rv2, 1)
-	// now rv2 = abs(r.value) * 2
-	r2 := Decimal{value: &rv2, exp: r.exp + precision}
-	// r2 is now 2 * r * 10 ^ precision
-	var c = r2.Cmp(d2.Abs())
-
-	if c < 0 {
+	if rv2.CmpAbs(&bb) < 0 {
 		return q
 	}
 
 	if d.getValue().Sign()*d2.getValue().Sign() < 0 {
-		return q.Sub(New(1, -precision))
+		q.value.Sub(q.value, oneInt)
+	} else {
+		q.value.Add(q.value, oneInt)
 	}
-
-	return q.Add(New(1, -precision))
+	return q
 }
 
 // Mod returns d % d2.
@@ -1946,12 +1947,9 @@ func (d Decimal) Round(places int32) Decimal {
 		ret.value.Add(ret.value, fiveInt)
 	}
 
-	// floor for positive numbers, ceil for negative numbers
-	_, m := ret.value.DivMod(ret.value, tenInt, new(big.Int))
+	// truncate towards zero
+	ret.value.Quo(ret.value, tenInt)
 	ret.exp++
-	if ret.value.Sign() < 0 && m.Cmp(zeroInt) != 0 {
-		ret.value.Add(ret.value, oneInt)
-	}
 
 	return ret
 }
@@ -1969,16 +1967,15 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 		return d.rescale(-places)
 	}
 
-	rescaled := d.rescale(-places)
-	if d.Equal(rescaled) {
-		return rescaled
+	// q is d truncated to places, r is not 0 when digits were dropped and has the sign of d
+	var r big.Int
+	q := new(big.Int)
+	q.QuoRem(d.getValue(), pow10(-int64(places)-int64(d.exp)), &r)
+	if r.Sign() > 0 {
+		q.Add(q, oneInt)
 	}
 
-	if d.getValue().Sign() > 0 {
-		rescaled.value = new(big.Int).Add(rescaled.getValue(), oneInt)
-	}
-
-	return rescaled
+	return Decimal{value: q, exp: -places}
 }
 
 // RoundFloor rounds the decimal towards -infinity.
@@ -1994,16 +1991,15 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 		return d.rescale(-places)
 	}
 
-	rescaled := d.rescale(-places)
-	if d.Equal(rescaled) {
-		return rescaled
+	// q is d truncated to places, r is not 0 when digits were dropped and has the sign of d
+	var r big.Int
+	q := new(big.Int)
+	q.QuoRem(d.getValue(), pow10(-int64(places)-int64(d.exp)), &r)
+	if r.Sign() < 0 {
+		q.Sub(q, oneInt)
 	}
 
-	if d.getValue().Sign() < 0 {
-		rescaled.value = new(big.Int).Sub(rescaled.getValue(), oneInt)
-	}
-
-	return rescaled
+	return Decimal{value: q, exp: -places}
 }
 
 // RoundUp rounds the decimal away from zero.
@@ -2019,18 +2015,17 @@ func (d Decimal) RoundUp(places int32) Decimal {
 		return d.rescale(-places)
 	}
 
-	rescaled := d.rescale(-places)
-	if d.Equal(rescaled) {
-		return rescaled
+	// q is d truncated to places, r is not 0 when digits were dropped and has the sign of d
+	var r big.Int
+	q := new(big.Int)
+	q.QuoRem(d.getValue(), pow10(-int64(places)-int64(d.exp)), &r)
+	if r.Sign() > 0 {
+		q.Add(q, oneInt)
+	} else if r.Sign() < 0 {
+		q.Sub(q, oneInt)
 	}
 
-	if d.getValue().Sign() > 0 {
-		rescaled.value = new(big.Int).Add(rescaled.getValue(), oneInt)
-	} else if d.getValue().Sign() < 0 {
-		rescaled.value = new(big.Int).Sub(rescaled.getValue(), oneInt)
-	}
-
-	return rescaled
+	return Decimal{value: q, exp: -places}
 }
 
 // RoundDown rounds the decimal towards zero.
@@ -2062,14 +2057,17 @@ func (d Decimal) RoundDown(places int32) Decimal {
 func (d Decimal) RoundBank(places int32) Decimal {
 
 	round := d.Round(places)
-	remainder := d.Sub(round).Abs()
 
-	half := New(5, -places-1)
-	if remainder.Cmp(half) == 0 && round.getValue().Bit(0) != 0 {
-		if round.getValue().Sign() < 0 {
-			round.value = new(big.Int).Add(round.getValue(), oneInt)
-		} else {
-			round.value = new(big.Int).Sub(round.getValue(), oneInt)
+	// it is a tie when twice the k dropped digits equal 10^k
+	if k := -int64(places) - int64(d.exp); k > 0 && round.getValue().Bit(0) != 0 {
+		var dropped big.Int
+		dropped.Rem(d.getValue(), pow10(k))
+		if dropped.Abs(&dropped).Lsh(&dropped, 1).Cmp(pow10(k)) == 0 {
+			if round.getValue().Sign() < 0 {
+				round.value = new(big.Int).Add(round.getValue(), oneInt)
+			} else {
+				round.value = new(big.Int).Sub(round.getValue(), oneInt)
+			}
 		}
 	}
 

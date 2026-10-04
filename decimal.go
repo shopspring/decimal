@@ -648,7 +648,7 @@ func (d Decimal) Shift(shift int32) Decimal {
 		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))
 	}
 	return Decimal{
-		value: d.value,
+		value: d.getValue(),
 		exp:   int32(exp),
 	}
 }
@@ -2468,8 +2468,12 @@ func Sum(first Decimal, rest ...Decimal) Decimal {
 
 	// Add returns a new value, so the following items can be added to it in place
 	total := first.Add(rest[0])
+	last := len(rest) - 1
+	if last == 0 {
+		return total
+	}
 	var scaled big.Int
-	for _, item := range rest[1:] {
+	for _, item := range rest[1:last] {
 		switch {
 		case item.exp < total.exp:
 			total = total.rescale(item.exp)
@@ -2481,7 +2485,8 @@ func Sum(first Decimal, rest ...Decimal) Decimal {
 		}
 	}
 
-	return total
+	// the last Add builds the result the same way as adding one item at a time does
+	return total.Add(rest[last])
 }
 
 // Avg returns the average value of the provided first and rest Decimals

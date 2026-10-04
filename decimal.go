@@ -1397,11 +1397,13 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 		sum = sum.Add(one)
 	}
 
+	// res = sum^ki, the same value ki repeated multiplications would give
 	ki := k.IntPart()
-	res := New(1, 0)
-	for i := ki; i > 0; i-- {
-		res = res.Mul(sum)
+	expInt64 := int64(sum.exp) * ki
+	if expInt64 > math.MaxInt32 || expInt64 < math.MinInt32 {
+		panic(fmt.Sprintf("exponent %v overflows an int32!", expInt64))
 	}
+	res := Decimal{new(big.Int).Exp(sum.getValue(), big.NewInt(ki), nil), int32(expInt64)}
 
 	resNumDigits := int32(res.NumDigits())
 

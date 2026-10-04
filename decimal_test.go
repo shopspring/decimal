@@ -4281,10 +4281,10 @@ func ExampleNewFromFloat() {
 // negative precision values, truncating the integer part towards zero.
 func TestTruncateNegativePrecision(t *testing.T) {
 	type testCase struct {
-		input     string
-		places    int32
-		want      string
-		wantExp   int32
+		input   string
+		places  int32
+		want    string
+		wantExp int32
 	}
 	tests := []testCase{
 		// negative precision: truncate integer part
@@ -4334,21 +4334,30 @@ func TestRoundingExponentNormalization(t *testing.T) {
 		{"RoundUp", "100.00", 0, "100", 0},
 		{"RoundUp", "3.14", 2, "3.14", -2},
 		{"RoundUp", "500", -2, "500", 2},
+		{"RoundUp", "100", 2, "100", -2},
+		{"RoundUp", "5E3", -2, "5000", 2},
+		{"RoundUp", "0.01230000000000000000000000000000", 4, "0.0123", -4},
 		// RoundDown
 		{"RoundDown", "100.0", 0, "100", 0},
 		{"RoundDown", "100.00", 0, "100", 0},
 		{"RoundDown", "3.14", 2, "3.14", -2},
 		{"RoundDown", "500", -2, "500", 2},
+		{"RoundDown", "100", 2, "100", -2},
+		{"RoundDown", "5E3", -2, "5000", 2},
 		// RoundFloor
 		{"RoundFloor", "100.0", 0, "100", 0},
 		{"RoundFloor", "100.00", 0, "100", 0},
 		{"RoundFloor", "-100.0", 0, "-100", 0},
 		{"RoundFloor", "500", -2, "500", 2},
+		{"RoundFloor", "-100", 2, "-100", -2},
+		{"RoundFloor", "5E3", -2, "5000", 2},
 		// RoundCeil
 		{"RoundCeil", "100.0", 0, "100", 0},
 		{"RoundCeil", "100.00", 0, "100", 0},
 		{"RoundCeil", "-100.0", 0, "-100", 0},
 		{"RoundCeil", "500", -2, "500", 2},
+		{"RoundCeil", "-100", 2, "-100", -2},
+		{"RoundCeil", "5E3", -2, "5000", 2},
 	}
 
 	for _, tc := range tests {

@@ -1954,7 +1954,7 @@ func (d Decimal) Round(places int32) Decimal {
 //	NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.4"
 func (d Decimal) RoundCeil(places int32) Decimal {
 	if d.exp >= -places {
-		return d
+		return d.rescale(-places)
 	}
 
 	rescaled := d.rescale(-places)
@@ -1979,7 +1979,7 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 //	NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.5"
 func (d Decimal) RoundFloor(places int32) Decimal {
 	if d.exp >= -places {
-		return d
+		return d.rescale(-places)
 	}
 
 	rescaled := d.rescale(-places)
@@ -2004,7 +2004,7 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 //	NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.5"
 func (d Decimal) RoundUp(places int32) Decimal {
 	if d.exp >= -places {
-		return d
+		return d.rescale(-places)
 	}
 
 	rescaled := d.rescale(-places)
@@ -2030,15 +2030,7 @@ func (d Decimal) RoundUp(places int32) Decimal {
 //	NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
 //	NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.4"
 func (d Decimal) RoundDown(places int32) Decimal {
-	if d.exp >= -places {
-		return d
-	}
-
-	rescaled := d.rescale(-places)
-	if d.Equal(rescaled) {
-		return rescaled
-	}
-	return rescaled
+	return d.rescale(-places)
 }
 
 // RoundBank rounds the decimal to places decimal places.

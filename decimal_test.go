@@ -1924,6 +1924,21 @@ func TestDecimal_Shift(t *testing.T) {
 	}
 }
 
+func TestDecimal_ShiftExponentOverflow(t *testing.T) {
+	// The sum still fits, so the exponent is unchanged by the overflow check.
+	got := New(5, math.MaxInt32-1).Shift(1)
+	if !got.Equal(New(5, math.MaxInt32)) {
+		t.Fatalf("shift onto MaxInt32: exp %d", got.Exponent())
+	}
+
+	if !didPanic(func() { New(5, math.MaxInt32).Shift(1) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { New(5, math.MinInt32).Shift(-1) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+}
+
 func TestDecimal_Div(t *testing.T) {
 	type Inp struct {
 		a string

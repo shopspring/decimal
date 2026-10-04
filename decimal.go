@@ -572,23 +572,41 @@ func (d Decimal) Abs() Decimal {
 
 // Add returns d + d2.
 func (d Decimal) Add(d2 Decimal) Decimal {
-	rd, rd2 := RescalePair(d, d2)
+	// rescale returns a new value, so the sum can be stored in it
+	if d.exp < d2.exp {
+		r := d2.rescale(d.exp)
+		r.value.Add(d.getValue(), r.value)
+		return r
+	} else if d.exp > d2.exp {
+		r := d.rescale(d2.exp)
+		r.value.Add(r.value, d2.getValue())
+		return r
+	}
 
-	d3Value := new(big.Int).Add(rd.getValue(), rd2.getValue())
+	d3Value := new(big.Int).Add(d.getValue(), d2.getValue())
 	return Decimal{
 		value: d3Value,
-		exp:   rd.exp,
+		exp:   d.exp,
 	}
 }
 
 // Sub returns d - d2.
 func (d Decimal) Sub(d2 Decimal) Decimal {
-	rd, rd2 := RescalePair(d, d2)
+	// rescale returns a new value, so the difference can be stored in it
+	if d.exp < d2.exp {
+		r := d2.rescale(d.exp)
+		r.value.Sub(d.getValue(), r.value)
+		return r
+	} else if d.exp > d2.exp {
+		r := d.rescale(d2.exp)
+		r.value.Sub(r.value, d2.getValue())
+		return r
+	}
 
-	d3Value := new(big.Int).Sub(rd.getValue(), rd2.getValue())
+	d3Value := new(big.Int).Sub(d.getValue(), d2.getValue())
 	return Decimal{
 		value: d3Value,
-		exp:   rd.exp,
+		exp:   d.exp,
 	}
 }
 
@@ -627,8 +645,13 @@ func (d Decimal) Shift(shift int32) Decimal {
 	if exp > math.MaxInt32 || exp < math.MinInt32 {
 		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))
 	}
+	value := d.getValue()
+	if value.Sign() == 0 {
+		// a copy of zero has a nil word slice, which reflect.DeepEqual tells from an empty one
+		value = zeroInt
+	}
 	return Decimal{
-		value: new(big.Int).Set(d.getValue()),
+		value: value,
 		exp:   int32(exp),
 	}
 }
@@ -1697,10 +1720,20 @@ func (d Decimal) Cmp(d2 Decimal) int {
 	if d.exp == d2.exp {
 		return d.getValue().Cmp(d2.getValue())
 	}
+	if s, s2 := d.Sign(), d2.Sign(); s != s2 {
+		if s > s2 {
+			return 1
+		}
+		return -1
+	} else if s == 0 {
+		return 0
+	}
 
-	rd, rd2 := RescalePair(d, d2)
-
-	return rd.getValue().Cmp(rd2.getValue())
+	var scaled big.Int
+	if d.exp < d2.exp {
+		return d.getValue().Cmp(scaled.Mul(d2.getValue(), pow10(int64(d2.exp)-int64(d.exp))))
+	}
+	return scaled.Mul(d.getValue(), pow10(int64(d.exp)-int64(d2.exp))).Cmp(d2.getValue())
 }
 
 // Compare compares the numbers represented by d and d2 and returns:
@@ -2422,12 +2455,31 @@ func Max(first Decimal, rest ...Decimal) Decimal {
 
 // Sum returns the combined total of the provided first and rest Decimals
 func Sum(first Decimal, rest ...Decimal) Decimal {
-	total := first
-	for _, item := range rest {
-		total = total.Add(item)
+	if len(rest) == 0 {
+		return first
 	}
 
-	return total
+	// Add returns a new value, so the following items can be added to it in place
+	total := first.Add(rest[0])
+	last := len(rest) - 1
+	if last == 0 {
+		return total
+	}
+	var scaled big.Int
+	for _, item := range rest[1:last] {
+		switch {
+		case item.exp < total.exp:
+			total = total.rescale(item.exp)
+			total.value.Add(total.value, item.getValue())
+		case item.exp > total.exp:
+			total.value.Add(total.value, scaled.Mul(item.getValue(), pow10(int64(item.exp)-int64(total.exp))))
+		default:
+			total.value.Add(total.value, item.getValue())
+		}
+	}
+
+	// the last Add builds the result the same way as adding one item at a time does
+	return total.Add(rest[last])
 }
 
 // Avg returns the average value of the provided first and rest Decimals

@@ -3923,6 +3923,17 @@ func TestSum(t *testing.T) {
 	if !sum.Equal(New(45, 0)) {
 		t.Errorf("Failed to calculate sum, expected %s got %s", New(45, 0), sum)
 	}
+
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals
+	if s := Sum(New(5, -1), New(-5, -1), Zero); !reflect.DeepEqual(s, New(0, -1)) {
+		t.Errorf("Sum(0.5, -0.5, 0) = %#v, want the same representation as New(0, -1)", s)
+	}
+	if s := Zero.Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
+		t.Errorf("Zero.Shift(2) = %#v, want the same representation as New(0, 2)", s)
+	}
+	if s := New(7, 0).Sub(New(7, 0)).Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
+		t.Errorf("(7 - 7).Shift(2) = %#v, want the same representation as New(0, 2)", s)
+	}
 }
 
 func TestAvg(t *testing.T) {

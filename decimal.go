@@ -1808,6 +1808,23 @@ func (d Decimal) Rat() *big.Rat {
 // whether f represents d exactly.
 // For more details, see the documentation for big.Rat.Float64
 func (d Decimal) Float64() (f float64, exact bool) {
+	// Rat() materializes 10^|exp|, which takes forever for huge exponents.
+	// Values that far outside the float64 range don't need it: they always
+	// round to zero or overflow to infinity.
+	sign := d.Sign()
+	if sign == 0 {
+		return 0, true
+	}
+	// |d| lies in [10^(magnitude-1), 10^magnitude). float64 spans roughly
+	// 1e-324..1e308, so ±400 is safely outside it with margin to spare.
+	magnitude := int64(d.NumDigits()) + int64(d.exp)
+	if magnitude < -400 {
+		return math.Copysign(0, float64(sign)), false
+	}
+	if magnitude > 400 {
+		return math.Inf(sign), false
+	}
+
 	return d.Rat().Float64()
 }
 

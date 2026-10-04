@@ -545,13 +545,11 @@ func (d Decimal) rescale(exp int32) Decimal {
 
 	// NOTE(vadim): must convert exps to float64 before - to prevent overflow
 	diff := math.Abs(float64(exp) - float64(d.exp))
-	value := new(big.Int).Set(d.getValue())
-
-	expScale := new(big.Int).Exp(tenInt, big.NewInt(int64(diff)), nil)
+	value := new(big.Int)
 	if exp > d.exp {
-		value = value.Quo(value, expScale)
-	} else if exp < d.exp {
-		value = value.Mul(value, expScale)
+		value.Quo(d.getValue(), pow10(int64(diff)))
+	} else {
+		value.Mul(d.getValue(), pow10(int64(diff)))
 	}
 
 	return Decimal{
@@ -1823,12 +1821,10 @@ func (d Decimal) BigFloat() *big.Float {
 func (d Decimal) Rat() *big.Rat {
 	if d.exp <= 0 {
 		// NOTE(vadim): must negate after casting to prevent int32 overflow
-		denom := new(big.Int).Exp(tenInt, big.NewInt(-int64(d.exp)), nil)
-		return new(big.Rat).SetFrac(d.getValue(), denom)
+		return new(big.Rat).SetFrac(d.getValue(), pow10(-int64(d.exp)))
 	}
 
-	mul := new(big.Int).Exp(tenInt, big.NewInt(int64(d.exp)), nil)
-	num := new(big.Int).Mul(d.getValue(), mul)
+	num := new(big.Int).Mul(d.getValue(), pow10(int64(d.exp)))
 	return new(big.Rat).SetFrac(num, oneInt)
 }
 
@@ -2118,12 +2114,8 @@ func (d Decimal) Floor() Decimal {
 		return d
 	}
 
-	exp := big.NewInt(10)
-
 	// NOTE(vadim): must negate after casting to prevent int32 overflow
-	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
-
-	z := new(big.Int).Div(d.getValue(), exp)
+	z := new(big.Int).Div(d.getValue(), pow10(-int64(d.exp)))
 	return Decimal{value: z, exp: 0}
 }
 
@@ -2133,12 +2125,8 @@ func (d Decimal) Ceil() Decimal {
 		return d
 	}
 
-	exp := big.NewInt(10)
-
 	// NOTE(vadim): must negate after casting to prevent int32 overflow
-	exp.Exp(exp, big.NewInt(-int64(d.exp)), nil)
-
-	z, m := new(big.Int).DivMod(d.getValue(), exp, new(big.Int))
+	z, m := new(big.Int).DivMod(d.getValue(), pow10(-int64(d.exp)), new(big.Int))
 	if m.Cmp(zeroInt) != 0 {
 		z.Add(z, oneInt)
 	}

@@ -600,7 +600,6 @@ func (d Decimal) Mul(d2 Decimal) Decimal {
 // of the decimal.
 // Shift panics if the resulting exponent does not fit in an int32.
 func (d Decimal) Shift(shift int32) Decimal {
-	// An int32 sum wraps, which would flip the scale of the number.
 	exp := int64(d.exp) + int64(shift)
 	if exp > math.MaxInt32 || exp < math.MinInt32 {
 		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))

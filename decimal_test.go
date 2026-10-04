@@ -1851,22 +1851,11 @@ func TestDecimal_ShiftExponentOverflow(t *testing.T) {
 		t.Fatalf("shift onto MaxInt32: exp %d", got.Exponent())
 	}
 
-	cases := []struct {
-		exp   int32
-		shift int32
-	}{
-		{math.MaxInt32, 1},
-		{math.MinInt32, -1},
+	if !didPanic(func() { New(5, math.MaxInt32).Shift(1) }) {
+		t.Fatalf("should have gotten an overflow panic")
 	}
-	for _, c := range cases {
-		func() {
-			defer func() {
-				if recover() == nil {
-					t.Errorf("Shift(%d) of exp %d returned a decimal", c.shift, c.exp)
-				}
-			}()
-			New(5, c.exp).Shift(c.shift)
-		}()
+	if !didPanic(func() { New(5, math.MinInt32).Shift(-1) }) {
+		t.Fatalf("should have gotten an overflow panic")
 	}
 }
 

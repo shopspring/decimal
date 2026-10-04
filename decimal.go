@@ -647,8 +647,13 @@ func (d Decimal) Shift(shift int32) Decimal {
 	if exp > math.MaxInt32 || exp < math.MinInt32 {
 		panic(fmt.Sprintf("exponent %v overflows an int32!", exp))
 	}
+	value := d.getValue()
+	if value.Sign() == 0 {
+		// a copy of zero has a nil word slice, which reflect.DeepEqual tells from an empty one
+		value = zeroInt
+	}
 	return Decimal{
-		value: d.getValue(),
+		value: value,
 		exp:   int32(exp),
 	}
 }

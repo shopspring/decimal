@@ -3931,6 +3931,9 @@ func TestSum(t *testing.T) {
 	if s := Zero.Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
 		t.Errorf("Zero.Shift(2) = %#v, want the same representation as New(0, 2)", s)
 	}
+	if s := New(7, 0).Sub(New(7, 0)).Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
+		t.Errorf("(7 - 7).Shift(2) = %#v, want the same representation as New(0, 2)", s)
+	}
 }
 
 func TestAvg(t *testing.T) {

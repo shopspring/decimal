@@ -335,10 +335,15 @@ func RequireFromString(value string) Decimal {
 
 // NewFromFloat converts a float64 to Decimal.
 //
-// The converted number will contain the number of significant digits that can be
-// represented in a float with reliable roundtrip.
+// The result is the shortest decimal that converts back to the same float64,
+// the same number that strconv.FormatFloat(value, 'f', -1, 64) prints.
 // This is typically 15 digits, but may be more in some cases.
 // See https://www.exploringbinary.com/decimal-precision-of-binary-floating-point-numbers/ for more information.
+//
+// This is not always the exact value stored in the float. Whole numbers larger
+// than 2^53 can change: float64(1<<62) is exactly 4611686018427387904, but
+// NewFromFloat returns 4611686018427388000. To convert whole numbers exactly,
+// use NewFromFloatWithExponent(value, 0).
 //
 // For slightly faster conversion, use NewFromFloatWithExponent where you can specify the precision in absolute terms.
 //
@@ -352,10 +357,12 @@ func NewFromFloat(value float64) Decimal {
 
 // NewFromFloat32 converts a float32 to Decimal.
 //
-// The converted number will contain the number of significant digits that can be
-// represented in a float with reliable roundtrip.
+// The result is the shortest decimal that converts back to the same float32.
 // This is typically 6-8 digits depending on the input.
 // See https://www.exploringbinary.com/decimal-precision-of-binary-floating-point-numbers/ for more information.
+//
+// As with NewFromFloat, whole numbers larger than 2^24 can change. To convert
+// them exactly, use NewFromFloatWithExponent(float64(value), 0).
 //
 // For slightly faster conversion, use NewFromFloatWithExponent where you can specify the precision in absolute terms.
 //

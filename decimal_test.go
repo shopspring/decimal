@@ -4271,10 +4271,14 @@ func ExampleNewFromFloat() {
 	fmt.Println(NewFromFloat(123.123123123123).String())
 	fmt.Println(NewFromFloat(.123123123123123).String())
 	fmt.Println(NewFromFloat(-1e13).String())
+	fmt.Println(NewFromFloat(1 << 62).String())
+	fmt.Println(NewFromFloatWithExponent(1<<62, 0).String())
 	// OUTPUT:
 	// 123.123123123123
 	// 0.123123123123123
 	// -10000000000000
+	// 4611686018427388000
+	// 4611686018427387904
 }
 
 // TestTruncateNegativePrecision verifies that Truncate correctly handles

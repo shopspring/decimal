@@ -4346,6 +4346,21 @@ func TestTruncateNegativePrecision(t *testing.T) {
 	}
 }
 
+func TestRescaleToZeroRepresentation(t *testing.T) {
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals.
+	// Rounding a nonzero value to zero keeps the same form for any number of dropped digits.
+	want := New(7, 0).Sub(New(7, 0))
+	for _, k := range []int32{1, 19, 20, 40} {
+		d := New(5, -k)
+		if got := d.RoundDown(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d RoundDown(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+		if got := d.Truncate(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d Truncate(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+	}
+}
+
 // TestRoundingExponentNormalization verifies that RoundUp, RoundDown,
 // RoundCeil, and RoundFloor return a result with the exponent normalized
 // to the requested number of places, even when the value is already exact.

@@ -548,6 +548,11 @@ func (d Decimal) rescale(exp int32) Decimal {
 	value := new(big.Int)
 	if exp > d.exp {
 		value.Quo(d.getValue(), pow10(int64(diff)))
+		if value.Sign() == 0 && d.getValue().Sign() != 0 {
+			// reflect.DeepEqual tells an empty word slice from nil, keep the empty one that
+			// dividing a copy of d.value in place used to leave
+			value.SetBits([]big.Word{})
+		}
 	} else {
 		value.Mul(d.getValue(), pow10(int64(diff)))
 	}

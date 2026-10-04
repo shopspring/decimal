@@ -1479,7 +1479,8 @@ func (d Decimal) Float64() (f float64, exact bool) {
 	if sign == 0 {
 		return 0, true
 	}
-	// d lies in [10^(magnitude-1), 10^magnitude)
+	// |d| lies in [10^(magnitude-1), 10^magnitude). float64 spans roughly
+	// 1e-324..1e308, so ±400 is safely outside it with margin to spare.
 	magnitude := int64(d.NumDigits()) + int64(d.exp)
 	if magnitude < -400 {
 		return math.Copysign(0, float64(sign)), false

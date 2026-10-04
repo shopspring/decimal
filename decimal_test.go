@@ -394,6 +394,9 @@ func TestNewFromStringErrs(t *testing.T) {
 		"51,850.00",
 		"20_000_000.00",
 		"$20_000_000.00",
+		".-5",
+		".+5",
+		".-1234567890123456789012",
 	}
 
 	for _, s := range tests {
@@ -403,6 +406,37 @@ func TestNewFromStringErrs(t *testing.T) {
 			t.Errorf("error expected when parsing %s", s)
 		}
 	}
+}
+
+func TestParseInt64SkipIndex(t *testing.T) {
+	// every string of up to 5 bytes from this alphabet, with the decimal point at each position
+	const alphabet = "059-+.a "
+	var check func(s string)
+	check = func(s string) {
+		for skip := -1; skip < len(s); skip++ {
+			if skip >= 0 && s[skip] != '.' {
+				continue
+			}
+			if skip == 0 && len(s) > 1 && (s[1] == '-' || s[1] == '+') {
+				continue // NewFromString rejects a sign after the point before parsing
+			}
+			withoutPoint := s
+			if skip >= 0 {
+				withoutPoint = s[:skip] + s[skip+1:]
+			}
+			want, err := strconv.ParseInt(withoutPoint, 10, 64)
+			got, ok := parseInt64SkipIndex(s, skip)
+			if ok != (err == nil) || got != want {
+				t.Fatalf("parseInt64SkipIndex(%q, %d) = %d, %v; ParseInt(%q) = %d, %v", s, skip, got, ok, withoutPoint, want, err)
+			}
+		}
+		if len(s) < 5 {
+			for i := range alphabet {
+				check(s + alphabet[i:i+1])
+			}
+		}
+	}
+	check("")
 }
 
 func TestMaxDecodeExponent(t *testing.T) {

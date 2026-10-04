@@ -216,7 +216,6 @@ func NewFromBigRat(value *big.Rat, precision int32) Decimal {
 //	d3, err := NewFromString("1.47000")
 func NewFromString(value string) (Decimal, error) {
 	originalInput := value
-	var intString string
 	var exp int64
 
 	// Check if number is using scientific notation and find dots
@@ -251,29 +250,30 @@ func NewFromString(value string) (Decimal, error) {
 		exp = expInt
 	}
 
-	if pIndex == -1 {
-		// There is no decimal point, we can just parse the original string as
-		// an int
-		intString = value
-	} else {
-		if pIndex+1 < len(value) {
-			intString = value[:pIndex] + value[pIndex+1:]
-		} else {
-			intString = value[:pIndex]
+	numLen := len(value)
+	if pIndex != -1 {
+		if pIndex+1 < len(value) && (value[pIndex+1] == '-' || value[pIndex+1] == '+') {
+			// ParseInt and SetString would accept the sign once the point is removed, as in ".-5"
+			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
 		}
+		numLen--
 		expInt := -len(value[pIndex+1:])
 		exp += int64(expInt)
 	}
 
 	var dValue *big.Int
-	// strconv.ParseInt is faster than new(big.Int).SetString so this is just a shortcut for strings we know won't overflow
-	if len(intString) <= 18 {
-		parsed64, err := strconv.ParseInt(intString, 10, 64)
-		if err != nil {
+	// parsing in an int64 is faster than new(big.Int).SetString so this is just a shortcut for strings we know won't overflow
+	if numLen <= 18 {
+		parsed64, ok := parseInt64SkipIndex(value, pIndex)
+		if !ok {
 			return Decimal{}, fmt.Errorf("can't convert %s to decimal", value)
 		}
 		dValue = big.NewInt(parsed64)
 	} else {
+		intString := value
+		if pIndex != -1 {
+			intString = value[:pIndex] + value[pIndex+1:]
+		}
 		dValue = new(big.Int)
 		_, ok := dValue.SetString(intString, 10)
 		if !ok {
@@ -293,6 +293,32 @@ func NewFromString(value string) (Decimal, error) {
 		value: dValue,
 		exp:   int32(exp),
 	}, nil
+}
+
+// parseInt64SkipIndex parses s without the byte at index skip as strconv.ParseInt(s, 10, 64) would,
+// s must have at most 18 other bytes so that the result can't overflow.
+func parseInt64SkipIndex(s string, skip int) (int64, bool) {
+	i, neg := 0, false
+	if len(s) > 0 && skip != 0 && (s[0] == '+' || s[0] == '-') {
+		i, neg = 1, s[0] == '-'
+	}
+	var n int64
+	digits := 0
+	for ; i < len(s); i++ {
+		if i == skip {
+			continue
+		}
+		c := s[i]
+		if c < '0' || c > '9' {
+			return 0, false
+		}
+		n = n*10 + int64(c-'0')
+		digits++
+	}
+	if neg {
+		n = -n
+	}
+	return n, digits > 0
 }
 
 // NewFromFormattedString returns a new Decimal from a formatted string representation.
@@ -2179,13 +2205,14 @@ func (d *Decimal) UnmarshalJSON(decimalBytes []byte) error {
 
 // MarshalJSON implements the json.Marshaler interface.
 func (d Decimal) MarshalJSON() ([]byte, error) {
-	var str string
+	str := d.String()
 	if MarshalJSONWithoutQuotes {
-		str = d.String()
-	} else {
-		str = "\"" + d.String() + "\""
+		return []byte(str), nil
 	}
-	return []byte(str), nil
+	b := make([]byte, 0, len(str)+2)
+	b = append(b, '"')
+	b = append(b, str...)
+	return append(b, '"'), nil
 }
 
 // UnmarshalBinary implements the encoding.BinaryUnmarshaler interface. As a string representation
@@ -2323,7 +2350,7 @@ func (d Decimal) StringScaled(exp int32) string {
 
 func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 	if d.exp == 0 {
-		return d.rescale(0).getValue().String()
+		return d.getValue().String()
 	}
 	if d.exp >= 0 {
 		if useScientificNotation {
@@ -2333,10 +2360,13 @@ func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 		}
 	}
 
-	abs := new(big.Int).Abs(d.getValue())
-	str := abs.String()
+	str := d.getValue().String()
+	sign := ""
+	if str[0] == '-' {
+		sign, str = "-", str[1:]
+	}
 
-	var intPart, fractionalPart string
+	var intPart, leadingZeros, fractionalPart string
 
 	// NOTE(vadim): this cast to int will cause bugs if d.exp == INT_MIN
 	// and you are on a 32-bit machine. Won't fix this super-edge case.
@@ -2348,7 +2378,12 @@ func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 		intPart = "0"
 
 		num0s := -dExpInt - len(str)
-		fractionalPart = strings.Repeat("0", num0s) + str
+		if num0s <= len(zeros) {
+			leadingZeros = zeros[:num0s]
+		} else {
+			leadingZeros = strings.Repeat("0", num0s)
+		}
+		fractionalPart = str
 	}
 
 	if trimTrailingZeros {
@@ -2359,19 +2394,18 @@ func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 			}
 		}
 		fractionalPart = fractionalPart[:i+1]
+		if fractionalPart == "" {
+			leadingZeros = ""
+		}
 	}
 
-	number := intPart
-	if len(fractionalPart) > 0 {
-		number += "." + fractionalPart
+	if len(leadingZeros)+len(fractionalPart) > 0 {
+		return sign + intPart + "." + leadingZeros + fractionalPart
 	}
-
-	if d.getValue().Sign() < 0 {
-		return "-" + number
-	}
-
-	return number
+	return sign + intPart
 }
+
+const zeros = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // ScientificNotationString serializes the decimal into standard scientific notation.
 //

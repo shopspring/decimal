@@ -85,6 +85,19 @@ var UseScientificNotation = false
 // precise natural exponent value using ExpHullAbrham method.
 var ExpMaxIterations = 1000
 
+// MaxDecodeExponent is the largest exponent magnitude that NewFromString and UnmarshalBinary accept,
+// and so UnmarshalJSON, UnmarshalText, Scan, GobDecode, DecodeSpanner and their NullDecimal variants too.
+// Operations like String, Add and Float64 take time and memory that grow with the exponent, so without
+// this limit a short input like "1e-2000000000" can stall the process or exhaust its memory.
+// The default covers the float64 and IEEE 754 decimal128 exponent ranges.
+//
+// Values created with New, NewFromBigInt or arithmetic are not checked, so they may not decode back from
+// their own String or MarshalBinary output. The limit does not bound the cost of Pow or ExpTaylor
+// arguments or of very long inputs; validate those separately.
+//
+// Set it once at program start, before any decoding. Raise it only for trusted input.
+var MaxDecodeExponent = 10000
+
 // Zero constant, to make computations faster.
 // Zero should never be compared with == or != directly, please use decimal.Equal or decimal.Cmp instead.
 var Zero = Decimal{}
@@ -271,6 +284,9 @@ func NewFromString(value string) (Decimal, error) {
 	if exp < math.MinInt32 || exp > math.MaxInt32 {
 		// NOTE(vadim): I doubt a string could realistically be this long
 		return Decimal{}, fmt.Errorf("can't convert %s to decimal: fractional part too long", originalInput)
+	}
+	if exp > int64(MaxDecodeExponent) || exp < -int64(MaxDecodeExponent) {
+		return Decimal{}, fmt.Errorf("can't convert %s to decimal: exponent %d exceeds MaxDecodeExponent (%d)", originalInput, exp, MaxDecodeExponent)
 	}
 
 	return Decimal{
@@ -2174,7 +2190,11 @@ func (d *Decimal) UnmarshalBinary(data []byte) error {
 	}
 
 	// Extract the exponent
-	d.exp = int32(binary.BigEndian.Uint32(data[:4]))
+	exp := int32(binary.BigEndian.Uint32(data[:4]))
+	if int64(exp) > int64(MaxDecodeExponent) || int64(exp) < -int64(MaxDecodeExponent) {
+		return fmt.Errorf("error decoding binary: exponent %d exceeds MaxDecodeExponent (%d)", exp, MaxDecodeExponent)
+	}
+	d.exp = exp
 
 	// Extract the value
 	d.value = new(big.Int)

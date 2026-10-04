@@ -405,6 +405,36 @@ func TestNewFromStringErrs(t *testing.T) {
 	}
 }
 
+func TestMaxDecodeExponent(t *testing.T) {
+	limit := int32(MaxDecodeExponent)
+	for _, c := range []struct {
+		exp int32
+		ok  bool
+	}{
+		{limit, true},
+		{-limit, true},
+		{limit + 1, false},
+		{-limit - 1, false},
+		{math.MaxInt32, false},
+		{math.MinInt32, false},
+	} {
+		if _, err := NewFromString(fmt.Sprintf("1e%d", c.exp)); (err == nil) != c.ok {
+			t.Errorf("NewFromString(1e%d): got error %v, want ok=%v", c.exp, err, c.ok)
+		}
+
+		b, _ := New(1, c.exp).MarshalBinary()
+		d := New(7, 0)
+		err := d.UnmarshalBinary(b)
+		if (err == nil) != c.ok || (!c.ok && d.Exponent() != 0) {
+			t.Errorf("UnmarshalBinary(exp %d): got error %v and exp %d, want ok=%v", c.exp, err, d.Exponent(), c.ok)
+		}
+	}
+
+	if _, err := NewFromString(fmt.Sprintf("0.1e%d", -limit)); err == nil {
+		t.Errorf("NewFromString(0.1e%d) accepted exponent %d", -limit, -limit-1)
+	}
+}
+
 func TestNewFromStringDeepEquals(t *testing.T) {
 	type StrCmp struct {
 		str1     string
@@ -2771,7 +2801,6 @@ func TestDecimal_Pow(t *testing.T) {
 		{"1.0041666666666667", "-360", "0.2238265956413493"},
 		{"1.0041666666666667", "360.5", "4.4770424391814548"},
 		{"0.01", "-7.585", "1479108388168207.4221993463468552"},
-		{"1.5", "-100000", "7.483321982518254e-17610"},
 		{"-1.5", "-1001", "-5.403183104351711e-177"},
 		{"-1.5", "-1000", "8.104774656527567e-177"},
 		{"1.0000001", "-1000000000", "0.00000000000000000000000000000000000000000003720094576445977"},
@@ -2784,15 +2813,20 @@ func TestDecimal_Pow(t *testing.T) {
 		{"0.0208333333333333", "0.33", "0.2787342852450195"},
 		{"1", "1" + strings.Repeat("0", 400) + ".5", "1"},
 	} {
-		base, _ := NewFromString(testCase.Base)
-		exp, _ := NewFromString(testCase.Exponent)
-		expected, _ := NewFromString(testCase.Expected)
+		base := RequireFromString(testCase.Base)
+		exp := RequireFromString(testCase.Exponent)
+		expected := RequireFromString(testCase.Expected)
 
 		result := base.Pow(exp)
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for %s^%s", testCase.Expected, result.String(), testCase.Base, testCase.Exponent)
 		}
+	}
+
+	// The expected exponent is beyond MaxDecodeExponent, so it can't be parsed from a string.
+	if got := New(15, -1).Pow(New(-100000, 0)); got.Cmp(New(7483321982518254, -17625)) != 0 {
+		t.Errorf("expected 7.483321982518254e-17610, got %s, for 1.5^-100000", got)
 	}
 }
 
@@ -2946,16 +2980,31 @@ func TestDecimal_PowInt32(t *testing.T) {
 		{"10", -18, "0.000000000000000001"},
 		{"12345", -5, "0.000000000000000000003487743424943423"},
 		{"-1.5", -1001, "-5.403183104351711e-177"},
-		{"1.5", math.MinInt32, "4.189793427303781e-378153100"},
-		{"3e50000000", -1, "3.333333333333333e-50000001"},
 	} {
-		base, _ := NewFromString(testCase.Decimal)
-		expected, _ := NewFromString(testCase.Expected)
+		base := RequireFromString(testCase.Decimal)
+		expected := RequireFromString(testCase.Expected)
 
 		result, _ := base.PowInt32(testCase.Exponent)
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for %s**%d", testCase.Expected, result.String(), testCase.Decimal, testCase.Exponent)
+		}
+	}
+
+	// Exponents beyond MaxDecodeExponent can't be parsed, and String() on them is too slow for error messages.
+	for _, testCase := range []struct {
+		Decimal  Decimal
+		Exponent int32
+		Expected Decimal
+	}{
+		{New(15, -1), math.MinInt32, New(4189793427303781, -378153115)},
+		{New(3, 50000000), -1, New(3333333333333333, -50000016)},
+	} {
+		result, err := testCase.Decimal.PowInt32(testCase.Exponent)
+		if err != nil || result.Cmp(testCase.Expected) != 0 {
+			t.Errorf("expected %de%d, got %de%d (err %v), for %de%d**%d",
+				testCase.Expected.Coefficient(), testCase.Expected.Exponent(), result.Coefficient(), result.Exponent(), err,
+				testCase.Decimal.Coefficient(), testCase.Decimal.Exponent(), testCase.Exponent)
 		}
 	}
 }

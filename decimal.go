@@ -1973,6 +1973,10 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 	q.QuoRem(d.getValue(), pow10(-int64(places)-int64(d.exp)), &r)
 	if r.Sign() > 0 {
 		q.Add(q, oneInt)
+	} else if q.Sign() == 0 && r.Sign() != 0 {
+		// reflect.DeepEqual tells an empty word slice from nil, keep the empty one that
+		// rounding a nonzero value to zero used to leave
+		q.SetBits([]big.Word{})
 	}
 
 	return Decimal{value: q, exp: -places}
@@ -1997,6 +2001,10 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 	q.QuoRem(d.getValue(), pow10(-int64(places)-int64(d.exp)), &r)
 	if r.Sign() < 0 {
 		q.Sub(q, oneInt)
+	} else if q.Sign() == 0 && r.Sign() != 0 {
+		// reflect.DeepEqual tells an empty word slice from nil, keep the empty one that
+		// rounding a nonzero value to zero used to leave
+		q.SetBits([]big.Word{})
 	}
 
 	return Decimal{value: q, exp: -places}

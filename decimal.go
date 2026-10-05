@@ -1410,7 +1410,7 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	// Return 1 if abs(d) small enough; this also avoids later over/underflow
 	overflowThreshold2 := New(9, -int32(currentPrecision)-1)
 	if d.Abs().Cmp(overflowThreshold2) <= 0 {
-		return Decimal{oneInt, d.exp}, nil
+		return Decimal{oneInt, 0}, nil
 	}
 
 	// t is the smallest integer >= 0 such that the corresponding abs(d/k) < 1

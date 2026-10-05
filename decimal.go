@@ -2682,28 +2682,43 @@ func (d NullDecimal) EncodeSpanner() (interface{}, error) {
 
 // Trig functions
 
+var (
+	// Pi/4 split into three parts
+	pi4A = NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000
+	pi4B = NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000
+	pi4C = NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170
+	m4PI = NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+
+	atanP0 = NewFromFloat(-8.750608600031904122785e-01)
+	atanP1 = NewFromFloat(-1.615753718733365076637e+01)
+	atanP2 = NewFromFloat(-7.500855792314704667340e+01)
+	atanP3 = NewFromFloat(-1.228866684490136173410e+02)
+	atanP4 = NewFromFloat(-6.485021904942025371773e+01)
+	atanQ0 = NewFromFloat(2.485846490142306297962e+01)
+	atanQ1 = NewFromFloat(1.650270098316988542046e+02)
+	atanQ2 = NewFromFloat(4.328810604912902668951e+02)
+	atanQ3 = NewFromFloat(4.853903996359136964868e+02)
+	atanQ4 = NewFromFloat(1.945506571482613964425e+02)
+
+	atanMorebits = NewFromFloat(6.123233995736765886130e-17) // pi/2 = PIO2 + Morebits
+	tan3pio8     = NewFromFloat(2.41421356237309504880)      // tan(3*pi/8)
+	piFloat      = NewFromFloat(3.14159265358979323846264338327950288419716939937510582097494459)
+)
+
 // Atan returns the arctangent, in radians, of x.
 func (d Decimal) Atan() Decimal {
-	if d.Equal(NewFromFloat(0.0)) {
+	if d.IsZero() {
 		return d
 	}
-	if d.GreaterThan(NewFromFloat(0.0)) {
+	if d.IsPositive() {
 		return d.satan()
 	}
 	return d.Neg().satan().Neg()
 }
 
 func (d Decimal) xatan() Decimal {
-	P0 := NewFromFloat(-8.750608600031904122785e-01)
-	P1 := NewFromFloat(-1.615753718733365076637e+01)
-	P2 := NewFromFloat(-7.500855792314704667340e+01)
-	P3 := NewFromFloat(-1.228866684490136173410e+02)
-	P4 := NewFromFloat(-6.485021904942025371773e+01)
-	Q0 := NewFromFloat(2.485846490142306297962e+01)
-	Q1 := NewFromFloat(1.650270098316988542046e+02)
-	Q2 := NewFromFloat(4.328810604912902668951e+02)
-	Q3 := NewFromFloat(4.853903996359136964868e+02)
-	Q4 := NewFromFloat(1.945506571482613964425e+02)
+	P0, P1, P2, P3, P4 := atanP0, atanP1, atanP2, atanP3, atanP4
+	Q0, Q1, Q2, Q3, Q4 := atanQ0, atanQ1, atanQ2, atanQ3, atanQ4
 	z := d.Mul(d)
 	b1 := P0.Mul(z).Add(P1).Mul(z).Add(P2).Mul(z).Add(P3).Mul(z).Add(P4).Mul(z)
 	b2 := z.Add(Q0).Mul(z).Add(Q1).Mul(z).Add(Q2).Mul(z).Add(Q3).Mul(z).Add(Q4)
@@ -2715,17 +2730,15 @@ func (d Decimal) xatan() Decimal {
 // satan reduces its argument (known to be positive)
 // to the range [0, 0.66] and calls xatan.
 func (d Decimal) satan() Decimal {
-	Morebits := NewFromFloat(6.123233995736765886130e-17) // pi/2 = PIO2 + Morebits
-	Tan3pio8 := NewFromFloat(2.41421356237309504880)      // tan(3*pi/8)
-	pi := NewFromFloat(3.14159265358979323846264338327950288419716939937510582097494459)
+	Morebits, Tan3pio8, pi := atanMorebits, tan3pio8, piFloat
 
-	if d.LessThanOrEqual(NewFromFloat(0.66)) {
+	if d.LessThanOrEqual(New(66, -2)) {
 		return d.xatan()
 	}
 	if d.GreaterThan(Tan3pio8) {
-		return pi.Div(NewFromFloat(2.0)).Sub(NewFromFloat(1.0).Div(d).xatan()).Add(Morebits)
+		return pi.Div(New(2, 0)).Sub(New(1, 0).Div(d).xatan()).Add(Morebits)
 	}
-	return pi.Div(NewFromFloat(4.0)).Add((d.Sub(NewFromFloat(1.0)).Div(d.Add(NewFromFloat(1.0)))).xatan()).Add(NewFromFloat(0.5).Mul(Morebits))
+	return pi.Div(New(4, 0)).Add((d.Sub(New(1, 0)).Div(d.Add(New(1, 0)))).xatan()).Add(New(5, -1).Mul(Morebits))
 }
 
 // sin coefficients
@@ -2740,17 +2753,14 @@ var _sin = [...]Decimal{
 
 // Sin returns the sine of the radian argument x.
 func (d Decimal) Sin() Decimal {
-	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
-	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	PI4A, PI4B, PI4C, M4PI := pi4A, pi4B, pi4C, m4PI
 
-	if d.Equal(NewFromFloat(0.0)) {
+	if d.IsZero() {
 		return d
 	}
 	// make argument positive but save the sign
 	sign := false
-	if d.LessThan(NewFromFloat(0.0)) {
+	if d.IsNegative() {
 		d = d.Neg()
 		sign = true
 	}
@@ -2761,7 +2771,7 @@ func (d Decimal) Sin() Decimal {
 	// map zeros to origin
 	if j&1 == 1 {
 		j++
-		y = y.Add(NewFromFloat(1.0))
+		y = y.Add(New(1, 0))
 	}
 	j &= 7 // octant modulo 2Pi radians (360 degrees)
 	// reflect in x axis
@@ -2774,7 +2784,7 @@ func (d Decimal) Sin() Decimal {
 
 	if j == 1 || j == 2 {
 		w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
-		y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
+		y = New(1, 0).Sub(New(5, -1).Mul(zz)).Add(w)
 	} else {
 		y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
 	}
@@ -2797,14 +2807,11 @@ var _cos = [...]Decimal{
 // Cos returns the cosine of the radian argument x.
 func (d Decimal) Cos() Decimal {
 
-	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
-	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	PI4A, PI4B, PI4C, M4PI := pi4A, pi4B, pi4C, m4PI
 
 	// make argument positive
 	sign := false
-	if d.LessThan(NewFromFloat(0.0)) {
+	if d.IsNegative() {
 		d = d.Neg()
 	}
 
@@ -2814,7 +2821,7 @@ func (d Decimal) Cos() Decimal {
 	// map zeros to origin
 	if j&1 == 1 {
 		j++
-		y = y.Add(NewFromFloat(1.0))
+		y = y.Add(New(1, 0))
 	}
 	j &= 7 // octant modulo 2Pi radians (360 degrees)
 	// reflect in x axis
@@ -2833,7 +2840,7 @@ func (d Decimal) Cos() Decimal {
 		y = z.Add(z.Mul(zz).Mul(_sin[0].Mul(zz).Add(_sin[1]).Mul(zz).Add(_sin[2]).Mul(zz).Add(_sin[3]).Mul(zz).Add(_sin[4]).Mul(zz).Add(_sin[5])))
 	} else {
 		w := zz.Mul(zz).Mul(_cos[0].Mul(zz).Add(_cos[1]).Mul(zz).Add(_cos[2]).Mul(zz).Add(_cos[3]).Mul(zz).Add(_cos[4]).Mul(zz).Add(_cos[5]))
-		y = NewFromFloat(1.0).Sub(NewFromFloat(0.5).Mul(zz)).Add(w)
+		y = New(1, 0).Sub(New(5, -1).Mul(zz)).Add(w)
 	}
 	if sign {
 		y = y.Neg()
@@ -2857,18 +2864,15 @@ var _tanQ = [...]Decimal{
 // Tan returns the tangent of the radian argument x.
 func (d Decimal) Tan() Decimal {
 
-	PI4A := NewFromFloat(7.85398125648498535156e-1)                             // 0x3fe921fb40000000, Pi/4 split into three parts
-	PI4B := NewFromFloat(3.77489470793079817668e-8)                             // 0x3e64442d00000000,
-	PI4C := NewFromFloat(2.69515142907905952645e-15)                            // 0x3ce8469898cc5170,
-	M4PI := NewFromFloat(1.273239544735162542821171882678754627704620361328125) // 4/pi
+	PI4A, PI4B, PI4C, M4PI := pi4A, pi4B, pi4C, m4PI
 
-	if d.Equal(NewFromFloat(0.0)) {
+	if d.IsZero() {
 		return d
 	}
 
 	// make argument positive but save the sign
 	sign := false
-	if d.LessThan(NewFromFloat(0.0)) {
+	if d.IsNegative() {
 		d = d.Neg()
 		sign = true
 	}
@@ -2879,13 +2883,13 @@ func (d Decimal) Tan() Decimal {
 	// map zeros to origin
 	if j&1 == 1 {
 		j++
-		y = y.Add(NewFromFloat(1.0))
+		y = y.Add(New(1, 0))
 	}
 
 	z := d.Sub(y.Mul(PI4A)).Sub(y.Mul(PI4B)).Sub(y.Mul(PI4C)) // Extended precision modular arithmetic
 	zz := z.Mul(z)
 
-	if zz.GreaterThan(NewFromFloat(1e-14)) {
+	if zz.GreaterThan(New(1, -14)) {
 		w := zz.Mul(_tanP[0].Mul(zz).Add(_tanP[1]).Mul(zz).Add(_tanP[2]))
 		x := zz.Add(_tanQ[1]).Mul(zz).Add(_tanQ[2]).Mul(zz).Add(_tanQ[3]).Mul(zz).Add(_tanQ[4])
 		y = z.Add(z.Mul(w.Div(x)))
@@ -2893,7 +2897,7 @@ func (d Decimal) Tan() Decimal {
 		y = z
 	}
 	if j&2 == 2 {
-		y = NewFromFloat(-1.0).Div(y)
+		y = New(-1, 0).Div(y)
 	}
 	if sign {
 		y = y.Neg()

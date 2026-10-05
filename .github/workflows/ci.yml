@@ -5,6 +5,8 @@ on:
   pull_request:
     branches: [ master ]
     types: [ opened, synchronize ]
+permissions:
+  contents: read
 jobs:
   ci-job:
     runs-on: ubuntu-latest
@@ -20,3 +22,15 @@ jobs:
           go-version: ${{ matrix.go }}
       - run: go build .
       - run: go test -v
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0

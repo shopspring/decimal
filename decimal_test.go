@@ -263,11 +263,11 @@ func TestNewFromFormattedString(t *testing.T) {
 		ReplRegex *regexp.Regexp
 	}{
 		{"$10.99", "10.99", regexp.MustCompile("[$]")},
-		{"$ 12.1", "12.1", regexp.MustCompile("[$\\s]")},
+		{"$ 12.1", "12.1", regexp.MustCompile(`[$\s]`)},
 		{"$61,690.99", "61690.99", regexp.MustCompile("[$,]")},
 		{"1_000_000.00", "1000000.00", regexp.MustCompile("[_]")},
 		{"41,410.00", "41410.00", regexp.MustCompile("[,]")},
-		{"5200 USD", "5200", regexp.MustCompile("[USD\\s]")},
+		{"5200 USD", "5200", regexp.MustCompile(`[USD\s]`)},
 	} {
 		dFormatted, err := NewFromFormattedString(testCase.Formatted, testCase.ReplRegex)
 		if err != nil {
@@ -517,16 +517,15 @@ func TestRequireFromString(t *testing.T) {
 
 func TestRequireFromStringErrs(t *testing.T) {
 	s := "qwert"
-	var d Decimal
 	var err interface{}
 
-	func(d Decimal) {
+	func() {
 		defer func() {
 			err = recover()
 		}()
 
 		RequireFromString(s)
-	}(d)
+	}()
 
 	if err == nil {
 		t.Errorf("panic expected when parsing %s", s)
@@ -718,17 +717,18 @@ func TestNewFromBigRat(t *testing.T) {
 	}
 
 	tests := map[Inp]string{
-		Inp{big.NewRat(0, 1), 16}:                                                     "0",
-		Inp{big.NewRat(4, 5), 16}:                                                     "0.8",
-		Inp{big.NewRat(10, 2), 16}:                                                    "5",
-		Inp{big.NewRat(1023427554493, 43432632), 16}:                                  "23563.5628642767953828", // rounded
-		Inp{big.NewRat(1, 434324545566634), 16}:                                       "0.0000000000000023",
-		Inp{big.NewRat(1, 3), 16}:                                                     "0.3333333333333333",
-		Inp{big.NewRat(2, 3), 2}:                                                      "0.67",               // rounded
-		Inp{big.NewRat(2, 3), 16}:                                                     "0.6666666666666667", // rounded
-		Inp{big.NewRat(10000, 3), 16}:                                                 "3333.3333333333333333",
-		Inp{mustParseRat("30702832066636633479"), 16}:                                 "30702832066636633479",
-		Inp{mustParseRat("487028320159896636679.1827512895753"), 16}:                  "487028320159896636679.1827512895753",
+		Inp{big.NewRat(0, 1), 16}:                                    "0",
+		Inp{big.NewRat(4, 5), 16}:                                    "0.8",
+		Inp{big.NewRat(10, 2), 16}:                                   "5",
+		Inp{big.NewRat(1023427554493, 43432632), 16}:                 "23563.5628642767953828", // rounded
+		Inp{big.NewRat(1, 434324545566634), 16}:                      "0.0000000000000023",
+		Inp{big.NewRat(1, 3), 16}:                                    "0.3333333333333333",
+		Inp{big.NewRat(2, 3), 2}:                                     "0.67",               // rounded
+		Inp{big.NewRat(2, 3), 16}:                                    "0.6666666666666667", // rounded
+		Inp{big.NewRat(10000, 3), 16}:                                "3333.3333333333333333",
+		Inp{mustParseRat("30702832066636633479"), 16}:                "30702832066636633479",
+		Inp{mustParseRat("487028320159896636679.1827512895753"), 16}: "487028320159896636679.1827512895753",
+
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), -2}: "127028320612589896636633500",                  // rounded
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 16}: "127028320612589896636633479.1735827512895753", // rounded
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 32}: "127028320612589896636633479.173582751289575278357832",

@@ -865,6 +865,8 @@ func (d Decimal) Equal(d2 Decimal) bool {
 	return d.Cmp(d2) == 0
 }
 
+// Equals returns whether the numbers represented by d and d2 are equal.
+//
 // Deprecated: Equals is deprecated, please use Equal method instead.
 func (d Decimal) Equals(d2 Decimal) bool {
 	return d.Equal(d2)
@@ -1327,9 +1329,8 @@ func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 	if d.exp >= 0 {
 		if useScientificNotation {
 			return d.ScientificNotationString()
-		} else {
-			return d.rescale(0).value.String()
 		}
+		return d.rescale(0).value.String()
 	}
 
 	str := d.getValue().String()

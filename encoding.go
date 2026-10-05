@@ -175,6 +175,7 @@ type NullDecimal struct {
 	Valid   bool
 }
 
+// NewNullDecimal returns a valid NullDecimal holding d.
 func NewNullDecimal(d Decimal) NullDecimal {
 	return NullDecimal{
 		Decimal: d,

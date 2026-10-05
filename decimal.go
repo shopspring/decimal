@@ -2205,8 +2205,7 @@ func (d Decimal) RoundCash(interval uint8) Decimal {
 		value: iVal,
 	}
 
-	// TODO: optimize those calculations to reduce the high allocations (~29 allocs).
-	return d.Mul(dVal).Round(0).Div(dVal).Truncate(2)
+	return d.Mul(dVal).Round(0).DivRound(dVal, 2)
 }
 
 // Floor returns the nearest integer value less than or equal to d.
@@ -2605,8 +2604,9 @@ func (d *NullDecimal) Scan(value interface{}) error {
 		d.Valid = false
 		return nil
 	}
-	d.Valid = true
-	return d.Decimal.Scan(value)
+	err := d.Decimal.Scan(value)
+	d.Valid = err == nil
+	return err
 }
 
 // Value implements the driver.Valuer interface for database serialization.
@@ -2623,8 +2623,9 @@ func (d *NullDecimal) UnmarshalJSON(decimalBytes []byte) error {
 		d.Valid = false
 		return nil
 	}
-	d.Valid = true
-	return d.Decimal.UnmarshalJSON(decimalBytes)
+	err := d.Decimal.UnmarshalJSON(decimalBytes)
+	d.Valid = err == nil
+	return err
 }
 
 // MarshalJSON implements the json.Marshaler interface.
@@ -2675,9 +2676,10 @@ func (d *NullDecimal) DecodeSpanner(value interface{}) error {
 		}
 		value = *t
 	}
-	d.Valid = true
 
-	return d.Decimal.Scan(value)
+	err := d.Decimal.Scan(value)
+	d.Valid = err == nil
+	return err
 }
 
 // EncodeSpanner encodes a Decimal into a Spanner value

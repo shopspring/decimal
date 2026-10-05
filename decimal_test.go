@@ -931,6 +931,17 @@ func TestNullDecimalBadJSON(t *testing.T) {
 		if err == nil {
 			t.Errorf("expected error, got %+v", doc)
 		}
+		if doc.Amount.Valid {
+			t.Errorf("%s: expected Valid to be false after an error", testCase)
+		}
+	}
+
+	var nd NullDecimal
+	if err := nd.Scan("nope"); err == nil || nd.Valid {
+		t.Errorf("Scan(\"nope\"): expected an error and Valid false, got %v and %v", err, nd.Valid)
+	}
+	if err := nd.DecodeSpanner("nope"); err == nil || nd.Valid {
+		t.Errorf("DecodeSpanner(\"nope\"): expected an error and Valid false, got %v and %v", err, nd.Valid)
 	}
 }
 
@@ -2308,13 +2319,17 @@ func TestDecimal_RoundCash(t *testing.T) {
 		{"3.93", 100, "4.00"},
 		{"393", 100, "393"},
 	}
-	for i, test := range tests {
-		d, _ := NewFromString(test.d)
-		haveRounded := d.RoundCash(test.interval)
-		result, _ := NewFromString(test.result)
+	defer func(p int) { DivisionPrecision = p }(DivisionPrecision)
+	for _, precision := range []int{16, 0} {
+		DivisionPrecision = precision
+		for i, test := range tests {
+			d, _ := NewFromString(test.d)
+			haveRounded := d.RoundCash(test.interval)
+			result, _ := NewFromString(test.result)
 
-		if !haveRounded.Equal(result) {
-			t.Errorf("Index %d: Cash rounding for %q interval %d want %q, have %q", i, test.d, test.interval, test.result, haveRounded)
+			if !haveRounded.Equal(result) {
+				t.Errorf("Index %d, DivisionPrecision %d: Cash rounding for %q interval %d want %q, have %q", i, precision, test.d, test.interval, test.result, haveRounded)
+			}
 		}
 	}
 }

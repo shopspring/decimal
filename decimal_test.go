@@ -4446,6 +4446,20 @@ func TestRescaleToZeroRepresentation(t *testing.T) {
 // TestRoundingExponentNormalization verifies that RoundUp, RoundDown,
 // RoundCeil, and RoundFloor return a result with the exponent normalized
 // to the requested number of places, even when the value is already exact.
+func TestRoundCeilFloorToZeroRepresentation(t *testing.T) {
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals.
+	// Rounding a nonzero value to zero keeps the same form for any number of dropped digits.
+	want := New(7, 0).Sub(New(7, 0))
+	for _, k := range []int32{1, 19, 20, 40} {
+		if got := New(-5, -k).RoundCeil(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("-5e-%d RoundCeil(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+		if got := New(5, -k).RoundFloor(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d RoundFloor(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+	}
+}
+
 func TestRoundingExponentNormalization(t *testing.T) {
 	type testCase struct {
 		fn      string

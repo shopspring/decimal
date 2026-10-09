@@ -4537,3 +4537,131 @@ func TestRoundingExponentNormalization(t *testing.T) {
 		}
 	}
 }
+
+// TestRoundExactWithTrailingZeros verifies that rounding functions do not
+// increment numbers whose discarded digits are all zero.
+func TestRoundExactWithTrailingZeros(t *testing.T) {
+	// Issue #388: 3.692 * 1.25 = 4.61500 (value 461500, exp -5)
+	d := RequireFromString("3.692").Mul(RequireFromString("1.25"))
+	if got := d.RoundUp(3); got.String() != "4.615" || got.exp != -3 {
+		t.Errorf("expected 4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := d.RoundCeil(3); got.String() != "4.615" || got.exp != -3 {
+		t.Errorf("expected 4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := d.RoundFloor(3); got.String() != "4.615" || got.exp != -3 {
+		t.Errorf("expected 4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := d.RoundDown(3); got.String() != "4.615" || got.exp != -3 {
+		t.Errorf("expected 4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+
+	negD := d.Neg()
+	if got := negD.RoundUp(3); got.String() != "-4.615" || got.exp != -3 {
+		t.Errorf("expected -4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := negD.RoundCeil(3); got.String() != "-4.615" || got.exp != -3 {
+		t.Errorf("expected -4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := negD.RoundFloor(3); got.String() != "-4.615" || got.exp != -3 {
+		t.Errorf("expected -4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+	if got := negD.RoundDown(3); got.String() != "-4.615" || got.exp != -3 {
+		t.Errorf("expected -4.615 with exp -3, got %s with exp %d", got.String(), got.exp)
+	}
+
+	type testCase struct {
+		fn          string
+		input       string
+		places      int32
+		wantStr     string
+		wantExp     int32
+		wantFixed   string
+	}
+
+	tests := []testCase{
+		// RoundUp: positive numbers with trailing zeros
+		{"RoundUp", "4.61500", 3, "4.615", -3, "4.615"},
+		{"RoundUp", "4.61500000", 3, "4.615", -3, "4.615"},
+		{"RoundUp", "4.61500", 4, "4.615", -4, "4.6150"},
+		{"RoundUp", "4.61500", 5, "4.615", -5, "4.61500"},
+		{"RoundUp", "4.61500", 6, "4.615", -6, "4.615000"},
+		{"RoundUp", "123.4000", 1, "123.4", -1, "123.4"},
+		{"RoundUp", "123.4000", 2, "123.4", -2, "123.40"},
+		{"RoundUp", "100.000", 0, "100", 0, "100"},
+		{"RoundUp", "5000", -3, "5000", 3, "5000"},
+		{"RoundUp", "5400", -2, "5400", 2, "5400"},
+		{"RoundUp", "1.0000000000000000000000000000000000000000", 1, "1", -1, "1.0"},
+
+		// RoundUp: negative numbers with trailing zeros
+		{"RoundUp", "-4.61500", 3, "-4.615", -3, "-4.615"},
+		{"RoundUp", "-4.61500000", 3, "-4.615", -3, "-4.615"},
+		{"RoundUp", "-4.61500", 4, "-4.615", -4, "-4.6150"},
+		{"RoundUp", "-4.61500", 5, "-4.615", -5, "-4.61500"},
+		{"RoundUp", "-4.61500", 6, "-4.615", -6, "-4.615000"},
+		{"RoundUp", "-123.4000", 1, "-123.4", -1, "-123.4"},
+		{"RoundUp", "-123.4000", 2, "-123.4", -2, "-123.40"},
+		{"RoundUp", "-100.000", 0, "-100", 0, "-100"},
+		{"RoundUp", "-5000", -3, "-5000", 3, "-5000"},
+		{"RoundUp", "-5400", -2, "-5400", 2, "-5400"},
+		{"RoundUp", "-1.0000000000000000000000000000000000000000", 1, "-1", -1, "-1.0"},
+
+		// RoundUp: zeros
+		{"RoundUp", "0.0000", 2, "0", -2, "0.00"},
+		{"RoundUp", "0.0000", 0, "0", 0, "0"},
+		{"RoundUp", "0", 2, "0", -2, "0.00"},
+		{"RoundUp", "0", -2, "0", 2, "0"},
+
+		// RoundCeil: positive & negative with trailing zeros
+		{"RoundCeil", "4.61500", 3, "4.615", -3, "4.615"},
+		{"RoundCeil", "-4.61500", 3, "-4.615", -3, "-4.615"},
+		{"RoundCeil", "123.4000", 1, "123.4", -1, "123.4"},
+		{"RoundCeil", "-123.4000", 1, "-123.4", -1, "-123.4"},
+		{"RoundCeil", "5000", -3, "5000", 3, "5000"},
+		{"RoundCeil", "-5000", -3, "-5000", 3, "-5000"},
+
+		// RoundFloor: positive & negative with trailing zeros
+		{"RoundFloor", "4.61500", 3, "4.615", -3, "4.615"},
+		{"RoundFloor", "-4.61500", 3, "-4.615", -3, "-4.615"},
+		{"RoundFloor", "123.4000", 1, "123.4", -1, "123.4"},
+		{"RoundFloor", "-123.4000", 1, "-123.4", -1, "-123.4"},
+		{"RoundFloor", "5000", -3, "5000", 3, "5000"},
+		{"RoundFloor", "-5000", -3, "-5000", 3, "-5000"},
+
+		// RoundDown: positive & negative with trailing zeros
+		{"RoundDown", "4.61500", 3, "4.615", -3, "4.615"},
+		{"RoundDown", "-4.61500", 3, "-4.615", -3, "-4.615"},
+		{"RoundDown", "123.4000", 1, "123.4", -1, "123.4"},
+		{"RoundDown", "-123.4000", 1, "-123.4", -1, "-123.4"},
+		{"RoundDown", "5000", -3, "5000", 3, "5000"},
+		{"RoundDown", "-5000", -3, "-5000", 3, "-5000"},
+	}
+
+	for _, tc := range tests {
+		d := RequireFromString(tc.input)
+		var got Decimal
+		switch tc.fn {
+		case "RoundUp":
+			got = d.RoundUp(tc.places)
+		case "RoundDown":
+			got = d.RoundDown(tc.places)
+		case "RoundFloor":
+			got = d.RoundFloor(tc.places)
+		case "RoundCeil":
+			got = d.RoundCeil(tc.places)
+		}
+		if got.String() != tc.wantStr {
+			t.Errorf("(%s).%s(%d): got %s, want %s", tc.input, tc.fn, tc.places, got.String(), tc.wantStr)
+		}
+		if got.exp != tc.wantExp {
+			t.Errorf("(%s).%s(%d): got exponent %d, want %d", tc.input, tc.fn, tc.places, got.exp, tc.wantExp)
+		}
+		if tc.wantFixed != "" {
+			if gotFixed := got.StringFixed(tc.places); gotFixed != tc.wantFixed {
+				t.Errorf("(%s).%s(%d).StringFixed(%d): got %s, want %s", tc.input, tc.fn, tc.places, tc.places, gotFixed, tc.wantFixed)
+			}
+		}
+	}
+}
+
+

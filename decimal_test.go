@@ -12,6 +12,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"testing/quick"
 	"time"
@@ -262,11 +263,11 @@ func TestNewFromFormattedString(t *testing.T) {
 		ReplRegex *regexp.Regexp
 	}{
 		{"$10.99", "10.99", regexp.MustCompile("[$]")},
-		{"$ 12.1", "12.1", regexp.MustCompile("[$\\s]")},
+		{"$ 12.1", "12.1", regexp.MustCompile(`[$\s]`)},
 		{"$61,690.99", "61690.99", regexp.MustCompile("[$,]")},
 		{"1_000_000.00", "1000000.00", regexp.MustCompile("[_]")},
 		{"41,410.00", "41410.00", regexp.MustCompile("[,]")},
-		{"5200 USD", "5200", regexp.MustCompile("[USD\\s]")},
+		{"5200 USD", "5200", regexp.MustCompile(`[USD\s]`)},
 	} {
 		dFormatted, err := NewFromFormattedString(testCase.Formatted, testCase.ReplRegex)
 		if err != nil {
@@ -302,6 +303,56 @@ func TestFloat64(t *testing.T) {
 			t.Errorf("error while parsing %s", s)
 		} else if f, exact := d.Float64(); exact || f != x.float {
 			t.Errorf("%s should be represented inexactly", s)
+		}
+	}
+}
+
+func TestFloat64OutOfRange(t *testing.T) {
+	type tc struct {
+		d     Decimal
+		f     float64
+		exact bool
+	}
+	tests := []tc{
+		// near the float64 limits, still converted the normal way
+		{New(1, 308), 1e308, false},
+		{New(-1, 308), -1e308, false},
+		{New(1, 309), math.Inf(1), false},
+		{New(-1, 309), math.Inf(-1), false},
+		{New(5, -324), 5e-324, false},
+		{New(1, -325), 0, false},
+		{New(-1, -325), math.Copysign(0, -1), false},
+		{New(123456789, -340), 1.23456789e-332, false},
+		{New(0, -1<<30), 0, true},
+		{New(0, 1<<30), 0, true},
+		// far outside the float64 range (issue #226)
+		{New(100, -1<<30), 0, false},
+		{New(-100, -1<<30), math.Copysign(0, -1), false},
+		{New(100, 1<<30), math.Inf(1), false},
+		{New(-100, 1<<30), math.Inf(-1), false},
+		{New(1, math.MinInt32), 0, false},
+		{New(1, math.MaxInt32), math.Inf(1), false},
+		{NewFromBigInt(new(big.Int).Exp(tenInt, big.NewInt(400), nil), -1<<30), 0, false},
+	}
+
+	for _, test := range tests {
+		done := make(chan struct{})
+		var f float64
+		var exact bool
+		go func() {
+			f, exact = test.d.Float64()
+			close(done)
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("Float64() of %de%d did not return within 5s", test.d.Coefficient(), test.d.Exponent())
+		}
+
+		if math.Float64bits(f) != math.Float64bits(test.f) || exact != test.exact {
+			t.Errorf("%de%d: expected (%v, %v), got (%v, %v)",
+				test.d.Coefficient(), test.d.Exponent(), test.f, test.exact, f, exact)
 		}
 	}
 }
@@ -363,6 +414,9 @@ func TestNewFromStringErrs(t *testing.T) {
 		"51,850.00",
 		"20_000_000.00",
 		"$20_000_000.00",
+		".-5",
+		".+5",
+		".-1234567890123456789012",
 	}
 
 	for _, s := range tests {
@@ -371,6 +425,67 @@ func TestNewFromStringErrs(t *testing.T) {
 		if err == nil {
 			t.Errorf("error expected when parsing %s", s)
 		}
+	}
+}
+
+func TestParseInt64SkipIndex(t *testing.T) {
+	// every string of up to 5 bytes from this alphabet, with the decimal point at each position
+	const alphabet = "059-+.a "
+	var check func(s string)
+	check = func(s string) {
+		for skip := -1; skip < len(s); skip++ {
+			if skip >= 0 && s[skip] != '.' {
+				continue
+			}
+			if skip == 0 && len(s) > 1 && (s[1] == '-' || s[1] == '+') {
+				continue // NewFromString rejects a sign after the point before parsing
+			}
+			withoutPoint := s
+			if skip >= 0 {
+				withoutPoint = s[:skip] + s[skip+1:]
+			}
+			want, err := strconv.ParseInt(withoutPoint, 10, 64)
+			got, ok := parseInt64SkipIndex(s, skip)
+			if ok != (err == nil) || got != want {
+				t.Fatalf("parseInt64SkipIndex(%q, %d) = %d, %v; ParseInt(%q) = %d, %v", s, skip, got, ok, withoutPoint, want, err)
+			}
+		}
+		if len(s) < 5 {
+			for i := range alphabet {
+				check(s + alphabet[i:i+1])
+			}
+		}
+	}
+	check("")
+}
+
+func TestMaxDecodeExponent(t *testing.T) {
+	limit := int32(MaxDecodeExponent)
+	for _, c := range []struct {
+		exp int32
+		ok  bool
+	}{
+		{limit, true},
+		{-limit, true},
+		{limit + 1, false},
+		{-limit - 1, false},
+		{math.MaxInt32, false},
+		{math.MinInt32, false},
+	} {
+		if _, err := NewFromString(fmt.Sprintf("1e%d", c.exp)); (err == nil) != c.ok {
+			t.Errorf("NewFromString(1e%d): got error %v, want ok=%v", c.exp, err, c.ok)
+		}
+
+		b, _ := New(1, c.exp).MarshalBinary()
+		d := New(7, 0)
+		err := d.UnmarshalBinary(b)
+		if (err == nil) != c.ok || (!c.ok && d.Exponent() != 0) {
+			t.Errorf("UnmarshalBinary(exp %d): got error %v and exp %d, want ok=%v", c.exp, err, d.Exponent(), c.ok)
+		}
+	}
+
+	if _, err := NewFromString(fmt.Sprintf("0.1e%d", -limit)); err == nil {
+		t.Errorf("NewFromString(0.1e%d) accepted exponent %d", -limit, -limit-1)
 	}
 }
 
@@ -422,16 +537,15 @@ func TestRequireFromString(t *testing.T) {
 
 func TestRequireFromStringErrs(t *testing.T) {
 	s := "qwert"
-	var d Decimal
 	var err interface{}
 
-	func(d Decimal) {
+	func() {
 		defer func() {
 			err = recover()
 		}()
 
 		RequireFromString(s)
-	}(d)
+	}()
 
 	if err == nil {
 		t.Errorf("panic expected when parsing %s", s)
@@ -623,17 +737,18 @@ func TestNewFromBigRat(t *testing.T) {
 	}
 
 	tests := map[Inp]string{
-		Inp{big.NewRat(0, 1), 16}:                                                     "0",
-		Inp{big.NewRat(4, 5), 16}:                                                     "0.8",
-		Inp{big.NewRat(10, 2), 16}:                                                    "5",
-		Inp{big.NewRat(1023427554493, 43432632), 16}:                                  "23563.5628642767953828", // rounded
-		Inp{big.NewRat(1, 434324545566634), 16}:                                       "0.0000000000000023",
-		Inp{big.NewRat(1, 3), 16}:                                                     "0.3333333333333333",
-		Inp{big.NewRat(2, 3), 2}:                                                      "0.67",               // rounded
-		Inp{big.NewRat(2, 3), 16}:                                                     "0.6666666666666667", // rounded
-		Inp{big.NewRat(10000, 3), 16}:                                                 "3333.3333333333333333",
-		Inp{mustParseRat("30702832066636633479"), 16}:                                 "30702832066636633479",
-		Inp{mustParseRat("487028320159896636679.1827512895753"), 16}:                  "487028320159896636679.1827512895753",
+		Inp{big.NewRat(0, 1), 16}:                                    "0",
+		Inp{big.NewRat(4, 5), 16}:                                    "0.8",
+		Inp{big.NewRat(10, 2), 16}:                                   "5",
+		Inp{big.NewRat(1023427554493, 43432632), 16}:                 "23563.5628642767953828", // rounded
+		Inp{big.NewRat(1, 434324545566634), 16}:                      "0.0000000000000023",
+		Inp{big.NewRat(1, 3), 16}:                                    "0.3333333333333333",
+		Inp{big.NewRat(2, 3), 2}:                                     "0.67",               // rounded
+		Inp{big.NewRat(2, 3), 16}:                                    "0.6666666666666667", // rounded
+		Inp{big.NewRat(10000, 3), 16}:                                "3333.3333333333333333",
+		Inp{mustParseRat("30702832066636633479"), 16}:                "30702832066636633479",
+		Inp{mustParseRat("487028320159896636679.1827512895753"), 16}: "487028320159896636679.1827512895753",
+
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), -2}: "127028320612589896636633500",                  // rounded
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 16}: "127028320612589896636633479.1735827512895753", // rounded
 		Inp{mustParseRat("127028320612589896636633479.173582751289575278357832"), 32}: "127028320612589896636633479.173582751289575278357832",
@@ -668,7 +783,7 @@ func TestCopy(t *testing.T) {
 		t.Error("expecting copy and origin to be equals, but they are not")
 	}
 
-	//change value
+	// change value
 	cpy = cpy.Add(New(1, 0))
 
 	if cpy.Cmp(origin) == 0 {
@@ -836,6 +951,17 @@ func TestNullDecimalBadJSON(t *testing.T) {
 		if err == nil {
 			t.Errorf("expected error, got %+v", doc)
 		}
+		if doc.Amount.Valid {
+			t.Errorf("%s: expected Valid to be false after an error", testCase)
+		}
+	}
+
+	var nd NullDecimal
+	if err := nd.Scan("nope"); err == nil || nd.Valid {
+		t.Errorf("Scan(\"nope\"): expected an error and Valid false, got %v and %v", err, nd.Valid)
+	}
+	if err := nd.DecodeSpanner("nope"); err == nil || nd.Valid {
+		t.Errorf("DecodeSpanner(\"nope\"): expected an error and Valid false, got %v and %v", err, nd.Valid)
 	}
 }
 
@@ -1863,6 +1989,21 @@ func TestDecimal_Shift(t *testing.T) {
 	}
 }
 
+func TestDecimal_ShiftExponentOverflow(t *testing.T) {
+	// The sum still fits, so the exponent is unchanged by the overflow check.
+	got := New(5, math.MaxInt32-1).Shift(1)
+	if !got.Equal(New(5, math.MaxInt32)) {
+		t.Fatalf("shift onto MaxInt32: exp %d", got.Exponent())
+	}
+
+	if !didPanic(func() { New(5, math.MaxInt32).Shift(1) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { New(5, math.MinInt32).Shift(-1) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+}
+
 func TestDecimal_Div(t *testing.T) {
 	type Inp struct {
 		a string
@@ -2198,13 +2339,17 @@ func TestDecimal_RoundCash(t *testing.T) {
 		{"3.93", 100, "4.00"},
 		{"393", 100, "393"},
 	}
-	for i, test := range tests {
-		d, _ := NewFromString(test.d)
-		haveRounded := d.RoundCash(test.interval)
-		result, _ := NewFromString(test.result)
+	defer func(p int) { DivisionPrecision = p }(DivisionPrecision)
+	for _, precision := range []int{16, 0} {
+		DivisionPrecision = precision
+		for i, test := range tests {
+			d, _ := NewFromString(test.d)
+			haveRounded := d.RoundCash(test.interval)
+			result, _ := NewFromString(test.result)
 
-		if !haveRounded.Equal(result) {
-			t.Errorf("Index %d: Cash rounding for %q interval %d want %q, have %q", i, test.d, test.interval, test.result, haveRounded)
+			if !haveRounded.Equal(result) {
+				t.Errorf("Index %d, DivisionPrecision %d: Cash rounding for %q interval %d want %q, have %q", i, precision, test.d, test.interval, test.result, haveRounded)
+			}
 		}
 	}
 }
@@ -2717,29 +2862,55 @@ func TestDecimal_Pow(t *testing.T) {
 		{"4.0", "2.0", "16.0"},
 		{"4.0", "-2.0", "0.0625"},
 		{"629.25", "5.0", "98654323103449.5673828125"},
-		{"5.0", "5.73", "10118.08037159375"},
-		{"962.0", "3.2791", "6055212360.0000044205714144"},
-		{"5.69169126", "5.18515912", "8242.26344757948412597909547972726268869189399260047793106028930864"},
-		{"13.1337", "3.5196719618391835", "8636.856220644773844815693636723928750940666269885"},
-		{"67762386.283696923", "4.85917691669163916681738", "112761146905370140621385730157437443321.91755738117317148674362233906499698561022574811238435007575701773212242750262081945556470501"},
+		{"5.0", "5.73", "10118.0803715950193171"},
+		{"962.0", "3.2791", "6055212360.0000044065516031"},
+		{"5.69169126", "5.18515912", "8242.263447579484126"},
+		{"13.1337", "3.5196719618391835", "8636.8562206447738448"},
+		{"67762386.283696923", "4.85917691669163916681738", "112761146905370140621385730157437443321.9175573811731715"},
 		{"-3.0", "6.0", "729"},
 		{"-13.757", "5.0", "-492740.983929899460557"},
 		{"3.0", "-6.0", "0.0013717421124829"},
 		{"13.757", "-5.0", "0.000002029463821"},
-		{"66.12", "-7.61313", "0.000000000000013854086588876805036"},
-		{"6696871.12", "-2.61313", "0.000000000000000001455988684546983"},
+		{"66.12", "-7.61313", "0.0000000000000139"},
+		{"6696871.12", "-2.61313", "0.000000000000000001455825273411375"},
 		{"-3.0", "-6.0", "0.0013717421124829"},
 		{"-13.757", "-5.0", "-0.000002029463821"},
+		{"-2", "-3", "-0.125"},
+		{"0.5", "-20", "1048576"},
+		{"2", "-17", "0.0000076293945313"},
+		{"10", "-18", "0.000000000000000001"},
+		{"100", "-17", "0.0000000000000000000000000000000001"},
+		{"12345", "-5", "0.000000000000000000003487743424943423"},
+		{"1000", "-6.5", "0.00000000000000000003162277660168379"},
+		{"1.0041666666666667", "-360", "0.2238265956413493"},
+		{"1.0041666666666667", "360.5", "4.4770424391814548"},
+		{"0.01", "-7.585", "1479108388168207.4221993463468552"},
+		{"-1.5", "-1001", "-5.403183104351711e-177"},
+		{"-1.5", "-1000", "8.104774656527567e-177"},
+		{"1.0000001", "-1000000000", "0.00000000000000000000000000000000000000000003720094576445977"},
+		{"1.0000001", "1000000000.5", "26881038356701055136223322520735843418287670.4854123820834493"},
+		{"100.0000000000000000", "0.5", "10"},
+		{"4", "2.5", "32"},
+		{"2", "1.1", "2.1435469250725863"},
+		{"2", "0.5", "1.414213562373095"},
+		{"1.28", "0.0833333333333333", "1.0207847284895002"},
+		{"0.0208333333333333", "0.33", "0.2787342852450195"},
+		{"1", "1" + strings.Repeat("0", 400) + ".5", "1"},
 	} {
-		base, _ := NewFromString(testCase.Base)
-		exp, _ := NewFromString(testCase.Exponent)
-		expected, _ := NewFromString(testCase.Expected)
+		base := RequireFromString(testCase.Base)
+		exp := RequireFromString(testCase.Exponent)
+		expected := RequireFromString(testCase.Expected)
 
 		result := base.Pow(exp)
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for %s^%s", testCase.Expected, result.String(), testCase.Base, testCase.Exponent)
 		}
+	}
+
+	// The expected exponent is beyond MaxDecodeExponent, so it can't be parsed from a string.
+	if got := New(15, -1).Pow(New(-100000, 0)); got.Cmp(New(7483321982518254, -17625)) != 0 {
+		t.Errorf("expected 7.483321982518254e-17610, got %s, for 1.5^-100000", got)
 	}
 }
 
@@ -2762,19 +2933,31 @@ func TestDecimal_PowWithPrecision(t *testing.T) {
 		{"4.0", "-2.0", 2, "0.06"},
 		{"4.0", "-2.0", 4, "0.0625"},
 		{"629.25", "5.0", 6, "98654323103449.5673828125"},
-		{"5.0", "5.73", 20, "10118.080371595019317118681359884375"},
-		{"962.0", "3.2791", 15, "6055212360.000004406551603058195732"},
-		{"5.69169126", "5.18515912", 4, "8242.26344757948412587366859330429895955552280978668983459852256"},
-		{"13.1337", "3.5196719618391835", 8, "8636.85622064477384481569363672392591908386390769375"},
-		{"67762386.283696923", "4.85917691669163916681738", 10, "112761146905370140621385730157437443321.917557381173174638304347353880676293576708009282115993465286373470882947470198597518762"},
+		{"5.0", "5.73", 20, "10118.08037159501931711868"},
+		{"962.0", "3.2791", 15, "6055212360.000004406551603"},
+		{"5.69169126", "5.18515912", 4, "8242.2634"},
+		{"13.1337", "3.5196719618391835", 8, "8636.85622064"},
+		{"67762386.283696923", "4.85917691669163916681738", 10, "112761146905370140621385730157437443321.9175573812"},
 		{"-3.0", "6.0", 2, "729"},
 		{"-13.757", "5.0", 4, "-492740.983929899460557"},
 		{"3.0", "-6.0", 10, "0.0013717421"},
 		{"13.757", "-5.0", 20, "0.00000202946382098037"},
-		{"66.12", "-7.61313", 20, "0.00000000000001385381563049821591633907104023700216"},
-		{"6696871.12", "-2.61313", 24, "0.0000000000000000014558252733872790626400278983397459207418"},
+		{"66.12", "-7.61313", 20, "0.00000000000001385382"},
+		{"6696871.12", "-2.61313", 24, "0.000000000000000001455825"},
 		{"-3.0", "-6.0", 8, "0.00137174"},
 		{"-13.757", "-5.0", 16, "-0.000002029463821"},
+		{"10", "-18", 5, "0.000000000000000001"},
+		{"5.63379", "-6.438", 2, "0.000015"},
+		{"1000", "10.5", 5, "31622776601683793319988935444327.18534"},
+		{"123.456", "7.89", 10, "31771028258180977.3090686597"},
+		{"0.3", "-2.5", 16, "20.2860206483394857"},
+		{"6.25", "0.5", 0, "3"},
+		{"6.24" + strings.Repeat("9", 200), "0.5", 0, "2"},
+		{"1.0041666666666667", "-360", -1, "0.2"},
+		{"0.0625", "0.5", 1, "0.3"},
+		{"0.00000625", "0.5", 1, "0.003"},
+		{"2", "0.5", -1, "1"},
+		{"123456", "0.5", -2, "400"},
 	} {
 		base, _ := NewFromString(testCase.Base)
 		exp, _ := NewFromString(testCase.Exponent)
@@ -2878,15 +3061,115 @@ func TestDecimal_PowInt32(t *testing.T) {
 		{"-13.757", 5, "-492740.983929899460557"},
 		{"3.0", -6, "0.0013717421124829"},
 		{"-13.757", -5, "-0.000002029463821"},
+		{"10", -18, "0.000000000000000001"},
+		{"12345", -5, "0.000000000000000000003487743424943423"},
+		{"-1.5", -1001, "-5.403183104351711e-177"},
 	} {
-		base, _ := NewFromString(testCase.Decimal)
-		expected, _ := NewFromString(testCase.Expected)
+		base := RequireFromString(testCase.Decimal)
+		expected := RequireFromString(testCase.Expected)
 
 		result, _ := base.PowInt32(testCase.Exponent)
 
 		if result.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for %s**%d", testCase.Expected, result.String(), testCase.Decimal, testCase.Exponent)
 		}
+	}
+
+	// Exponents beyond MaxDecodeExponent can't be parsed, and String() on them is too slow for error messages.
+	for _, testCase := range []struct {
+		Decimal  Decimal
+		Exponent int32
+		Expected Decimal
+	}{
+		{New(15, -1), math.MinInt32, New(4189793427303781, -378153115)},
+		{New(3, 50000000), -1, New(3333333333333333, -50000016)},
+	} {
+		result, err := testCase.Decimal.PowInt32(testCase.Exponent)
+		if err != nil || result.Cmp(testCase.Expected) != 0 {
+			t.Errorf("expected %de%d, got %de%d (err %v), for %de%d**%d",
+				testCase.Expected.Coefficient(), testCase.Expected.Exponent(), result.Coefficient(), result.Exponent(), err,
+				testCase.Decimal.Coefficient(), testCase.Decimal.Exponent(), testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_Pow_InexactResultExponent(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+	}{
+		{"3", "-6"},
+		{"2", "0.5"},
+		{"5.2", "6.3"},
+	} {
+		result := RequireFromString(testCase.Base).Pow(RequireFromString(testCase.Exponent))
+		if result.Exponent() != -int32(PowPrecisionNegativeExponent) {
+			t.Errorf("expected exponent %d, got %d, for %s^%s", -PowPrecisionNegativeExponent, result.Exponent(), testCase.Base, testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_Pow_RoundedToZeroResultExponent(t *testing.T) {
+	for _, testCase := range []struct {
+		Exponent int32
+		Expected int32
+	}{
+		{-18, -33},
+		{-1018, -1033},
+	} {
+		result, _ := New(10, 0).PowInt32(testCase.Exponent)
+		if result.Exponent() != testCase.Expected {
+			t.Errorf("expected exponent %d, got %d, for 10**%d", testCase.Expected, result.Exponent(), testCase.Exponent)
+		}
+	}
+}
+
+func TestDecimal_PowWithPrecision_HighPrecision(t *testing.T) {
+	two := New(2, 0)
+	for _, precision := range []int32{700, 3500} {
+		result, _ := two.PowWithPrecision(RequireFromString("0.5"), precision)
+		half := New(5, -precision-1)
+		lo, hi := result.Sub(half), result.Add(half)
+		if result.Exponent() != -precision || lo.Mul(lo).Cmp(two) >= 0 || hi.Mul(hi).Cmp(two) <= 0 {
+			t.Errorf("2^0.5 is not correctly rounded to %d places", precision)
+		}
+	}
+}
+
+func TestDecimal_Pow_OutOfRange(t *testing.T) {
+	for _, testCase := range []struct {
+		Base     string
+		Exponent string
+	}{
+		{"10", "3000000000.5"},
+		{"1.5", "-1000000000000"},
+		{"0.5", "-4000000000.5"},
+		{"0.1", "3000000000"},
+	} {
+		base, exp := RequireFromString(testCase.Base), RequireFromString(testCase.Exponent)
+
+		if _, err := base.PowWithPrecision(exp, 16); err == nil {
+			t.Errorf("expected out of range error for %s^%s", testCase.Base, testCase.Exponent)
+		}
+		if result := base.Pow(exp); !result.IsZero() {
+			t.Errorf("expected zero value for %s^%s, got %s", testCase.Base, testCase.Exponent, result)
+		}
+	}
+
+	if _, err := RequireFromString("1.5").PowBigInt(big.NewInt(-1000000000000)); err == nil {
+		t.Errorf("expected out of range error for 1.5**-1000000000000")
+	}
+	if _, err := New(1, -2).PowInt32(1<<30 + 1); err == nil {
+		t.Errorf("expected out of range error for 0.01**1073741825")
+	}
+}
+
+func TestDecimal_PowInt32_ZeroNegativeExponent(t *testing.T) {
+	if _, err := Zero.PowInt32(-2); err == nil {
+		t.Errorf("expected error, cannot represent infinity value of 0 ** y, where y < 0")
+	}
+	if _, err := Zero.PowBigInt(big.NewInt(-2)); err == nil {
+		t.Errorf("expected error, cannot represent infinity value of 0 ** y, where y < 0")
 	}
 }
 
@@ -2916,6 +3199,11 @@ func TestDecimal_PowBigInt(t *testing.T) {
 		{"-13.757", big.NewInt(5), "-492740.983929899460557"},
 		{"3.0", big.NewInt(-6), "0.0013717421124829"},
 		{"-13.757", big.NewInt(-5), "-0.000002029463821"},
+		{"10", big.NewInt(-18), "0.000000000000000001"},
+		{"12345", big.NewInt(-5), "0.000000000000000000003487743424943423"},
+		{"-1.5", big.NewInt(-1001), "-5.403183104351711e-177"},
+		{"1.0000000000000000000000000000001", big.NewInt(-100000000000000000), "0.99999999999999"},
+		{"-1", new(big.Int).Neg(new(big.Int).Exp(big.NewInt(10), big.NewInt(30), nil)), "1"},
 	} {
 		base, _ := NewFromString(testCase.Decimal)
 		expected, _ := NewFromString(testCase.Expected)
@@ -2972,6 +3260,15 @@ func TestDecimal_ExpHullAbrham(t *testing.T) {
 		OverallPrecision uint32
 		ExpectedDec      string
 	}{
+		{"0.000001", 4, "1"},
+		{"-0.000001", 4, "1"},
+		{"0.00000100", 4, "1"},
+		{"-0.00000100", 4, "1"},
+		{"0.00009", 4, "1"},
+		{"0.000000000001", 8, "1"},
+		{"-0.000000000001", 8, "1"},
+		{"0.001", 4, "1.001"},
+		{"-0.001", 4, "0.999"},
 		{"0", 1, "1"},
 		{"0.00", 5, "1"},
 		{"0.5", 5, "1.6487"},
@@ -3095,6 +3392,88 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
+// TestDecimal_ExpTaylor_Concurrency tests the concurrency safety of the
+// ExpTaylor method, particularly focusing on the shared state caching mechanism
+// for factorial calculations.
+func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
+	resetFactorials := func() {
+		factorialsMutex.Lock()
+		factorials = []Decimal{New(1, 0)}
+		factorialsMutex.Unlock()
+	}
+	t.Run("concurrent calculation works as expected", func(t *testing.T) {
+		resetFactorials()
+
+		// Run multiple goroutines calculating exp concurrently
+		// This should trigger concurrent factorial calculations.
+		var wg sync.WaitGroup
+		numGoroutines := 50
+		results := make([]Decimal, numGoroutines)
+		errors := make([]error, numGoroutines)
+
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(index int) {
+				defer wg.Done()
+				d := NewFromFloat(5.0)
+				result, err := d.ExpTaylor(10)
+				results[index] = result
+				errors[index] = err
+			}(i)
+		}
+
+		wg.Wait()
+
+		// Check all goroutines succeeded.
+		for i, err := range errors {
+			if err != nil {
+				t.Errorf("goroutine %d: ExpTaylor failed: %v", i, err)
+			}
+		}
+
+		// All results should be identical.
+		expected := results[0]
+		for i, result := range results[1:] {
+			if !result.Equal(expected) {
+				t.Errorf("goroutine %d: result mismatch: expected %s, got %s", i+1, expected.String(), result.String())
+			}
+		}
+
+		// Verify factorials slice doesn't have duplicate Zero values
+		// (which would indicate the double-check locking failed).
+		factorialsMutex.RLock()
+		for i, f := range factorials {
+			if i > 0 && f.IsZero() {
+				t.Errorf("factorial at index %d is Zero, double-check locking may have failed", i)
+			}
+		}
+		factorialsMutex.RUnlock()
+	})
+
+	t.Run("race detection", func(t *testing.T) {
+		// NOTE: Factorials from previous subtests are intentionally reused here.
+		// This tests that concurrent access works correctly with a pre-populated cache,
+		// which is the real-world scenario. Run with `go test -race`.
+
+		var wg sync.WaitGroup
+		numGoroutines := 100
+
+		for i := 0; i < numGoroutines; i++ {
+			wg.Add(1)
+			go func(val float64) {
+				defer wg.Done()
+				d := NewFromFloat(val)
+				_, err := d.ExpTaylor(10)
+				if err != nil {
+					t.Errorf("ExpTaylor failed for value %f: %v", val, err)
+				}
+			}(float64(i%10) + 0.5)
+		}
+
+		wg.Wait()
+	})
+}
+
 func TestDecimal_Ln(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec       string
@@ -3191,6 +3570,45 @@ func TestDecimal_NumDigits(t *testing.T) {
 		nums := d.NumDigits()
 		if nums != testCase.ExpectedNumDigits {
 			t.Errorf("expected %d digits for decimal %s, got %d", testCase.ExpectedNumDigits, testCase.Dec, nums)
+		}
+	}
+
+	// every power of ten and of two in int64, and their neighbours
+	values := []int64{math.MaxInt64, math.MinInt64}
+	for p := int64(1); p <= math.MaxInt64/10; p *= 10 {
+		values = append(values, p-1, p, p+1, -p+1, -p, -p-1)
+	}
+	for j := uint(0); j < 63; j++ {
+		p := int64(1) << j
+		values = append(values, p-1, p, p+1, -p+1, -p, -p-1)
+	}
+	for _, v := range values {
+		want := len(strconv.FormatInt(v, 10))
+		if v < 0 {
+			want--
+		}
+		if got := New(v, 0).NumDigits(); got != want {
+			t.Errorf("expected %d digits for %d, got %d", want, v, got)
+		}
+	}
+}
+
+func TestDecimal_Float64MatchesRat(t *testing.T) {
+	// coefficients and exponents in the range of the Float64 fast path
+	rng := rand.New(rand.NewSource(7))
+	for i := 0; i < 100000; i++ {
+		v := rng.Int63n(1<<54+1) - 1<<53
+		if i%3 == 0 {
+			v /= 1e10 // shorter coefficients, so more exact results
+		}
+		d := New(v, -int32(rng.Intn(23)))
+		f, exact := d.Float64()
+		wantF, wantExact := d.Rat().Float64()
+		if v == 0 {
+			wantF, wantExact = 0, true
+		}
+		if math.Float64bits(f) != math.Float64bits(wantF) || exact != wantExact {
+			t.Fatalf("%s.Float64() = %v, %v; want %v, %v", d, f, exact, wantF, wantExact)
 		}
 	}
 }
@@ -3622,6 +4040,17 @@ func TestSum(t *testing.T) {
 	if !sum.Equal(New(45, 0)) {
 		t.Errorf("Failed to calculate sum, expected %s got %s", New(45, 0), sum)
 	}
+
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals
+	if s := Sum(New(5, -1), New(-5, -1), Zero); !reflect.DeepEqual(s, New(0, -1)) {
+		t.Errorf("Sum(0.5, -0.5, 0) = %#v, want the same representation as New(0, -1)", s)
+	}
+	if s := Zero.Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
+		t.Errorf("Zero.Shift(2) = %#v, want the same representation as New(0, 2)", s)
+	}
+	if s := New(7, 0).Sub(New(7, 0)).Shift(2); !reflect.DeepEqual(s, New(0, 2)) {
+		t.Errorf("(7 - 7).Shift(2) = %#v, want the same representation as New(0, 2)", s)
+	}
 }
 
 func TestAvg(t *testing.T) {
@@ -3976,17 +4405,155 @@ func ExampleNewFromFloat32() {
 	fmt.Println(NewFromFloat32(.123123123123123).String())
 	fmt.Println(NewFromFloat32(-1e13).String())
 	// OUTPUT:
-	//123.12312
-	//0.123123124
-	//-10000000000000
+	// 123.12312
+	// 0.123123124
+	// -10000000000000
 }
 
 func ExampleNewFromFloat() {
 	fmt.Println(NewFromFloat(123.123123123123).String())
 	fmt.Println(NewFromFloat(.123123123123123).String())
 	fmt.Println(NewFromFloat(-1e13).String())
+	fmt.Println(NewFromFloat(1 << 62).String())
+	fmt.Println(NewFromFloatWithExponent(1<<62, 0).String())
 	// OUTPUT:
-	//123.123123123123
-	//0.123123123123123
-	//-10000000000000
+	// 123.123123123123
+	// 0.123123123123123
+	// -10000000000000
+	// 4611686018427388000
+	// 4611686018427387904
+}
+
+// TestTruncateNegativePrecision verifies that Truncate correctly handles
+// negative precision values, truncating the integer part towards zero.
+func TestTruncateNegativePrecision(t *testing.T) {
+	type testCase struct {
+		input   string
+		places  int32
+		want    string
+		wantExp int32
+	}
+	tests := []testCase{
+		// negative precision: truncate integer part
+		{"5432", -2, "5400", 2},
+		{"-5432", -2, "-5400", 2},
+		{"5499", -2, "5400", 2},
+		{"5500", -2, "5500", 2},
+		{"5501", -2, "5500", 2},
+		{"999", -3, "0", 3},
+		{"1000", -3, "1000", 3},
+		{"1001", -3, "1000", 3},
+		{"-999", -3, "0", 3},
+		{"-1000", -3, "-1000", 3},
+		// positive precision still works as before
+		{"123.456", 2, "123.45", -2},
+		{"123.456", 0, "123", 0},
+		{"123.456", 5, "123.456", -3},
+	}
+
+	for _, tc := range tests {
+		d := RequireFromString(tc.input)
+		got := d.Truncate(tc.places)
+		if got.String() != tc.want {
+			t.Errorf("(%s).Truncate(%d): got %s, want %s", tc.input, tc.places, got.String(), tc.want)
+		}
+		if got.exp != tc.wantExp {
+			t.Errorf("(%s).Truncate(%d): got exponent %d, want %d", tc.input, tc.places, got.exp, tc.wantExp)
+		}
+	}
+}
+
+func TestRescaleToZeroRepresentation(t *testing.T) {
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals.
+	// Rounding a nonzero value to zero keeps the same form for any number of dropped digits.
+	want := New(7, 0).Sub(New(7, 0))
+	for _, k := range []int32{1, 19, 20, 40} {
+		d := New(5, -k)
+		if got := d.RoundDown(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d RoundDown(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+		if got := d.Truncate(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d Truncate(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+	}
+}
+
+// TestRoundingExponentNormalization verifies that RoundUp, RoundDown,
+// RoundCeil, and RoundFloor return a result with the exponent normalized
+// to the requested number of places, even when the value is already exact.
+func TestRoundCeilFloorToZeroRepresentation(t *testing.T) {
+	// reflect.DeepEqual, used by testify's assert.Equal, also compares the big.Int internals.
+	// Rounding a nonzero value to zero keeps the same form for any number of dropped digits.
+	want := New(7, 0).Sub(New(7, 0))
+	for _, k := range []int32{1, 19, 20, 40} {
+		if got := New(-5, -k).RoundCeil(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("-5e-%d RoundCeil(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+		if got := New(5, -k).RoundFloor(0); !reflect.DeepEqual(got, want) {
+			t.Errorf("5e-%d RoundFloor(0) = %#v, want the same representation as %#v", k, got, want)
+		}
+	}
+}
+
+func TestRoundingExponentNormalization(t *testing.T) {
+	type testCase struct {
+		fn      string
+		input   string
+		places  int32
+		wantStr string
+		wantExp int32
+	}
+
+	tests := []testCase{
+		// RoundUp
+		{"RoundUp", "100.0", 0, "100", 0},
+		{"RoundUp", "100.00", 0, "100", 0},
+		{"RoundUp", "3.14", 2, "3.14", -2},
+		{"RoundUp", "500", -2, "500", 2},
+		{"RoundUp", "100", 2, "100", -2},
+		{"RoundUp", "5E3", -2, "5000", 2},
+		{"RoundUp", "0.01230000000000000000000000000000", 4, "0.0123", -4},
+		// RoundDown
+		{"RoundDown", "100.0", 0, "100", 0},
+		{"RoundDown", "100.00", 0, "100", 0},
+		{"RoundDown", "3.14", 2, "3.14", -2},
+		{"RoundDown", "500", -2, "500", 2},
+		{"RoundDown", "100", 2, "100", -2},
+		{"RoundDown", "5E3", -2, "5000", 2},
+		// RoundFloor
+		{"RoundFloor", "100.0", 0, "100", 0},
+		{"RoundFloor", "100.00", 0, "100", 0},
+		{"RoundFloor", "-100.0", 0, "-100", 0},
+		{"RoundFloor", "500", -2, "500", 2},
+		{"RoundFloor", "-100", 2, "-100", -2},
+		{"RoundFloor", "5E3", -2, "5000", 2},
+		// RoundCeil
+		{"RoundCeil", "100.0", 0, "100", 0},
+		{"RoundCeil", "100.00", 0, "100", 0},
+		{"RoundCeil", "-100.0", 0, "-100", 0},
+		{"RoundCeil", "500", -2, "500", 2},
+		{"RoundCeil", "-100", 2, "-100", -2},
+		{"RoundCeil", "5E3", -2, "5000", 2},
+	}
+
+	for _, tc := range tests {
+		d := RequireFromString(tc.input)
+		var got Decimal
+		switch tc.fn {
+		case "RoundUp":
+			got = d.RoundUp(tc.places)
+		case "RoundDown":
+			got = d.RoundDown(tc.places)
+		case "RoundFloor":
+			got = d.RoundFloor(tc.places)
+		case "RoundCeil":
+			got = d.RoundCeil(tc.places)
+		}
+		if got.String() != tc.wantStr {
+			t.Errorf("(%s).%s(%d): got %s, want %s", tc.input, tc.fn, tc.places, got.String(), tc.wantStr)
+		}
+		if got.exp != tc.wantExp {
+			t.Errorf("(%s).%s(%d): got exponent %d, want %d", tc.input, tc.fn, tc.places, got.exp, tc.wantExp)
+		}
+	}
 }

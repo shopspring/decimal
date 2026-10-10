@@ -5,12 +5,14 @@ on:
   pull_request:
     branches: [ master ]
     types: [ opened, synchronize ]
+permissions:
+  contents: read
 jobs:
   ci-job:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go: [ '1.10.x', '1.22', '1.23', '1.24', '1.25', '1.x' ]
+        go: [ '1.10.x', '1.24', '1.25', '1.26', '1.27', '1.x' ]
     name: Go ${{ matrix.go }}
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +22,15 @@ jobs:
           go-version: ${{ matrix.go }}
       - run: go build .
       - run: go test -v
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.14.0

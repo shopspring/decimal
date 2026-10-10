@@ -192,6 +192,40 @@ func NewFromBigRat(value *big.Rat, precision int32) Decimal {
 	}, precision)
 }
 
+// NewFromBigFloat returns a new Decimal from a big.Float.
+//
+// Example:
+//
+//	f, _ := new(big.Float).SetString("-123.45")
+//	d, err := NewFromBigFloat(f)
+func NewFromBigFloat(value *big.Float) (Decimal, error) {
+	if value == nil {
+		return Decimal{}, fmt.Errorf("can't convert nil *big.Float to decimal")
+	}
+	if value.IsInf() {
+		return Decimal{}, fmt.Errorf("can't convert infinite *big.Float to decimal")
+	}
+	if value.Sign() == 0 {
+		return New(0, 0), nil
+	}
+	return NewFromString(value.Text('g', -1))
+}
+
+// RequireFromBigFloat returns a new Decimal from a big.Float
+// or panics if NewFromBigFloat had returned an error.
+//
+// Example:
+//
+//	f, _ := new(big.Float).SetString("-123.45")
+//	d := RequireFromBigFloat(f)
+func RequireFromBigFloat(value *big.Float) Decimal {
+	dec, err := NewFromBigFloat(value)
+	if err != nil {
+		panic(err)
+	}
+	return dec
+}
+
 // NewFromString returns a new Decimal from a string representation.
 // Trailing zeroes are not trimmed.
 //

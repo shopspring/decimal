@@ -771,6 +771,123 @@ func TestNewFromBigRat(t *testing.T) {
 	}
 }
 
+func TestNewFromBigFloat(t *testing.T) {
+	mustParseFloat := func(s string, prec uint) *big.Float {
+		f, _, err := big.ParseFloat(s, 10, prec, big.ToNearestEven)
+		if err != nil {
+			t.Fatalf("failed to parse float %s: %v", s, err)
+		}
+		return f
+	}
+
+	testCases := []struct {
+		name     string
+		input    *big.Float
+		expected string
+	}{
+		{"zero", new(big.Float).SetInt64(0), "0"},
+		{"uninitialized", new(big.Float), "0"},
+		{"negative zero", new(big.Float).Neg(new(big.Float)), "0"},
+		{"integer positive", new(big.Float).SetInt64(12345), "12345"},
+		{"integer negative", new(big.Float).SetInt64(-12345), "-12345"},
+		{"simple float positive", mustParseFloat("12.1", 64), "12.1"},
+		{"simple float negative", mustParseFloat("-12.1", 64), "-12.1"},
+		{"fractional positive", mustParseFloat("0.01", 64), "0.01"},
+		{"fractional negative", mustParseFloat("-0.01", 64), "-0.01"},
+		{"decimal 123.456", mustParseFloat("123.456", 64), "123.456"},
+		{"decimal -123.456", mustParseFloat("-123.456", 64), "-123.456"},
+		{"from float64 exact", new(big.Float).SetFloat64(1.25), "1.25"},
+		{"from float64 0.5", new(big.Float).SetFloat64(0.5), "0.5"},
+		{"from rat half", new(big.Float).SetRat(big.NewRat(1, 2)), "0.5"},
+		{"high precision pi", mustParseFloat("3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679", 512), "3.1415926535897932384626433832795028841971693993751058209749445923078164062862089986280348253421170679"},
+		{"high precision large", mustParseFloat("1234567890123456789012345678901234567890.1234567890123456789", 512), "1234567890123456789012345678901234567890.1234567890123456789"},
+		{"large exponent", mustParseFloat("1e25", 256), "10000000000000000000000000"},
+		{"small exponent", mustParseFloat("1e-25", 256), "0.0000000000000000000000001"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			d, err := NewFromBigFloat(tc.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if d.String() != tc.expected {
+				t.Errorf("expected %s, got %s", tc.expected, d.String())
+			}
+
+			// Also verify RequireFromBigFloat
+			reqD := RequireFromBigFloat(tc.input)
+			if reqD.String() != tc.expected {
+				t.Errorf("RequireFromBigFloat: expected %s, got %s", tc.expected, reqD.String())
+			}
+		})
+	}
+}
+
+func TestNewFromBigFloat_Error(t *testing.T) {
+	t.Run("nil", func(t *testing.T) {
+		_, err := NewFromBigFloat(nil)
+		if err == nil {
+			t.Fatal("expected error for nil, got nil")
+		}
+	})
+
+	t.Run("positive inf", func(t *testing.T) {
+		f := new(big.Float).SetInf(false)
+		_, err := NewFromBigFloat(f)
+		if err == nil {
+			t.Fatal("expected error for +Inf, got nil")
+		}
+	})
+
+	t.Run("negative inf", func(t *testing.T) {
+		f := new(big.Float).SetInf(true)
+		_, err := NewFromBigFloat(f)
+		if err == nil {
+			t.Fatal("expected error for -Inf, got nil")
+		}
+	})
+
+	t.Run("exponent overflow", func(t *testing.T) {
+		f, _, err := big.ParseFloat("1e15000", 10, 64, big.ToNearestEven)
+		if err == nil {
+			_, err = NewFromBigFloat(f)
+			if err == nil {
+				t.Fatal("expected error for exponent exceeding MaxDecodeExponent, got nil")
+			}
+		}
+	})
+}
+
+func TestRequireFromBigFloat_Panic(t *testing.T) {
+	t.Run("nil panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic for nil")
+			}
+		}()
+		RequireFromBigFloat(nil)
+	})
+
+	t.Run("pos inf panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic for +Inf")
+			}
+		}()
+		RequireFromBigFloat(new(big.Float).SetInf(false))
+	})
+
+	t.Run("neg inf panics", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Fatal("expected panic for -Inf")
+			}
+		}()
+		RequireFromBigFloat(new(big.Float).SetInf(true))
+	})
+}
+
 func TestCopy(t *testing.T) {
 	origin := New(1, 0)
 	cpy := origin.Copy()
@@ -2536,6 +2653,36 @@ func TestBigFloat(t *testing.T) {
 		}
 		if d.BigFloat().String() != testCase.BigFloatRep {
 			t.Errorf("expect %s, got %s", testCase.BigFloatRep, d.BigFloat())
+		}
+	}
+}
+
+func TestBigFloatRoundTrip(t *testing.T) {
+	testCases := []string{
+		"0",
+		"1",
+		"-1",
+		"0.5",
+		"-0.5",
+		"0.25",
+		"12.1",
+		"-12.1",
+		"123.456",
+		"-123.456",
+	}
+
+	for _, s := range testCases {
+		d, err := NewFromString(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bf := d.BigFloat()
+		roundTripD, err := NewFromBigFloat(bf)
+		if err != nil {
+			t.Fatalf("NewFromBigFloat failed for %s: %v", s, err)
+		}
+		if !d.Equal(roundTripD) {
+			t.Errorf("round trip failed: expected %s, got %s", d, roundTripD)
 		}
 	}
 }

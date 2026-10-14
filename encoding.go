@@ -164,28 +164,25 @@ func (d Decimal) EncodeSpanner() (interface{}, error) {
 const (
 	bsonTypeDouble     byte = 0x01
 	bsonTypeString     byte = 0x02
+	bsonTypeUndefined  byte = 0x06
 	bsonTypeNull       byte = 0x0A
 	bsonTypeInt32      byte = 0x10
 	bsonTypeInt64      byte = 0x12
 	bsonTypeDecimal128 byte = 0x13
-
-	decimal128MinExp = -6176
-	decimal128MaxExp = 6111
 )
 
-// decimal128MaxCoef is 10^34 - 1, the largest Decimal128 coefficient.
-var decimal128MaxCoef = new(big.Int).Sub(new(big.Int).Exp(tenInt, big.NewInt(34), nil), oneInt)
-
-// MarshalBSONValue implements the bson.ValueMarshaler interface of the MongoDB Go driver v2, which stores
-// the decimal as a BSON Decimal128, MongoDB's decimal type. Decimal128 holds 34 significant digits and
-// exponents from -6176 to 6111. Trailing zeros are moved between the coefficient and the exponent to fit,
-// so Exponent() can differ after a round trip, but the value can't. Decimals that still don't fit return
-// an error instead of being rounded.
+// MarshalBSONValue implements the bson.ValueMarshaler interface of the MongoDB Go driver v2. It stores
+// the decimal as a BSON Decimal128, MongoDB's decimal type, which holds 34 significant digits and
+// exponents from -6176 to 6111. Trailing zeros move between the coefficient and the exponent to fit, so
+// Exponent() can change in a round trip but the value can't. Decimals that still don't fit return an
+// error instead of being rounded.
 //
 // The v1 driver declares this interface with its own bsontype.Type, so it doesn't call this method.
 func (d Decimal) MarshalBSONValue() (byte, []byte, error) {
 	coef := new(big.Int).Abs(d.getValue())
 	exp := d.exp
+
+	// Zero fits at any exponent, and the loops below could take 2^31 steps to get there.
 	if coef.Sign() == 0 {
 		if exp < decimal128MinExp {
 			exp = decimal128MinExp
@@ -210,27 +207,17 @@ func (d Decimal) MarshalBSONValue() (byte, []byte, error) {
 		return 0, nil, fmt.Errorf("can't encode %se%d as BSON Decimal128 without rounding: it holds 34 significant digits and exponents from %d to %d",
 			d.getValue(), d.exp, decimal128MinExp, decimal128MaxExp)
 	}
-
-	var be [16]byte
-	b := coef.Bytes()
-	copy(be[16-len(b):], b)
-	hi := binary.BigEndian.Uint64(be[:8]) | uint64(exp-decimal128MinExp)<<49
-	if d.getValue().Sign() < 0 {
-		hi |= 1 << 63
-	}
-	data := make([]byte, 16)
-	binary.LittleEndian.PutUint64(data, binary.BigEndian.Uint64(be[8:]))
-	binary.LittleEndian.PutUint64(data[8:], hi)
-	return bsonTypeDecimal128, data, nil
+	return bsonTypeDecimal128, encodeDecimal128(d.Sign() < 0, coef, exp), nil
 }
 
 // UnmarshalBSONValue implements the bson.ValueUnmarshaler interface of the MongoDB Go driver v2.
-// It decodes BSON Decimal128, string, double, int32 and int64 values. BSON null leaves the decimal
-// unchanged, as JSON null does in UnmarshalJSON.
+// It decodes BSON Decimal128, string, double, int32 and int64 values. BSON null and undefined decode
+// to zero, as they do for the driver's own number types.
 func (d *Decimal) UnmarshalBSONValue(typ byte, data []byte) error {
 	var err error
 	switch {
-	case typ == bsonTypeNull:
+	case typ == bsonTypeNull || typ == bsonTypeUndefined:
+		*d = Decimal{}
 	case typ == bsonTypeDecimal128 && len(data) == 16:
 		*d, err = decodeDecimal128(data)
 	case typ == bsonTypeString && len(data) >= 5:
@@ -252,6 +239,31 @@ func (d *Decimal) UnmarshalBSONValue(typ byte, data []byte) error {
 	return err
 }
 
+// BSON stores a Decimal128 as a little-endian IEEE 754-2008 decimal128 in the binary integer decimal
+// encoding: from the top bit down, a sign bit, a 14-bit exponent biased by 6176 and a 113-bit coefficient.
+const (
+	decimal128MinExp = -6176
+	decimal128MaxExp = 6111
+)
+
+// decimal128MaxCoef is 10^34 - 1, the largest Decimal128 coefficient.
+var decimal128MaxCoef = new(big.Int).Sub(new(big.Int).Exp(tenInt, big.NewInt(34), nil), oneInt)
+
+// encodeDecimal128 expects a coefficient and exponent that are already in range.
+func encodeDecimal128(neg bool, coef *big.Int, exp int32) []byte {
+	var buf [16]byte
+	b := coef.Bytes()
+	copy(buf[16-len(b):], b)
+	hi := binary.BigEndian.Uint64(buf[:8]) | uint64(exp-decimal128MinExp)<<49
+	if neg {
+		hi |= 1 << 63
+	}
+	data := make([]byte, 16)
+	binary.LittleEndian.PutUint64(data, binary.BigEndian.Uint64(buf[8:]))
+	binary.LittleEndian.PutUint64(data[8:], hi)
+	return data
+}
+
 func decodeDecimal128(data []byte) (Decimal, error) {
 	lo := binary.LittleEndian.Uint64(data)
 	hi := binary.LittleEndian.Uint64(data[8:])
@@ -262,7 +274,7 @@ func decodeDecimal128(data []byte) (Decimal, error) {
 	case hi>>59&0xF == 0xF:
 		return Decimal{}, fmt.Errorf("can't convert BSON Decimal128 NaN or Infinity to decimal")
 	case hi>>61&3 == 3:
-		// This form only encodes coefficients above 10^34 - 1, which the spec reads as zero.
+		// The exponent starts 2 bits lower, and the coefficient is always above 10^34 - 1.
 		exp, hi, lo = int32(hi>>47&0x3FFF), 0, 0
 	default:
 		exp, hi = int32(hi>>49&0x3FFF), hi&(1<<49-1)
@@ -272,10 +284,14 @@ func decodeDecimal128(data []byte) (Decimal, error) {
 		return Decimal{}, fmt.Errorf("can't convert BSON Decimal128 to decimal: exponent %d exceeds MaxDecodeExponent (%d)", exp, MaxDecodeExponent)
 	}
 
-	var be [16]byte
-	binary.BigEndian.PutUint64(be[:8], hi)
-	binary.BigEndian.PutUint64(be[8:], lo)
-	value := new(big.Int).SetBytes(be[:])
+	var buf [16]byte
+	binary.BigEndian.PutUint64(buf[:8], hi)
+	binary.BigEndian.PutUint64(buf[8:], lo)
+	value := new(big.Int).SetBytes(buf[:])
+	// IEEE 754 reads coefficients above 10^34 - 1 as zero.
+	if value.Cmp(decimal128MaxCoef) > 0 {
+		value.SetInt64(0)
+	}
 	if neg {
 		value.Neg(value)
 	}
@@ -408,13 +424,9 @@ func (d NullDecimal) MarshalBSONValue() (byte, []byte, error) {
 }
 
 // UnmarshalBSONValue implements the bson.ValueUnmarshaler interface of the MongoDB Go driver v2.
-// BSON null makes the NullDecimal invalid, see Decimal.UnmarshalBSONValue for the rest.
+// BSON null and undefined make the NullDecimal invalid, see Decimal.UnmarshalBSONValue for the rest.
 func (d *NullDecimal) UnmarshalBSONValue(typ byte, data []byte) error {
-	if typ == bsonTypeNull {
-		d.Valid = false
-		return nil
-	}
 	err := d.Decimal.UnmarshalBSONValue(typ, data)
-	d.Valid = err == nil
+	d.Valid = err == nil && typ != bsonTypeNull && typ != bsonTypeUndefined
 	return err
 }

@@ -2750,7 +2750,34 @@ type bsonValueUnmarshaler interface {
 	UnmarshalBSONValue(byte, []byte) error
 }
 
+var (
+	_ bsonValueMarshaler   = Decimal{}
+	_ bsonValueMarshaler   = NullDecimal{}
+	_ bsonValueUnmarshaler = (*Decimal)(nil)
+	_ bsonValueUnmarshaler = (*NullDecimal)(nil)
+)
+
+// decimal128Tests are canonical values from the BSON spec's Decimal128 test corpus.
+var decimal128Tests = []struct {
+	dec string
+	hex string // the 16 bytes as stored in BSON
+}{
+	{"0", "00000000000000000000000000004030"},
+	{"1", "01000000000000000000000000004030"},
+	{"-1", "010000000000000000000000000040b0"},
+	{"0.1", "01000000000000000000000000003e30"},
+	{"1E+3", "01000000000000000000000000004630"},
+	{"1234567890123456789012345678901234", "f2af967ed05c82de3297ff6fde3c4030"},
+	{"9.999999999999999999999999999999999E+6144", "ffffffff638e8d37c087adbe09edff5f"},
+	{"1.000000000000000000000000000000000E+6144", "000000000a5bc138938d44c64d31fe5f"},
+	{"1E-6176", "01000000000000000000000000000000"},
+	{"-1E-6176", "01000000000000000000000000000080"},
+	{"0E-6176", "00000000000000000000000000000000"},
+	{"0E+6111", "0000000000000000000000000000fe5f"},
+}
+
 func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
 	b, err := hex.DecodeString(s)
 	if err != nil {
 		t.Fatal(err)
@@ -2758,112 +2785,96 @@ func mustDecodeHex(t *testing.T, s string) []byte {
 	return b
 }
 
-func TestDecimal_BSONValue(t *testing.T) {
-	if _, ok := interface{}(Decimal{}).(bsonValueMarshaler); !ok {
-		t.Error("Decimal does not implement bson.ValueMarshaler")
+func TestDecimal_MarshalBSONValue(t *testing.T) {
+	type test struct {
+		name string
+		d    Decimal
+		hex  string
 	}
-	if _, ok := interface{}(new(Decimal)).(bsonValueUnmarshaler); !ok {
-		t.Error("Decimal does not implement bson.ValueUnmarshaler")
+	tests := []test{
+		{"zero value", Decimal{}, "00000000000000000000000000004030"},
+		{"41 digits drop trailing zeros", RequireFromString("1" + strings.Repeat("0", 40)), "000000000a5bc138938d44c64d314e30"},
+		{"exponent above 6111 gains trailing zeros", RequireFromString("1E+6144"), "000000000a5bc138938d44c64d31fe5f"},
+		{"exponent below -6176 drops trailing zeros", New(1000, -6179), "01000000000000000000000000000000"},
+		{"zero with the largest exponent", New(0, math.MaxInt32), "0000000000000000000000000000fe5f"},
+		{"zero with the smallest exponent", New(0, math.MinInt32), "00000000000000000000000000000000"},
+	}
+	for _, c := range decimal128Tests {
+		tests = append(tests, test{c.dec, RequireFromString(c.dec), c.hex})
+	}
+	for _, c := range tests {
+		typ, data, err := c.d.MarshalBSONValue()
+		if err != nil || typ != bsonTypeDecimal128 || hex.EncodeToString(data) != c.hex {
+			t.Errorf("MarshalBSONValue(%s): got %#x, %x, %v, want %#x, %s", c.name, typ, data, err, bsonTypeDecimal128, c.hex)
+		}
 	}
 
-	// Canonical Decimal128 values from the BSON spec test corpus
-	for _, tc := range []struct {
-		dec, hex string
+	for _, c := range []struct {
+		name string
+		d    Decimal
 	}{
-		{"0", "00000000000000000000000000004030"},
-		{"1", "01000000000000000000000000004030"},
-		{"-1", "010000000000000000000000000040b0"},
-		{"0.1", "01000000000000000000000000003e30"},
-		{"1E+3", "01000000000000000000000000004630"},
-		{"1234567890123456789012345678901234", "f2af967ed05c82de3297ff6fde3c4030"},
-		{"9.999999999999999999999999999999999E+6144", "ffffffff638e8d37c087adbe09edff5f"},
-		{"1.000000000000000000000000000000000E+6144", "000000000a5bc138938d44c64d31fe5f"},
-		{"1E-6176", "01000000000000000000000000000000"},
-		{"-1E-6176", "01000000000000000000000000000080"},
-		{"0E-6176", "00000000000000000000000000000000"},
-		{"0E+6111", "0000000000000000000000000000fe5f"},
+		{"35 significant digits", RequireFromString("1.2345678901234567890123456789012345")},
+		{"below the smallest Decimal128", RequireFromString("1E-6177")},
+		{"above the largest Decimal128", RequireFromString("1E+6145")},
+		{"smallest int32 exponent", New(1, math.MinInt32)},
 	} {
-		d := RequireFromString(tc.dec)
-		typ, data, err := d.MarshalBSONValue()
-		if err != nil || typ != 0x13 || hex.EncodeToString(data) != tc.hex {
-			t.Errorf("%s.MarshalBSONValue() = %#x, %x, %v, want 0x13, %s", tc.dec, typ, data, err, tc.hex)
-		}
-		var got Decimal
-		if err := got.UnmarshalBSONValue(0x13, mustDecodeHex(t, tc.hex)); err != nil || !got.Equal(d) || got.Exponent() != d.Exponent() {
-			t.Errorf("UnmarshalBSONValue(0x13, %s) = %s (exponent %d), %v, want %s", tc.hex, got, got.Exponent(), err, tc.dec)
+		if _, _, err := c.d.MarshalBSONValue(); err == nil {
+			t.Errorf("MarshalBSONValue(%s): got no error", c.name)
 		}
 	}
+}
 
-	// Trailing zeros move between the coefficient and the exponent to fit
-	for _, tc := range []struct {
-		d   Decimal
-		hex string
-	}{
-		{RequireFromString("1E+6144"), "000000000a5bc138938d44c64d31fe5f"},
-		{RequireFromString("1" + strings.Repeat("0", 40)), "000000000a5bc138938d44c64d314e30"},
-		{New(1000, -6179), "01000000000000000000000000000000"},
-		{New(0, math.MaxInt32), "0000000000000000000000000000fe5f"},
-		{New(0, math.MinInt32), "00000000000000000000000000000000"},
-		{Decimal{}, "00000000000000000000000000004030"},
-	} {
-		typ, data, err := tc.d.MarshalBSONValue()
-		if err != nil || typ != 0x13 || hex.EncodeToString(data) != tc.hex {
-			t.Errorf("%se%d.MarshalBSONValue() = %#x, %x, %v, want 0x13, %s", tc.d.Coefficient(), tc.d.Exponent(), typ, data, err, tc.hex)
-		}
-	}
-
-	for _, d := range []Decimal{
-		RequireFromString("1.234567890123456789012345678901234567"),
-		RequireFromString("1E-6177"),
-		RequireFromString("1E+6145"),
-		New(1, math.MinInt32),
-	} {
-		if _, _, err := d.MarshalBSONValue(); err == nil {
-			t.Errorf("%se%d.MarshalBSONValue() should fail", d.Coefficient(), d.Exponent())
-		}
-	}
-
-	for _, tc := range []struct {
+func TestDecimal_UnmarshalBSONValue(t *testing.T) {
+	type test struct {
+		name string
 		typ  byte
 		hex  string
 		want string
-	}{
-		{0x02, "04000000312e3500", "1.5"},
-		{0x01, "0000000000000440", "2.5"},
-		{0x10, "f9ffffff", "-7"},
-		{0x12, "0000000000010000", "1099511627776"},
-	} {
-		var got Decimal
-		if err := got.UnmarshalBSONValue(tc.typ, mustDecodeHex(t, tc.hex)); err != nil || got.String() != tc.want {
-			t.Errorf("UnmarshalBSONValue(%#x, %s) = %s, %v, want %s", tc.typ, tc.hex, got, err, tc.want)
+	}
+	tests := []test{
+		{"string", bsonTypeString, "04000000312e3500", "1.5"},
+		{"double", bsonTypeDouble, "0000000000000440", "2.5"},
+		{"int32", bsonTypeInt32, "f9ffffff", "-7"},
+		{"int64", bsonTypeInt64, "0000000000010000", "1099511627776"},
+		{"null", bsonTypeNull, "", "0"},
+		{"undefined", bsonTypeUndefined, "", "0"},
+		{"Decimal128 with an implied coefficient above 10^34 - 1", bsonTypeDecimal128, "ffffffffffffffffffffffffffff116c", "0E+3"},
+		{"Decimal128 with the coefficient 10^34", bsonTypeDecimal128, "00000000648e8d37c087adbe09ed4130", "0"},
+	}
+	for _, c := range decimal128Tests {
+		tests = append(tests, test{c.dec, bsonTypeDecimal128, c.hex, c.dec})
+	}
+	for _, c := range tests {
+		want := RequireFromString(c.want)
+		got := New(5, 0)
+		err := got.UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex))
+		if err != nil || !got.Equal(want) || got.Exponent() != want.Exponent() {
+			t.Errorf("UnmarshalBSONValue(%s): got %se%d, %v, want %se%d", c.name, got.Coefficient(), got.Exponent(), err, want.Coefficient(), want.Exponent())
 		}
 	}
 
-	d := New(5, 0)
-	if err := d.UnmarshalBSONValue(0x0A, nil); err != nil || d.String() != "5" {
-		t.Errorf("UnmarshalBSONValue(null) = %s, %v, want 5 unchanged", d, err)
-	}
-
-	for _, tc := range []struct {
-		typ byte
-		hex string
+	for _, c := range []struct {
+		name string
+		typ  byte
+		hex  string
 	}{
-		{0x13, "0000000000000000000000000000007c"}, // NaN
-		{0x13, "000000000000000000000000000000f8"}, // -Infinity
-		{0x13, "000000000000000000000000004030"},   // 15 bytes
-		{0x01, "000000000000f87f"},                 // NaN
-		{0x02, "0400000061626300"},                 // "abc"
-		{0x08, "01"},                               // boolean
+		{"Decimal128 NaN", bsonTypeDecimal128, "0000000000000000000000000000007c"},
+		{"Decimal128 -Infinity", bsonTypeDecimal128, "000000000000000000000000000000f8"},
+		{"Decimal128 of 15 bytes", bsonTypeDecimal128, "000000000000000000000000004030"},
+		{"double NaN", bsonTypeDouble, "000000000000f87f"},
+		{"double +Infinity", bsonTypeDouble, "000000000000f07f"},
+		{"string abc", bsonTypeString, "0400000061626300"},
+		{"boolean", 0x08, "01"},
 	} {
-		if err := new(Decimal).UnmarshalBSONValue(tc.typ, mustDecodeHex(t, tc.hex)); err == nil {
-			t.Errorf("UnmarshalBSONValue(%#x, %s) should fail", tc.typ, tc.hex)
+		if err := new(Decimal).UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex)); err == nil {
+			t.Errorf("UnmarshalBSONValue(%s): got no error", c.name)
 		}
 	}
 
-	defer func(old int) { MaxDecodeExponent = old }(MaxDecodeExponent)
+	defer func(limit int) { MaxDecodeExponent = limit }(MaxDecodeExponent)
 	MaxDecodeExponent = 100
-	if err := new(Decimal).UnmarshalBSONValue(0x13, mustDecodeHex(t, "01000000000000000000000000000000")); err == nil {
-		t.Error("UnmarshalBSONValue(1E-6176) should fail with MaxDecodeExponent 100")
+	if err := new(Decimal).UnmarshalBSONValue(bsonTypeDecimal128, mustDecodeHex(t, "01000000000000000000000000000000")); err == nil {
+		t.Error("UnmarshalBSONValue(1E-6176): got no error with MaxDecodeExponent 100")
 	}
 }
 
@@ -4036,30 +4047,40 @@ func TestNullDecimal_EncodeSpanner(t *testing.T) {
 	}
 }
 
-func TestNullDecimal_BSONValue(t *testing.T) {
-	if _, ok := interface{}(NullDecimal{}).(bsonValueMarshaler); !ok {
-		t.Error("NullDecimal does not implement bson.ValueMarshaler")
+func TestNullDecimal_MarshalBSONValue(t *testing.T) {
+	for _, c := range []struct {
+		d   NullDecimal
+		typ byte
+		hex string
+	}{
+		{NullDecimal{}, bsonTypeNull, ""},
+		{NewNullDecimal(New(1, 3)), bsonTypeDecimal128, "01000000000000000000000000004630"},
+	} {
+		typ, data, err := c.d.MarshalBSONValue()
+		if err != nil || typ != c.typ || hex.EncodeToString(data) != c.hex {
+			t.Errorf("MarshalBSONValue(%v): got %#x, %x, %v, want %#x, %s", c.d, typ, data, err, c.typ, c.hex)
+		}
 	}
-	if _, ok := interface{}(new(NullDecimal)).(bsonValueUnmarshaler); !ok {
-		t.Error("NullDecimal does not implement bson.ValueUnmarshaler")
-	}
+}
 
-	if typ, data, err := (NullDecimal{}).MarshalBSONValue(); err != nil || typ != 0x0A || len(data) != 0 {
-		t.Errorf("NullDecimal{}.MarshalBSONValue() = %#x, %x, %v, want null", typ, data, err)
-	}
-	if typ, data, err := NewNullDecimal(New(1, 3)).MarshalBSONValue(); err != nil || typ != 0x13 || hex.EncodeToString(data) != "01000000000000000000000000004630" {
-		t.Errorf("NullDecimal(1E+3).MarshalBSONValue() = %#x, %x, %v", typ, data, err)
-	}
-
-	n := NewNullDecimal(New(1, 0))
-	if err := n.UnmarshalBSONValue(0x0A, nil); err != nil || n.Valid {
-		t.Errorf("UnmarshalBSONValue(null) = %v, %v, want invalid", n, err)
-	}
-	if err := n.UnmarshalBSONValue(0x13, mustDecodeHex(t, "01000000000000000000000000004630")); err != nil || !n.Valid || n.Decimal.String() != "1000" {
-		t.Errorf("UnmarshalBSONValue(1E+3) = %v, %v, want valid 1000", n, err)
-	}
-	if err := n.UnmarshalBSONValue(0x08, []byte{1}); err == nil || n.Valid {
-		t.Errorf("UnmarshalBSONValue(boolean) = %v, %v, want an error and invalid", n, err)
+func TestNullDecimal_UnmarshalBSONValue(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		typ     byte
+		hex     string
+		want    string // "" if the result is invalid
+		wantErr bool
+	}{
+		{"Decimal128", bsonTypeDecimal128, "01000000000000000000000000004630", "1000", false},
+		{"null", bsonTypeNull, "", "", false},
+		{"undefined", bsonTypeUndefined, "", "", false},
+		{"boolean", 0x08, "01", "", true},
+	} {
+		got := NewNullDecimal(New(5, 0))
+		err := got.UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex))
+		if (err != nil) != c.wantErr || got.Valid != (c.want != "") || got.Valid && got.Decimal.String() != c.want {
+			t.Errorf("UnmarshalBSONValue(%s): got %v, %v, want %q and error=%v", c.name, got, err, c.want, c.wantErr)
+		}
 	}
 }
 

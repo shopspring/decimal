@@ -83,7 +83,8 @@ var UseScientificNotation = false
 var ExpMaxIterations = 1000
 
 // MaxDecodeExponent is the largest exponent magnitude that NewFromString and UnmarshalBinary accept,
-// and so UnmarshalJSON, UnmarshalText, Scan, GobDecode, DecodeSpanner and their NullDecimal variants too.
+// and so UnmarshalJSON, UnmarshalText, Scan, GobDecode, DecodeSpanner, UnmarshalBSONValue and their
+// NullDecimal variants too.
 // Operations like String, Add and Float64 take time and memory that grow with the exponent, so without
 // this limit a short input like "1e-2000000000" can stall the process or exhaust its memory.
 // The default covers the float64 and IEEE 754 decimal128 exponent ranges.

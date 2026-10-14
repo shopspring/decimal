@@ -14,6 +14,7 @@ _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digi
  * Division with specified precision
  * Database/sql serialization/deserialization
  * JSON and XML serialization/deserialization
+ * MongoDB BSON serialization/deserialization as Decimal128, with the official Go driver v2
 
 ## Install
 

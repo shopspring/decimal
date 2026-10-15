@@ -1098,23 +1098,28 @@ func (d Decimal) StringFixedCash(interval uint8) string {
 func (d Decimal) Format(f fmt.State, verb rune) {
 	switch verb {
 	case 'v', 's', 'q', 'x', 'X':
-		s := d.String()
 		if verb == 'v' && f.Flag('#') {
-			s, verb = d.goSyntax(), 's'
+			formatString(f, 's', d.goSyntax())
+		} else {
+			formatString(f, verb, d.String())
 		}
-		// Println and plain %v are the common case, and rebuilding the directive costs 3 allocations.
-		_, hasWidth := f.Width()
-		_, hasPrec := f.Precision()
-		if (verb == 'v' || verb == 's') && !hasWidth && !hasPrec {
-			_, _ = io.WriteString(f, s)
-			return
-		}
-		_, _ = fmt.Fprintf(f, fmtDirective(f, verb), s)
 	case 'f', 'F':
 		d.formatFixed(f)
 	default:
 		_, _ = fmt.Fprintf(f, "%%!%c(decimal.Decimal=%s)", verb, d.String())
 	}
+}
+
+// formatString formats s as fmt would for the directive that called Format, with verb in place of its own.
+func formatString(f fmt.State, verb rune, s string) {
+	// Println and plain %v are the common case, and rebuilding the directive costs 3 allocations.
+	_, hasWidth := f.Width()
+	_, hasPrec := f.Precision()
+	if (verb == 'v' || verb == 's') && !hasWidth && !hasPrec {
+		_, _ = io.WriteString(f, s)
+		return
+	}
+	_, _ = fmt.Fprintf(f, fmtDirective(f, verb), s)
 }
 
 // fmtDirective rebuilds the directive that called Format, as fmt.FormatString does from Go 1.20.
@@ -1151,8 +1156,11 @@ func (d Decimal) formatFixed(f fmt.State) {
 	case f.Flag(' '):
 		sign = " "
 	}
-	width, _ := f.Width()
-	pad := width - len(sign) - len(s)
+	// Before Go 1.23, fmt keeps the width of an earlier directive when ok is false.
+	pad := 0
+	if width, ok := f.Width(); ok {
+		pad = width - len(sign) - len(s)
+	}
 	switch {
 	case pad <= 0:
 		s = sign + s
@@ -1173,7 +1181,8 @@ func (d Decimal) goSyntax() string {
 	case d.value.IsInt64():
 		return fmt.Sprintf("decimal.New(%d, %d)", d.value.Int64(), d.exp)
 	default:
-		return fmt.Sprintf(`decimal.RequireFromString("%se%d")`, d.value, d.exp)
+		// Shift instead of an exponent in the string, which RequireFromString caps at MaxDecodeExponent.
+		return fmt.Sprintf("decimal.RequireFromString(%q).Shift(%d)", d.value.String(), d.exp)
 	}
 }
 

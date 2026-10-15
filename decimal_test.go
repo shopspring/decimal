@@ -4525,8 +4525,7 @@ func TestDecimal_StringWithScientificNotationWhenNeeded(t *testing.T) {
 
 func TestDecimal_Format(t *testing.T) {
 	pi := RequireFromString("3.14159")
-	long := RequireFromString("-123456789012345678901234567890.12")
-	for _, c := range []struct {
+	for i, c := range []struct {
 		format string
 		v      interface{}
 		want   string
@@ -4568,22 +4567,28 @@ func TestDecimal_Format(t *testing.T) {
 		{"%#v", New(314, -2), "decimal.New(314, -2)"},
 		{"%#v", New(-1500, -3), "decimal.New(-1500, -3)"},
 		{"%#v", Decimal{}, "decimal.Decimal{}"},
-		{"%#v", long, `decimal.RequireFromString("-12345678901234567890123456789012e-2")`},
+		{"%#v", New(1, math.MaxInt32), "decimal.New(1, 2147483647)"},
+		{"%#v", RequireFromString("-12345678901234567890123456789012").Shift(-2), `decimal.RequireFromString("-12345678901234567890123456789012").Shift(-2)`},
+		{"%#v", RequireFromString("12345678901234567890").Shift(20000), `decimal.RequireFromString("12345678901234567890").Shift(20000)`},
 		{"%#v", NewNullDecimal(New(314, -2)), "decimal.NullDecimal{Decimal:decimal.New(314, -2), Valid:true}"},
 
 		{"%d", pi, "%!d(decimal.Decimal=3.14159)"},
 		{"%e", pi, "%!e(decimal.Decimal=3.14159)"},
 	} {
 		if got := fmt.Sprintf(c.format, c.v); got != c.want {
-			t.Errorf("Sprintf(%q, %v): got %q, want %q", c.format, c.v, got, c.want)
+			t.Errorf("Sprintf(%q) of case %d: got %q, want %q", c.format, i, got, c.want)
 		}
 	}
 
-	if got := fmt.Sprintln(pi, pi.Neg()); got != "3.14159 -3.14159\n" {
-		t.Errorf("Sprintln(pi, -pi): got %q", got)
-	}
-	if got := RequireFromString("-12345678901234567890123456789012e-2"); got.Coefficient().Cmp(long.Coefficient()) != 0 || got.Exponent() != long.Exponent() {
-		t.Errorf("%%#v of %s doesn't recreate it: got %se%d", long, got.Coefficient(), got.Exponent())
+	for _, c := range []struct {
+		got, want string
+	}{
+		{fmt.Sprintln(pi, pi.Neg()), "3.14159 -3.14159\n"},
+		{fmt.Sprintf("%8d|%f|%.2f|", 1, pi, pi), "       1|3.14159|3.14|"},
+	} {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
 	}
 }
 

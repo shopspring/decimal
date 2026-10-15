@@ -27,7 +27,7 @@ func newConstApproximation(value string) constApproximation {
 
 	var approximations []Decimal
 	for p := 1; p < maxPrecision; p *= 2 {
-		r := RequireFromString(value[:coeffLen+p])
+		r := RequireFromString(value[:coeffLen+1+p])
 		approximations = append(approximations, r)
 	}
 

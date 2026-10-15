@@ -4523,6 +4523,94 @@ func TestDecimal_StringWithScientificNotationWhenNeeded(t *testing.T) {
 	}
 }
 
+func TestDecimal_Format(t *testing.T) {
+	pi := RequireFromString("3.14159")
+	long := RequireFromString("-123456789012345678901234567890.12")
+	for _, c := range []struct {
+		format string
+		v      interface{}
+		want   string
+	}{
+		{"%v", pi, "3.14159"},
+		{"%s", pi, "3.14159"},
+		{"%v", Decimal{}, "0"},
+		{"%10v", pi, "   3.14159"},
+		{"%-10s|", pi, "3.14159   |"},
+		{"%.3s", pi, "3.1"},
+		{"%q", pi, `"3.14159"`},
+		{"%x", pi, "332e3134313539"},
+		{"%v", &pi, "3.14159"},
+		{"%v", (*Decimal)(nil), "<nil>"},
+		{"%v", []Decimal{pi, pi.Neg()}, "[3.14159 -3.14159]"},
+		{"%+v", NewNullDecimal(pi), "{Decimal:3.14159 Valid:true}"},
+
+		{"%f", RequireFromString("1.23456789"), "1.23456789"},
+		{"%F", pi, "3.14159"},
+		{"%f", New(150, -2), "1.5"},
+		{"%f", New(12, 3), "12000"},
+		{"%.2f", pi, "3.14"},
+		{"%.0f", pi, "3"},
+		{"%.7f", pi, "3.1415900"},
+		{"%.1f", RequireFromString("2.25"), "2.3"},
+		{"%.1f", RequireFromString("-2.25"), "-2.3"},
+		{"%.2f", RequireFromString("-0.001"), "0.00"},
+		{"%2.2f", pi, "3.14"},
+		{"%8.2f", pi, "    3.14"},
+		{"%-8.2f|", pi, "3.14    |"},
+		{"%08.2f", pi, "00003.14"},
+		{"%08.2f", pi.Neg(), "-0003.14"},
+		{"%-08.2f|", pi, "3.14    |"},
+		{"%+.2f", pi, "+3.14"},
+		{"%+.2f", pi.Neg(), "-3.14"},
+		{"%+08.2f", pi, "+0003.14"},
+		{"% .2f", pi, " 3.14"},
+
+		{"%#v", New(314, -2), "decimal.New(314, -2)"},
+		{"%#v", New(-1500, -3), "decimal.New(-1500, -3)"},
+		{"%#v", Decimal{}, "decimal.Decimal{}"},
+		{"%#v", long, `decimal.RequireFromString("-12345678901234567890123456789012e-2")`},
+		{"%#v", NewNullDecimal(New(314, -2)), "decimal.NullDecimal{Decimal:decimal.New(314, -2), Valid:true}"},
+
+		{"%d", pi, "%!d(decimal.Decimal=3.14159)"},
+		{"%e", pi, "%!e(decimal.Decimal=3.14159)"},
+	} {
+		if got := fmt.Sprintf(c.format, c.v); got != c.want {
+			t.Errorf("Sprintf(%q, %v): got %q, want %q", c.format, c.v, got, c.want)
+		}
+	}
+
+	if got := fmt.Sprintln(pi, pi.Neg()); got != "3.14159 -3.14159\n" {
+		t.Errorf("Sprintln(pi, -pi): got %q", got)
+	}
+	if got := RequireFromString("-12345678901234567890123456789012e-2"); got.Coefficient().Cmp(long.Coefficient()) != 0 || got.Exponent() != long.Exponent() {
+		t.Errorf("%%#v of %s doesn't recreate it: got %se%d", long, got.Coefficient(), got.Exponent())
+	}
+}
+
+func TestDecimal_FormatWithStringSettings(t *testing.T) {
+	defer func() {
+		TrimTrailingZeros = true
+		UseScientificNotation = false
+	}()
+	TrimTrailingZeros = false
+	UseScientificNotation = true
+
+	for _, c := range []struct {
+		format string
+		d      Decimal
+		want   string
+	}{
+		{"%v", New(150, -2), "1.50"},
+		{"%f", New(150, -2), "1.50"},
+		{"%v", New(1, 3), "1E3"},
+		{"%f", New(1, 3), "1000"},
+	} {
+		if got := fmt.Sprintf(c.format, c.d); got != c.want {
+			t.Errorf("Sprintf(%q, %se%d): got %q, want %q", c.format, c.d.Coefficient(), c.d.Exponent(), got, c.want)
+		}
+	}
+}
+
 func TestDecimal_ScientificNotation(t *testing.T) {
 	type testData struct {
 		input    string

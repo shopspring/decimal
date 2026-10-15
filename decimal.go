@@ -18,6 +18,7 @@ package decimal
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	"math/bits"
@@ -1083,6 +1084,106 @@ func (d Decimal) StringFixedBank(places int32) string {
 func (d Decimal) StringFixedCash(interval uint8) string {
 	rounded := d.RoundCash(interval)
 	return rounded.string(false, false)
+}
+
+// Format implements fmt.Formatter, so decimals work with the fmt verbs:
+//
+//   - %v and %s print String(), and %q, %x and %X quote it or print it in hex, as for any fmt.Stringer.
+//   - %f and %F print fixed-point notation. With a precision, as in %.2f, the decimal is rounded like
+//     StringFixed. Without one, it's printed exactly, like String() but never in scientific notation.
+//     Width and the '-', '+', ' ' and '0' flags work as they do for floats.
+//   - %#v prints Go syntax that recreates the decimal exactly, such as decimal.New(314, -2).
+//
+// Other verbs print fmt's usual error, such as %!d(decimal.Decimal=3.14).
+func (d Decimal) Format(f fmt.State, verb rune) {
+	switch verb {
+	case 'v', 's', 'q', 'x', 'X':
+		if verb == 'v' && f.Flag('#') {
+			formatString(f, 's', d.goSyntax())
+		} else {
+			formatString(f, verb, d.String())
+		}
+	case 'f', 'F':
+		d.formatFixed(f)
+	default:
+		_, _ = fmt.Fprintf(f, "%%!%c(decimal.Decimal=%s)", verb, d.String())
+	}
+}
+
+// formatString formats s as fmt would for the directive that called Format, with verb in place of its own.
+func formatString(f fmt.State, verb rune, s string) {
+	// Println and plain %v are the common case, and rebuilding the directive costs 3 allocations.
+	_, hasWidth := f.Width()
+	_, hasPrec := f.Precision()
+	if (verb == 'v' || verb == 's') && !hasWidth && !hasPrec {
+		_, _ = io.WriteString(f, s)
+		return
+	}
+	_, _ = fmt.Fprintf(f, fmtDirective(f, verb), s)
+}
+
+// fmtDirective rebuilds the directive that called Format, as fmt.FormatString does from Go 1.20.
+func fmtDirective(f fmt.State, verb rune) string {
+	b := []byte{'%'}
+	for _, flag := range "+-# 0" {
+		if f.Flag(int(flag)) {
+			b = append(b, byte(flag))
+		}
+	}
+	if width, ok := f.Width(); ok {
+		b = strconv.AppendInt(b, int64(width), 10)
+	}
+	if prec, ok := f.Precision(); ok {
+		b = strconv.AppendInt(append(b, '.'), int64(prec), 10)
+	}
+	return string(append(b, string(verb)...))
+}
+
+func (d Decimal) formatFixed(f fmt.State) {
+	var s string
+	if prec, ok := f.Precision(); ok {
+		s = d.StringFixed(int32(prec))
+	} else {
+		s = d.string(TrimTrailingZeros, false)
+	}
+
+	sign := ""
+	switch {
+	case s[0] == '-':
+		sign, s = "-", s[1:]
+	case f.Flag('+'):
+		sign = "+"
+	case f.Flag(' '):
+		sign = " "
+	}
+	// Before Go 1.23, fmt keeps the width of an earlier directive when ok is false.
+	pad := 0
+	if width, ok := f.Width(); ok {
+		pad = width - len(sign) - len(s)
+	}
+	switch {
+	case pad <= 0:
+		s = sign + s
+	case f.Flag('-'):
+		s = sign + s + strings.Repeat(" ", pad)
+	case f.Flag('0'):
+		s = sign + strings.Repeat("0", pad) + s
+	default:
+		s = strings.Repeat(" ", pad) + sign + s
+	}
+	_, _ = io.WriteString(f, s)
+}
+
+func (d Decimal) goSyntax() string {
+	switch {
+	case d.value == nil:
+		return "decimal.Decimal{}"
+	case d.value.IsInt64():
+		return fmt.Sprintf("decimal.New(%d, %d)", d.value.Int64(), d.exp)
+	default:
+		// Shift instead of an exponent in the string, which RequireFromString caps at MaxDecodeExponent.
+		return fmt.Sprintf("decimal.RequireFromString(%q).Shift(%d)", d.value.String(), d.exp)
+	}
 }
 
 // Round rounds the decimal to places decimal places.

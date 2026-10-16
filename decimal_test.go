@@ -3406,6 +3406,72 @@ func TestDecimal_PowBigInt_UndefinedResult(t *testing.T) {
 	}
 }
 
+func TestDecimal_SqrtRound(t *testing.T) {
+	for _, c := range []struct {
+		in     string
+		places int32
+		want   string
+	}{
+		{"0", 16, "0"},
+		{"1", 16, "1"},
+		{"4", 16, "2"},
+		{"1.44", 16, "1.2"},
+		{"3", 16, "1.7320508075688773"},
+		{"4.5", 16, "2.1213203435596426"},
+		{"0.002342", 16, "0.0483942145302514"},
+		{"0.002342", 4, "0.0484"},
+		{"0.002342", 32, "0.04839421453025144409653399922499"},
+		{"3289854", 16, "1813.7954680724064484"},
+		{"0.0025", 1, "0.1"},
+		{"12345", -1, "110"},
+		{"1e40", 0, "1e20"},
+		{"1e-40", 16, "0"},
+		{"1e-9000", 16, "0"},
+	} {
+		got, err := RequireFromString(c.in).SqrtRound(c.places)
+		if want := RequireFromString(c.want); err != nil || !got.Equal(want) || got.Exponent() != -c.places {
+			t.Errorf("SqrtRound(%s, %d): got %s (exponent %d), %v, want %s", c.in, c.places, got, got.Exponent(), err, want)
+		}
+	}
+
+	if got, err := New(1, math.MinInt32).SqrtRound(16); err != nil || !got.IsZero() {
+		t.Errorf("SqrtRound(1e%d, 16): got %s, %v, want 0", math.MinInt32, got, err)
+	}
+	for _, d := range []Decimal{NewFromInt(-1), RequireFromString("-0.0001")} {
+		if _, err := d.SqrtRound(16); err == nil {
+			t.Errorf("SqrtRound(%s, 16): got no error", d)
+		}
+	}
+
+	// r is the correctly rounded root of d exactly when (r - u/2)^2 <= d < (r + u/2)^2, with u = 10^-places
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 2000; i++ {
+		d := NewFromBigInt(new(big.Int).Rand(r, pow10(int64(1+r.Intn(40)))), int32(r.Intn(80)-50))
+		places := int32(r.Intn(46) - 5)
+		got, err := d.SqrtRound(places)
+		half := New(5, -places-1)
+		lo, hi := got.Sub(half), got.Add(half)
+		if err != nil || got.Sign() > 0 && lo.Mul(lo).GreaterThan(d) || hi.Mul(hi).LessThanOrEqual(d) {
+			t.Fatalf("SqrtRound(%s, %d): got %s, %v, which isn't the correctly rounded root", d, places, got, err)
+		}
+	}
+}
+
+func TestDecimal_Sqrt(t *testing.T) {
+	if got, err := NewFromInt(2).Sqrt(); err != nil || got.String() != "1.414213562373095" || got.Exponent() != -16 {
+		t.Errorf("Sqrt(2): got %s (exponent %d), %v", got, got.Exponent(), err)
+	}
+
+	defer func(prec int) { DivisionPrecision = prec }(DivisionPrecision)
+	DivisionPrecision = 4
+	if got, err := NewFromInt(2).Sqrt(); err != nil || got.String() != "1.4142" {
+		t.Errorf("Sqrt(2) with DivisionPrecision 4: got %s, %v", got, err)
+	}
+	if _, err := NewFromInt(-4).Sqrt(); err == nil {
+		t.Error("Sqrt(-4): got no error")
+	}
+}
+
 func TestDecimal_IsInteger(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec       string

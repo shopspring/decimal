@@ -597,6 +597,45 @@ func abs64(n int64) int64 {
 	return n
 }
 
+// Sqrt returns the square root of d with DivisionPrecision digits after the decimal point, like Div.
+// It returns an error for negative d.
+//
+// Example:
+//
+//	d, err := NewFromInt(2).Sqrt()
+//	d.String() // output: "1.414213562373095"
+func (d Decimal) Sqrt() (Decimal, error) {
+	return d.SqrtRound(int32(DivisionPrecision))
+}
+
+// SqrtRound returns the square root of d rounded half away from zero to places digits after the
+// decimal point, like DivRound. The result is exact up to that rounding. It returns an error for
+// negative d.
+//
+// Example:
+//
+//	d, err := NewFromFloat(0.002342).SqrtRound(4)
+//	d.String() // output: "0.0484"
+func (d Decimal) SqrtRound(places int32) (Decimal, error) {
+	if d.Sign() < 0 {
+		return Decimal{}, fmt.Errorf("cannot represent imaginary value of sqrt(x), where x < 0")
+	}
+
+	// floor(sqrt(d) * 10^(places+1)) is the integer square root of d * 10^(2*places+2), and its
+	// last digit decides the rounding. Below 1 that product truncates to an integer first, which
+	// doesn't change the floor, and when it's below 1 the result is 0.
+	k := int64(d.exp) + 2*int64(places) + 2
+	n := new(big.Int)
+	if k >= 0 {
+		n.Mul(d.getValue(), pow10(k))
+	} else if -k <= int64(d.NumDigits()) {
+		n.Quo(d.getValue(), pow10(-k))
+	}
+	n.Sqrt(n)
+	n.Add(n, fiveInt).Quo(n, tenInt)
+	return Decimal{value: n, exp: -places}, nil
+}
+
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
 // OverallPrecision argument specifies the overall precision of the result (integer part + decimal part).
 //

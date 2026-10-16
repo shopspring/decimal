@@ -678,6 +678,48 @@ func (d Decimal) Shift(shift int32) Decimal {
 	}
 }
 
+// Normalize returns d with the trailing zeros removed from its coefficient, so equal decimals get the
+// same coefficient and exponent: 1.50, 1.5 and New(15, -1) all become New(15, -1), and every zero
+// becomes Decimal{}, the same as Zero. It's like Java's BigDecimal.stripTrailingZeros.
+//
+// reflect.DeepEqual, and test helpers built on it such as testify's assert.Equal and gomock.Eq, compare
+// the coefficient and exponent rather than the value, so normalize decimals before comparing them that
+// way. Equal and Cmp compare values and don't need it.
+//
+// The value doesn't change, but its string form can: with TrimTrailingZeros = false, 1.50 prints as
+// 1.5, and with UseScientificNotation = true, 1500 prints as 1.5E3.
+func (d Decimal) Normalize() Decimal {
+	v := d.getValue()
+	if v.Sign() == 0 {
+		return Decimal{}
+	}
+
+	// Count the trailing zeros with integer math: in v if it fits an int64, else in v mod 10^19,
+	// and in all the digits of v only when those 19 are all zeros.
+	var zeros int64
+	if v.IsInt64() {
+		for x := v.Int64(); x%10 == 0; x /= 10 {
+			zeros++
+		}
+	} else {
+		r := new(big.Int).Rem(v, pow10(19))
+		for n := r.Abs(r).Uint64(); n%10 == 0 && zeros < 19; n /= 10 {
+			zeros++
+		}
+		if zeros == 19 {
+			s := v.String()
+			zeros = int64(len(s) - len(strings.TrimRight(s, "0")))
+		}
+	}
+	if room := math.MaxInt32 - int64(d.exp); zeros > room {
+		zeros = room
+	}
+	if zeros == 0 {
+		return d
+	}
+	return Decimal{value: new(big.Int).Quo(v, pow10(zeros)), exp: d.exp + int32(zeros)}
+}
+
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {

@@ -322,6 +322,26 @@ func BenchmarkDecimal_ExpTaylor(b *testing.B) {
 	}
 }
 
+func BenchmarkDecimal_Normalize(b *testing.B) {
+	for _, c := range []struct {
+		name string
+		d    Decimal
+	}{
+		{"NoZeros", RequireFromString("123.456")},
+		{"OneZero", RequireFromString("12.50")},
+		{"Div", NewFromInt(5).Div(NewFromInt(2))},
+		{"Big", RequireFromString("123456789012345678901234567890.5000")},
+		{"ManyZeros", RequireFromString("1.5").Round(10000)},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				c.d.Normalize()
+			}
+		})
+	}
+}
+
 func BenchmarkDecimal_UnmarshalJSON(b *testing.B) {
 	b.ResetTimer()
 

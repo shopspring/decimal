@@ -680,8 +680,7 @@ func (d Decimal) Shift(shift int32) Decimal {
 
 // Normalize returns d with the trailing zeros removed from its coefficient, so equal decimals get the
 // same coefficient and exponent: 1.50, 1.5 and New(15, -1) all become New(15, -1), and every zero
-// becomes Decimal{}, the same as Zero. It's like Python's Decimal.normalize and Java's
-// BigDecimal.stripTrailingZeros.
+// becomes Decimal{}, the same as Zero. It's like Java's BigDecimal.stripTrailingZeros.
 //
 // reflect.DeepEqual, and test helpers built on it such as testify's assert.Equal and gomock.Eq, compare
 // the coefficient and exponent rather than the value, so normalize decimals before comparing them that
@@ -690,30 +689,35 @@ func (d Decimal) Shift(shift int32) Decimal {
 // The value doesn't change, but its string form can: with TrimTrailingZeros = false, 1.50 prints as
 // 1.5, and with UseScientificNotation = true, 1500 prints as 1.5E3.
 func (d Decimal) Normalize() Decimal {
-	if d.getValue().Sign() == 0 {
+	v := d.getValue()
+	if v.Sign() == 0 {
 		return Decimal{}
 	}
-	q, r := new(big.Int), new(big.Int)
-	if q.QuoRem(d.value, tenInt, r); r.Sign() != 0 || d.exp == math.MaxInt32 {
-		return d
-	}
 
-	// Dropping up to 16 zeros per division keeps long runs of zeros cheap.
-	coef, exp := q, d.exp+1
-	q = new(big.Int)
-	for step := int32(16); step > 0; step /= 2 {
-		for exp <= math.MaxInt32-step {
-			if q.QuoRem(coef, pow10(int64(step)), r); r.Sign() != 0 {
-				break
-			}
-			coef, q = q, coef
-			exp += step
-			if step < 16 {
-				break
-			}
+	// Count the trailing zeros with integer math: in v if it fits an int64, else in v mod 10^19,
+	// and in all the digits of v only when those 19 are all zeros.
+	var zeros int64
+	if v.IsInt64() {
+		for x := v.Int64(); x%10 == 0; x /= 10 {
+			zeros++
+		}
+	} else {
+		r := new(big.Int).Rem(v, pow10(19))
+		for n := r.Abs(r).Uint64(); n%10 == 0 && zeros < 19; n /= 10 {
+			zeros++
+		}
+		if zeros == 19 {
+			s := v.String()
+			zeros = int64(len(s) - len(strings.TrimRight(s, "0")))
 		}
 	}
-	return Decimal{value: coef, exp: exp}
+	if room := math.MaxInt32 - int64(d.exp); zeros > room {
+		zeros = room
+	}
+	if zeros == 0 {
+		return d
+	}
+	return Decimal{value: new(big.Int).Quo(v, pow10(zeros)), exp: d.exp + int32(zeros)}
 }
 
 // Div returns d / d2. If it doesn't divide exactly, the result will have

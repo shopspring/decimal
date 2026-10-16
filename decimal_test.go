@@ -2016,9 +2016,12 @@ func TestDecimal_Normalize(t *testing.T) {
 		{New(100, -3), "1", -1},
 		{New(-1500, -3), "-15", -1},
 		{RequireFromString("2.5000000000000000"), "25", -1},
+		{RequireFromString("-123456789012345678901234567891000"), "-123456789012345678901234567891", 3},
+		{RequireFromString("12.500000000000000000"), "125", -1},
 		{RequireFromString("1" + strings.Repeat("0", 40)), "1", 40},
 		{New(100, math.MaxInt32-1), "10", math.MaxInt32},
 		{New(10, math.MaxInt32), "10", math.MaxInt32},
+		{NewFromBigInt(pow10(40), math.MaxInt32-30), "10000000000", math.MaxInt32},
 	} {
 		coef, exp := c.d.Coefficient().String(), c.d.Exponent()
 		got := c.d.Normalize()

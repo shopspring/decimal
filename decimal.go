@@ -678,6 +678,44 @@ func (d Decimal) Shift(shift int32) Decimal {
 	}
 }
 
+// Normalize returns d with the trailing zeros removed from its coefficient, so equal decimals get the
+// same coefficient and exponent: 1.50, 1.5 and New(15, -1) all become New(15, -1), and every zero
+// becomes Decimal{}, the same as Zero. It's like Python's Decimal.normalize and Java's
+// BigDecimal.stripTrailingZeros.
+//
+// reflect.DeepEqual, and test helpers built on it such as testify's assert.Equal and gomock.Eq, compare
+// the coefficient and exponent rather than the value, so normalize decimals before comparing them that
+// way. Equal and Cmp compare values and don't need it.
+//
+// The value doesn't change, but its string form can: with TrimTrailingZeros = false, 1.50 prints as
+// 1.5, and with UseScientificNotation = true, 1500 prints as 1.5E3.
+func (d Decimal) Normalize() Decimal {
+	if d.getValue().Sign() == 0 {
+		return Decimal{}
+	}
+	q, r := new(big.Int), new(big.Int)
+	if q.QuoRem(d.value, tenInt, r); r.Sign() != 0 || d.exp == math.MaxInt32 {
+		return d
+	}
+
+	// Dropping up to 16 zeros per division keeps long runs of zeros cheap.
+	coef, exp := q, d.exp+1
+	q = new(big.Int)
+	for step := int32(16); step > 0; step /= 2 {
+		for exp <= math.MaxInt32-step {
+			if q.QuoRem(coef, pow10(int64(step)), r); r.Sign() != 0 {
+				break
+			}
+			coef, q = q, coef
+			exp += step
+			if step < 16 {
+				break
+			}
+		}
+	}
+	return Decimal{value: coef, exp: exp}
+}
+
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point.
 func (d Decimal) Div(d2 Decimal) Decimal {

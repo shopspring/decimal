@@ -2005,6 +2005,46 @@ func TestDecimal_ShiftExponentOverflow(t *testing.T) {
 	}
 }
 
+func TestDecimal_Normalize(t *testing.T) {
+	for _, c := range []struct {
+		d    Decimal
+		coef string
+		exp  int32
+	}{
+		{New(123, -2), "123", -2},
+		{New(100, 0), "1", 2},
+		{New(100, -3), "1", -1},
+		{New(-1500, -3), "-15", -1},
+		{RequireFromString("2.5000000000000000"), "25", -1},
+		{RequireFromString("1" + strings.Repeat("0", 40)), "1", 40},
+		{New(100, math.MaxInt32-1), "10", math.MaxInt32},
+		{New(10, math.MaxInt32), "10", math.MaxInt32},
+	} {
+		coef, exp := c.d.Coefficient().String(), c.d.Exponent()
+		got := c.d.Normalize()
+		if got.Coefficient().String() != c.coef || got.Exponent() != c.exp {
+			t.Errorf("Normalize(%se%d): got %se%d, want %se%d", coef, exp, got.Coefficient(), got.Exponent(), c.coef, c.exp)
+		}
+		if c.d.Coefficient().String() != coef || c.d.Exponent() != exp {
+			t.Errorf("Normalize(%se%d) changed its receiver to %se%d", coef, exp, c.d.Coefficient(), c.d.Exponent())
+		}
+	}
+
+	one := NewFromInt(1)
+	for _, equal := range [][]Decimal{
+		{Decimal{}, Zero, New(0, 0), NewFromFloat(0), RequireFromString("0.00"), one.Sub(one), RequireFromString("0.4").Round(0), RequireFromString("0.5").RoundDown(0)},
+		{New(1, 1), RequireFromString("10"), NewFromFloat(10), RequireFromString("10.00"), NewFromInt(20).Div(NewFromInt(2)), RequireFromString("2.5").Mul(NewFromInt(4)), New(10000000000, -9)},
+		{New(-15, -1), RequireFromString("-1.500"), NewFromFloat(-1.5), NewFromInt(-3).Div(NewFromInt(2))},
+	} {
+		want := equal[0]
+		for _, d := range equal[1:] {
+			if got := d.Normalize(); !reflect.DeepEqual(got, want) {
+				t.Errorf("Normalize(%se%d): got %#v, want %#v", d.Coefficient(), d.Exponent(), got, want)
+			}
+		}
+	}
+}
+
 func TestDecimal_Div(t *testing.T) {
 	type Inp struct {
 		a string

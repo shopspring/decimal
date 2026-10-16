@@ -64,6 +64,29 @@ func main() {
 }
 ```
 
+### Division precision
+
+Division can require rounding even though addition, subtraction, and multiplication
+preserve precision. `Div` uses the package-level `DivisionPrecision`, which defaults
+to 16 decimal places. This is a limit on digits **after the decimal point**, not on
+significant digits or on the precision of stored `Decimal` values.
+
+Use `DivRound` to choose the number of decimal places for an individual division
+without changing the package-wide default:
+
+```go
+one := decimal.NewFromInt(1)
+three := decimal.NewFromInt(3)
+fmt.Println(one.Div(three))          // 0.3333333333333333
+fmt.Println(one.DivRound(three, 20)) // 0.33333333333333333333
+fmt.Println(one.DivRound(three, 2))  // 0.33
+```
+
+`DivRound` rounds halfway values away from zero. A later call to `Round` cannot
+recover digits already discarded by `Div`; choose the precision when dividing.
+If you change `decimal.DivisionPrecision`, configure it before concurrent use
+rather than changing it between operations.
+
 ## Alternative libraries
 
 When working with decimal numbers, you might face problems this library is not perfectly suited for. 

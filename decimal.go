@@ -876,7 +876,7 @@ func (d Decimal) IsInteger() bool {
 	q := new(big.Int).Set(v)
 	for z := abs(d.exp); z > 0; z-- {
 		q.QuoRem(q, tenInt, &r)
-		if r.Cmp(zeroInt) != 0 {
+		if r.Sign() != 0 {
 			return false
 		}
 	}
@@ -1456,7 +1456,7 @@ func (d Decimal) Ceil() Decimal {
 
 	// NOTE(vadim): must negate after casting to prevent int32 overflow
 	z, m := new(big.Int).DivMod(d.getValue(), pow10(-int64(d.exp)), new(big.Int))
-	if m.Cmp(zeroInt) != 0 {
+	if m.Sign() != 0 {
 		z.Add(z, oneInt)
 	}
 	return Decimal{value: z, exp: 0}

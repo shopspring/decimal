@@ -598,7 +598,7 @@ func abs64(n int64) int64 {
 }
 
 // Sqrt returns the square root of d with DivisionPrecision digits after the decimal point, like Div.
-// It returns an error for negative d.
+// Use SqrtRound to choose the precision per call. It returns an error for negative d.
 //
 // Example:
 //

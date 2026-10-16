@@ -28,7 +28,10 @@ import (
 )
 
 // DivisionPrecision is the number of decimal places in the result when it
-// doesn't divide exactly.
+// doesn't divide exactly. Div and Sqrt read it, and so do Avg, Atan and Tan through Div.
+//
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
+// To choose the precision per call, use DivRound instead of Div and SqrtRound instead of Sqrt.
 //
 // Example:
 //
@@ -48,6 +51,9 @@ var DivisionPrecision = 16
 // PowPrecisionNegativeExponent significant digits instead (at least one).
 // PowWithPrecision is not affected, it takes the precision as an argument.
 //
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
+// To choose the precision per call, use PowWithPrecision.
+//
 // Example:
 //
 //	d1, err := decimal.NewFromFloat(15.2).PowInt32(-2)
@@ -64,12 +70,18 @@ var PowPrecisionNegativeExponent = 16
 // unmarshallers (ex: Javascript's) will unmarshal JSON numbers to IEEE 754
 // double-precision floating point numbers, which means you can potentially
 // silently lose precision.
+//
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
 var MarshalJSONWithoutQuotes = false
 
 // TrimTrailingZeros specifies whether trailing zeroes should be trimmed from a string representation of decimal.
 // If set to true, trailing zeroes will be truncated (2.00 -> 2, 3.11 -> 3.11, 13.000 -> 13),
 // otherwise trailing zeroes will be preserved (2.00 -> 2.00, 3.11 -> 3.11, 13.000 -> 13.000).
 // Setting this value to false can be useful for APIs where exact decimal string representation matters.
+// It affects String and everything built on it, such as MarshalJSON, MarshalText and Value.
+//
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
+// For a fixed number of decimal places per call, use StringFixed.
 var TrimTrailingZeros = true
 
 // UseScientificNotation specifies whether scientific notation should be used when a decimal is turned
@@ -77,10 +89,15 @@ var TrimTrailingZeros = true
 //
 // For example, 1200 rounded to the nearest 100 cannot accurately be shown as "1200" because the last two
 // digits are unknown. With this set to true, that number would be expressed as "1.2E3" instead.
+//
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
+// StringFixed never uses scientific notation.
 var UseScientificNotation = false
 
 // ExpMaxIterations specifies the maximum number of iterations needed to calculate
 // precise natural exponent value using ExpHullAbrham method.
+//
+// Set it once at program start. Changing it while other goroutines use the package is a data race.
 var ExpMaxIterations = 1000
 
 // MaxDecodeExponent is the largest exponent magnitude that NewFromString and UnmarshalBinary accept,
@@ -94,7 +111,8 @@ var ExpMaxIterations = 1000
 // their own String or MarshalBinary output. The limit does not bound the cost of Pow or ExpTaylor
 // arguments or of very long inputs; validate those separately.
 //
-// Set it once at program start, before any decoding. Raise it only for trusted input.
+// Set it once at program start, before any decoding. Changing it while other goroutines decode is a
+// data race. Raise it only for trusted input.
 var MaxDecodeExponent = 10000
 
 // Zero constant, to make computations faster.
@@ -721,7 +739,7 @@ func (d Decimal) Normalize() Decimal {
 }
 
 // Div returns d / d2. If it doesn't divide exactly, the result will have
-// DivisionPrecision digits after the decimal point.
+// DivisionPrecision digits after the decimal point. Use DivRound to choose the precision per call.
 func (d Decimal) Div(d2 Decimal) Decimal {
 	return d.DivRound(d2, int32(DivisionPrecision))
 }

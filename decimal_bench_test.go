@@ -342,6 +342,26 @@ func BenchmarkDecimal_Normalize(b *testing.B) {
 	}
 }
 
+func BenchmarkDecimal_Sqrt(b *testing.B) {
+	for _, c := range []struct {
+		name   string
+		d      Decimal
+		places int32
+	}{
+		{"Small", RequireFromString("0.002342"), 16},
+		{"Int", NewFromInt(2), 16},
+		{"Big", RequireFromString("123456789012345678901234567890.123"), 16},
+		{"Places1000", NewFromInt(2), 1000},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_, _ = c.d.SqrtRound(c.places)
+			}
+		})
+	}
+}
+
 func BenchmarkDecimal_UnmarshalJSON(b *testing.B) {
 	b.ResetTimer()
 

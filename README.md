@@ -1,12 +1,13 @@
 # decimal
 
-[![Github Actions](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
+[![ci](https://github.com/shopspring/decimal/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/shopspring/decimal/actions/workflows/ci.yml)
 [![GoDoc](https://godoc.org/github.com/shopspring/decimal?status.svg)](https://godoc.org/github.com/shopspring/decimal) 
-[![Go Report Card](https://goreportcard.com/badge/github.com/shopspring/decimal)](https://goreportcard.com/report/github.com/shopspring/decimal)
 
 Arbitrary-precision fixed-point decimal numbers in go.
 
 _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digits after the decimal point.
+Results that aren't exact, like `Div` and `Sqrt`, are rounded to 16 decimal places by default, and decoded input is
+limited to exponents up to 10,000. See [Global settings](#global-settings).
 
 ## Features
 
@@ -15,6 +16,7 @@ _Note:_ Decimal library can "only" represent numbers with a maximum of 2^31 digi
  * Division with specified precision
  * Database/sql serialization/deserialization
  * JSON and XML serialization/deserialization
+ * MongoDB BSON serialization/deserialization as Decimal128, with the official Go driver v2
 
 ## Install
 
@@ -22,7 +24,12 @@ Run `go get github.com/shopspring/decimal`
 
 ## Requirements 
 
-Decimal library requires Go version `>=1.7`
+Decimal library requires Go version `>=1.10`
+
+## Documentation
+
+http://godoc.org/github.com/shopspring/decimal
+
 
 ## Usage
 
@@ -59,14 +66,32 @@ func main() {
 }
 ```
 
-## Documentation
+## Global settings
 
-http://godoc.org/github.com/shopspring/decimal
+These package-level variables change how some functions behave:
 
-## Production Usage
+| Variable | Default | What it changes | Per-call alternative |
+|---|---|---|---|
+| `DivisionPrecision` | `16` | Decimal places in `Div` and `Sqrt` results, and in `Avg`, `Atan` and `Tan` | `DivRound`, `SqrtRound` |
+| `PowPrecisionNegativeExponent` | `16` | Decimal places in `Pow`, `PowInt32` and `PowBigInt` results for negative or fractional exponents | `PowWithPrecision` |
+| `TrimTrailingZeros` | `true` | Whether `String`, and so JSON, text and SQL output, drops trailing zeros: `2.50` prints as `2.5` | `StringFixed` |
+| `UseScientificNotation` | `false` | Whether `String` prints numbers stored with a positive exponent in scientific notation, like `1.2E3` | `StringFixed` |
+| `MarshalJSONWithoutQuotes` | `false` | Whether JSON output is a number instead of a string | |
+| `ExpMaxIterations` | `1000` | Iteration limit of `ExpHullAbrham` | |
+| `MaxDecodeExponent` | `10000` | Largest exponent size that `NewFromString` and the decoders accept | |
 
-* [Spring](https://shopspring.com/), since August 14, 2014.
-* If you are using this in production, please let us know!
+Set them once at program start. Changing one while other goroutines use the library is a data race.
+
+## Alternative libraries
+
+When working with decimal numbers, you might face problems this library is not perfectly suited for. 
+Fortunately, thanks to the wonderful community we have a dozen other libraries that you can choose from.  
+Explore other alternatives to find the one that best fits your needs :)  
+
+* [cockroachdb/apd](https://github.com/cockroachdb/apd) - arbitrary precision, mutable and rich API similar to `big.Int`, more performant than this library 
+* [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), fully compatible API with this library 
+* [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
+* [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork focusing on billing and e-commerce web application related use cases, includes out-of-the-box BSON marshaling support
 
 ## FAQ
 

@@ -597,6 +597,45 @@ func abs64(n int64) int64 {
 	return n
 }
 
+// Sqrt returns the square root of d with DivisionPrecision digits after the decimal point, like Div.
+// Use SqrtRound to choose the precision per call. It returns an error for negative d.
+//
+// Example:
+//
+//	d, err := NewFromInt(2).Sqrt()
+//	d.String() // output: "1.414213562373095"
+func (d Decimal) Sqrt() (Decimal, error) {
+	return d.SqrtRound(int32(DivisionPrecision))
+}
+
+// SqrtRound returns the square root of d rounded half away from zero to places digits after the
+// decimal point, like DivRound. The result is exact up to that rounding. It returns an error for
+// negative d.
+//
+// Example:
+//
+//	d, err := NewFromFloat(0.002342).SqrtRound(4)
+//	d.String() // output: "0.0484"
+func (d Decimal) SqrtRound(places int32) (Decimal, error) {
+	if d.Sign() < 0 {
+		return Decimal{}, fmt.Errorf("cannot represent imaginary value of sqrt(x), where x < 0")
+	}
+
+	// floor(sqrt(d) * 10^(places+1)) is the integer square root of d * 10^(2*places+2), and its
+	// last digit decides the rounding. Below 1 that product truncates to an integer first, which
+	// doesn't change the floor, and when it's below 1 the result is 0.
+	k := int64(d.exp) + 2*int64(places) + 2
+	n := new(big.Int)
+	if k >= 0 {
+		n.Mul(d.getValue(), pow10(k))
+	} else if -k <= int64(d.NumDigits()) {
+		n.Quo(d.getValue(), pow10(-k))
+	}
+	n.Sqrt(n)
+	n.Add(n, fiveInt).Quo(n, tenInt)
+	return Decimal{value: n, exp: -places}, nil
+}
+
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.
 // OverallPrecision argument specifies the overall precision of the result (integer part + decimal part).
 //
@@ -604,8 +643,11 @@ func abs64(n int64) int64 {
 //
 // Example:
 //
-//	NewFromFloat(26.1).ExpHullAbrham(2).String()    // output: "220000000000"
-//	NewFromFloat(26.1).ExpHullAbrham(20).String()   // output: "216314672147.05767284"
+//	d1, err := NewFromFloat(26.1).ExpHullAbrham(2)
+//	d1.String() // output: "220000000000"
+//
+//	d2, err := NewFromFloat(26.1).ExpHullAbrham(20)
+//	d2.String() // output: "216314672147.05767284"
 func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	// Algorithm based on Variable precision exponential function.
 	// ACM Transactions on Mathematical Software by T. E. Hull & A. Abrham.
@@ -675,14 +717,13 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	}
 	res := Decimal{new(big.Int).Exp(sum.getValue(), big.NewInt(ki), nil), int32(expInt64)}
 
-	resNumDigits := int32(res.NumDigits())
-
-	var roundDigits int32
-	if resNumDigits > abs(res.exp) {
-		roundDigits = int32(currentPrecision) - resNumDigits - res.exp
-	} else {
-		roundDigits = int32(currentPrecision)
+	// Round to overallPrecision significant figures, at least 1. A raised currentPrecision only keeps
+	// the calculation precise, it doesn't add digits to the result.
+	sig := int32(overallPrecision)
+	if sig == 0 {
+		sig = 1
 	}
+	roundDigits := sig - int32(res.NumDigits()) - res.exp
 
 	res = res.Round(roundDigits)
 
@@ -697,14 +738,14 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 //
 // Example:
 //
-//	d, err := NewFromFloat(26.1).ExpTaylor(2).String()
-//	d.String()  // output: "216314672147.06"
+//	d1, err := NewFromFloat(26.1).ExpTaylor(2)
+//	d1.String() // output: "216314672147.06"
 //
-//	NewFromFloat(26.1).ExpTaylor(20).String()
-//	d.String()  // output: "216314672147.05767284062928674083"
+//	d2, err := NewFromFloat(26.1).ExpTaylor(20)
+//	d2.String() // output: "216314672147.05767284062928674083"
 //
-//	NewFromFloat(26.1).ExpTaylor(-10).String()
-//	d.String()  // output: "220000000000"
+//	d3, err := NewFromFloat(26.1).ExpTaylor(-10)
+//	d3.String() // output: "220000000000"
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
 	if d.IsZero() {

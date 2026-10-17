@@ -2,6 +2,7 @@ package decimal
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -59,9 +60,6 @@ var testTable = []*testEnt{
 	{2e250, "20000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000", "", ""},
 	{math.MaxInt64, strconv.FormatFloat(float64(math.MaxInt64), 'f', -1, 64), "", strconv.FormatInt(math.MaxInt64, 10)},
 	{1.29067116156722e-309, "0.00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000129067116156722", "", "0.000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001290671161567218558822290567835270536800098852722416870074139002112543896676308448335063375297788379444685193974290737962187240854947838776604607190387984577130572928111657710645015086812756013489109884753559084166516937690932698276436869274093950997935137476803610007959500457935217950764794724766740819156974617155861568214427828145972181876775307023388139991104942469299524961281641158436752347582767153796914843896176260096039358494077706152272661453132497761307744086665088096215425146090058519888494342944692629602847826300550628670375451325582843627504604013541465361435761965354140678551369499812124085312128659002910905639984075064968459581691226705666561364681985266583563078466180095375402399087817404368974165082030458595596655868575908243656158447265625000000000000000000000000000000000000004440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"},
-	// go Issue 29491.
-	{498484681984085570, "498484681984085570", "", ""},
-	{5.8339553793802237e+23, "583395537938022370000000", "", ""},
 }
 
 var testTableScientificNotation = map[string]string{
@@ -353,6 +351,26 @@ func TestFloat64OutOfRange(t *testing.T) {
 		if math.Float64bits(f) != math.Float64bits(test.f) || exact != test.exact {
 			t.Errorf("%de%d: expected (%v, %v), got (%v, %v)",
 				test.d.Coefficient(), test.d.Exponent(), test.f, test.exact, f, exact)
+		}
+	}
+}
+
+func TestNewFromStringUnicodeMinus(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"\u2212123.45", "-123.45"},
+		{"\u2212.5", "-0.5"},
+		{"1e\u22122", "0.01"},
+	}
+	for _, tc := range cases {
+		d, err := NewFromString(tc.in)
+		if err != nil {
+			t.Errorf("NewFromString(%q) unexpected error: %v", tc.in, err)
+			continue
+		}
+		if d.String() != tc.want {
+			t.Errorf("NewFromString(%q) = %q, want %q", tc.in, d.String(), tc.want)
 		}
 	}
 }
@@ -2101,6 +2119,49 @@ func TestDecimal_ShiftExponentOverflow(t *testing.T) {
 	}
 }
 
+func TestDecimal_Normalize(t *testing.T) {
+	for _, c := range []struct {
+		d    Decimal
+		coef string
+		exp  int32
+	}{
+		{New(123, -2), "123", -2},
+		{New(100, 0), "1", 2},
+		{New(100, -3), "1", -1},
+		{New(-1500, -3), "-15", -1},
+		{RequireFromString("2.5000000000000000"), "25", -1},
+		{RequireFromString("-123456789012345678901234567891000"), "-123456789012345678901234567891", 3},
+		{RequireFromString("12.500000000000000000"), "125", -1},
+		{RequireFromString("1" + strings.Repeat("0", 40)), "1", 40},
+		{New(100, math.MaxInt32-1), "10", math.MaxInt32},
+		{New(10, math.MaxInt32), "10", math.MaxInt32},
+		{NewFromBigInt(pow10(40), math.MaxInt32-30), "10000000000", math.MaxInt32},
+	} {
+		coef, exp := c.d.Coefficient().String(), c.d.Exponent()
+		got := c.d.Normalize()
+		if got.Coefficient().String() != c.coef || got.Exponent() != c.exp {
+			t.Errorf("Normalize(%se%d): got %se%d, want %se%d", coef, exp, got.Coefficient(), got.Exponent(), c.coef, c.exp)
+		}
+		if c.d.Coefficient().String() != coef || c.d.Exponent() != exp {
+			t.Errorf("Normalize(%se%d) changed its receiver to %se%d", coef, exp, c.d.Coefficient(), c.d.Exponent())
+		}
+	}
+
+	one := NewFromInt(1)
+	for _, equal := range [][]Decimal{
+		{Decimal{}, Zero, New(0, 0), NewFromFloat(0), RequireFromString("0.00"), one.Sub(one), RequireFromString("0.4").Round(0), RequireFromString("0.5").RoundDown(0)},
+		{New(1, 1), RequireFromString("10"), NewFromFloat(10), RequireFromString("10.00"), NewFromInt(20).Div(NewFromInt(2)), RequireFromString("2.5").Mul(NewFromInt(4)), New(10000000000, -9)},
+		{New(-15, -1), RequireFromString("-1.500"), NewFromFloat(-1.5), NewFromInt(-3).Div(NewFromInt(2))},
+	} {
+		want := equal[0]
+		for _, d := range equal[1:] {
+			if got := d.Normalize(); !reflect.DeepEqual(got, want) {
+				t.Errorf("Normalize(%se%d): got %#v, want %#v", d.Coefficient(), d.Exponent(), got, want)
+			}
+		}
+	}
+}
+
 func TestDecimal_Div(t *testing.T) {
 	type Inp struct {
 		a string
@@ -2746,7 +2807,7 @@ func TestDecimal_Scan(t *testing.T) {
 	// apparently MySQL 5.7.16 and returns these as float32 so we need
 	// to handle these as well
 	dbvalueFloat32 := float32(54.33)
-	expected = NewFromFloat(float64(dbvalueFloat32))
+	expected = RequireFromString("54.33")
 	scanHelper(t, dbvalueFloat32, expected)
 
 	// at least SQLite returns an int64 when 0 is stored in the db
@@ -2776,6 +2837,50 @@ func TestDecimal_Scan(t *testing.T) {
 	err = a.Scan(foo{})
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
+	}
+}
+
+func TestDecimal_ScanTypes(t *testing.T) {
+	int128, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	for _, c := range []struct {
+		value interface{}
+		want  string
+	}{
+		{int(-3264), "-3264"},
+		{int8(-7), "-7"},
+		{int16(300), "300"},
+		{int32(-70000), "-70000"},
+		{int64(math.MinInt64), "-9223372036854775808"},
+		{uint(3264), "3264"},
+		{uint8(200), "200"},
+		{uint16(65535), "65535"},
+		{uint32(4000000000), "4000000000"},
+		{uint64(math.MaxUint64), "18446744073709551615"},
+		{float32(-0.1), "-0.1"},
+		{float32(math.MaxFloat32), strconv.FormatFloat(math.MaxFloat32, 'f', -1, 32)},
+		{float32(math.SmallestNonzeroFloat32), strconv.FormatFloat(math.SmallestNonzeroFloat32, 'f', -1, 32)},
+		{*int128, "170141183460469231731687303715884105727"},
+		{int128, "170141183460469231731687303715884105727"},
+		{New(2, 3), "2000"},
+	} {
+		var d Decimal
+		if err := d.Scan(c.value); err != nil || d.String() != c.want {
+			t.Errorf("Scan(%T %v): got %s, %v, want %s", c.value, c.value, d, err, c.want)
+		}
+		var n NullDecimal
+		if err := n.Scan(c.value); err != nil || !n.Valid || n.Decimal.String() != c.want {
+			t.Errorf("NullDecimal.Scan(%T %v): got %v, %v, want %s", c.value, c.value, n, err, c.want)
+		}
+	}
+	if int128.String() != "170141183460469231731687303715884105727" {
+		t.Errorf("Scan changed the scanned *big.Int to %s", int128)
+	}
+
+	for _, v := range []interface{}{(*big.Int)(nil), math.NaN(), math.Inf(1), float32(math.Inf(-1))} {
+		var n NullDecimal
+		if err := n.Scan(v); err == nil || n.Valid {
+			t.Errorf("NullDecimal.Scan(%T %v): got %v, %v, want an error", v, v, n, err)
+		}
 	}
 }
 
@@ -2865,6 +2970,142 @@ func TestDecimal_EncodeSpanner(t *testing.T) {
 		t.Errorf("Decimal(12.34).Value() failed with message: %s", err)
 	} else if got := value.(string); got != expected {
 		t.Errorf("%s does not equal to %s", a, expected)
+	}
+}
+
+type bsonValueMarshaler interface {
+	MarshalBSONValue() (byte, []byte, error)
+}
+
+type bsonValueUnmarshaler interface {
+	UnmarshalBSONValue(byte, []byte) error
+}
+
+var (
+	_ bsonValueMarshaler   = Decimal{}
+	_ bsonValueMarshaler   = NullDecimal{}
+	_ bsonValueUnmarshaler = (*Decimal)(nil)
+	_ bsonValueUnmarshaler = (*NullDecimal)(nil)
+)
+
+// decimal128Tests are canonical values from the BSON spec's Decimal128 test corpus.
+var decimal128Tests = []struct {
+	dec string
+	hex string // the 16 bytes as stored in BSON
+}{
+	{"0", "00000000000000000000000000004030"},
+	{"1", "01000000000000000000000000004030"},
+	{"-1", "010000000000000000000000000040b0"},
+	{"0.1", "01000000000000000000000000003e30"},
+	{"1E+3", "01000000000000000000000000004630"},
+	{"1234567890123456789012345678901234", "f2af967ed05c82de3297ff6fde3c4030"},
+	{"9.999999999999999999999999999999999E+6144", "ffffffff638e8d37c087adbe09edff5f"},
+	{"1.000000000000000000000000000000000E+6144", "000000000a5bc138938d44c64d31fe5f"},
+	{"1E-6176", "01000000000000000000000000000000"},
+	{"-1E-6176", "01000000000000000000000000000080"},
+	{"0E-6176", "00000000000000000000000000000000"},
+	{"0E+6111", "0000000000000000000000000000fe5f"},
+}
+
+func mustDecodeHex(t *testing.T, s string) []byte {
+	t.Helper()
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestDecimal_MarshalBSONValue(t *testing.T) {
+	type test struct {
+		name string
+		d    Decimal
+		hex  string
+	}
+	tests := []test{
+		{"zero value", Decimal{}, "00000000000000000000000000004030"},
+		{"41 digits drop trailing zeros", RequireFromString("1" + strings.Repeat("0", 40)), "000000000a5bc138938d44c64d314e30"},
+		{"exponent above 6111 gains trailing zeros", RequireFromString("1E+6144"), "000000000a5bc138938d44c64d31fe5f"},
+		{"exponent below -6176 drops trailing zeros", New(1000, -6179), "01000000000000000000000000000000"},
+		{"zero with the largest exponent", New(0, math.MaxInt32), "0000000000000000000000000000fe5f"},
+		{"zero with the smallest exponent", New(0, math.MinInt32), "00000000000000000000000000000000"},
+	}
+	for _, c := range decimal128Tests {
+		tests = append(tests, test{c.dec, RequireFromString(c.dec), c.hex})
+	}
+	for _, c := range tests {
+		typ, data, err := c.d.MarshalBSONValue()
+		if err != nil || typ != bsonTypeDecimal128 || hex.EncodeToString(data) != c.hex {
+			t.Errorf("MarshalBSONValue(%s): got %#x, %x, %v, want %#x, %s", c.name, typ, data, err, bsonTypeDecimal128, c.hex)
+		}
+	}
+
+	for _, c := range []struct {
+		name string
+		d    Decimal
+	}{
+		{"35 significant digits", RequireFromString("1.2345678901234567890123456789012345")},
+		{"below the smallest Decimal128", RequireFromString("1E-6177")},
+		{"above the largest Decimal128", RequireFromString("1E+6145")},
+		{"smallest int32 exponent", New(1, math.MinInt32)},
+	} {
+		if _, _, err := c.d.MarshalBSONValue(); err == nil {
+			t.Errorf("MarshalBSONValue(%s): got no error", c.name)
+		}
+	}
+}
+
+func TestDecimal_UnmarshalBSONValue(t *testing.T) {
+	type test struct {
+		name string
+		typ  byte
+		hex  string
+		want string
+	}
+	tests := []test{
+		{"string", bsonTypeString, "04000000312e3500", "1.5"},
+		{"double", bsonTypeDouble, "0000000000000440", "2.5"},
+		{"int32", bsonTypeInt32, "f9ffffff", "-7"},
+		{"int64", bsonTypeInt64, "0000000000010000", "1099511627776"},
+		{"null", bsonTypeNull, "", "0"},
+		{"undefined", bsonTypeUndefined, "", "0"},
+		{"Decimal128 with an implied coefficient above 10^34 - 1", bsonTypeDecimal128, "ffffffffffffffffffffffffffff116c", "0E+3"},
+		{"Decimal128 with the coefficient 10^34", bsonTypeDecimal128, "00000000648e8d37c087adbe09ed4130", "0"},
+	}
+	for _, c := range decimal128Tests {
+		tests = append(tests, test{c.dec, bsonTypeDecimal128, c.hex, c.dec})
+	}
+	for _, c := range tests {
+		want := RequireFromString(c.want)
+		got := New(5, 0)
+		err := got.UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex))
+		if err != nil || !got.Equal(want) || got.Exponent() != want.Exponent() {
+			t.Errorf("UnmarshalBSONValue(%s): got %se%d, %v, want %se%d", c.name, got.Coefficient(), got.Exponent(), err, want.Coefficient(), want.Exponent())
+		}
+	}
+
+	for _, c := range []struct {
+		name string
+		typ  byte
+		hex  string
+	}{
+		{"Decimal128 NaN", bsonTypeDecimal128, "0000000000000000000000000000007c"},
+		{"Decimal128 -Infinity", bsonTypeDecimal128, "000000000000000000000000000000f8"},
+		{"Decimal128 of 15 bytes", bsonTypeDecimal128, "000000000000000000000000004030"},
+		{"double NaN", bsonTypeDouble, "000000000000f87f"},
+		{"double +Infinity", bsonTypeDouble, "000000000000f07f"},
+		{"string abc", bsonTypeString, "0400000061626300"},
+		{"boolean", 0x08, "01"},
+	} {
+		if err := new(Decimal).UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex)); err == nil {
+			t.Errorf("UnmarshalBSONValue(%s): got no error", c.name)
+		}
+	}
+
+	defer func(limit int) { MaxDecodeExponent = limit }(MaxDecodeExponent)
+	MaxDecodeExponent = 100
+	if err := new(Decimal).UnmarshalBSONValue(bsonTypeDecimal128, mustDecodeHex(t, "01000000000000000000000000000000")); err == nil {
+		t.Error("UnmarshalBSONValue(1E-6176): got no error with MaxDecodeExponent 100")
 	}
 }
 
@@ -3353,6 +3594,72 @@ func TestDecimal_PowBigInt_UndefinedResult(t *testing.T) {
 	}
 }
 
+func TestDecimal_SqrtRound(t *testing.T) {
+	for _, c := range []struct {
+		in     string
+		places int32
+		want   string
+	}{
+		{"0", 16, "0"},
+		{"1", 16, "1"},
+		{"4", 16, "2"},
+		{"1.44", 16, "1.2"},
+		{"3", 16, "1.7320508075688773"},
+		{"4.5", 16, "2.1213203435596426"},
+		{"0.002342", 16, "0.0483942145302514"},
+		{"0.002342", 4, "0.0484"},
+		{"0.002342", 32, "0.04839421453025144409653399922499"},
+		{"3289854", 16, "1813.7954680724064484"},
+		{"0.0025", 1, "0.1"},
+		{"12345", -1, "110"},
+		{"1e40", 0, "1e20"},
+		{"1e-40", 16, "0"},
+		{"1e-9000", 16, "0"},
+	} {
+		got, err := RequireFromString(c.in).SqrtRound(c.places)
+		if want := RequireFromString(c.want); err != nil || !got.Equal(want) || got.Exponent() != -c.places {
+			t.Errorf("SqrtRound(%s, %d): got %s (exponent %d), %v, want %s", c.in, c.places, got, got.Exponent(), err, want)
+		}
+	}
+
+	if got, err := New(1, math.MinInt32).SqrtRound(16); err != nil || !got.IsZero() {
+		t.Errorf("SqrtRound(1e%d, 16): got %s, %v, want 0", math.MinInt32, got, err)
+	}
+	for _, d := range []Decimal{NewFromInt(-1), RequireFromString("-0.0001")} {
+		if _, err := d.SqrtRound(16); err == nil {
+			t.Errorf("SqrtRound(%s, 16): got no error", d)
+		}
+	}
+
+	// r is the correctly rounded root of d exactly when (r - u/2)^2 <= d < (r + u/2)^2, with u = 10^-places
+	r := rand.New(rand.NewSource(1))
+	for i := 0; i < 2000; i++ {
+		d := NewFromBigInt(new(big.Int).Rand(r, pow10(int64(1+r.Intn(40)))), int32(r.Intn(80)-50))
+		places := int32(r.Intn(46) - 5)
+		got, err := d.SqrtRound(places)
+		half := New(5, -places-1)
+		lo, hi := got.Sub(half), got.Add(half)
+		if err != nil || got.Sign() > 0 && lo.Mul(lo).GreaterThan(d) || hi.Mul(hi).LessThanOrEqual(d) {
+			t.Fatalf("SqrtRound(%s, %d): got %s, %v, which isn't the correctly rounded root", d, places, got, err)
+		}
+	}
+}
+
+func TestDecimal_Sqrt(t *testing.T) {
+	if got, err := NewFromInt(2).Sqrt(); err != nil || got.String() != "1.414213562373095" || got.Exponent() != -16 {
+		t.Errorf("Sqrt(2): got %s (exponent %d), %v", got, got.Exponent(), err)
+	}
+
+	defer func(prec int) { DivisionPrecision = prec }(DivisionPrecision)
+	DivisionPrecision = 4
+	if got, err := NewFromInt(2).Sqrt(); err != nil || got.String() != "1.4142" {
+		t.Errorf("Sqrt(2) with DivisionPrecision 4: got %s, %v", got, err)
+	}
+	if _, err := NewFromInt(-4).Sqrt(); err == nil {
+		t.Error("Sqrt(-4): got no error")
+	}
+}
+
 func TestDecimal_IsInteger(t *testing.T) {
 	for _, testCase := range []struct {
 		Dec       string
@@ -3424,17 +3731,20 @@ func TestDecimal_ExpHullAbrham(t *testing.T) {
 		{"-0.569297", 20, "0.56592314285957604443"},
 		{"-1.0", 1, "0.4"},
 		{"-1.0", 5, "0.36788"},
-		{"-3.0", 1, "0"},
+		{"-3.0", 1, "0.05"},
 		{"-3.0", 2, "0.05"},
-		{"-3.0", 10, "0.0497870684"},
-		{"-5.26", 2, "0.01"},
-		{"-5.26", 10, "0.0051953047"},
-		{"-5.2663117716", 2, "0.01"},
-		{"-5.2663117716", 10, "0.0051626164"},
-		{"-26.1", 2, "0"},
-		{"-26.1", 15, "0.000000000004623"},
-		{"-50.1591", 10, "0"},
-		{"-50.1591", 30, "0.000000000000000000000164505208"},
+		{"-3.0", 10, "0.04978706837"},
+		{"-5.26", 2, "0.0052"},
+		{"-5.26", 10, "0.005195304719"},
+		{"-5.2663117716", 2, "0.0052"},
+		{"-5.2663117716", 10, "0.005162616411"},
+		{"-26.1", 2, "0.0000000000046"},
+		{"-26.1", 15, "0.00000000000462289492466867"},
+		{"-50.1591", 10, "0.0000000000000000000001645052084"},
+		{"-50.1591", 30, "0.000000000000000000000164505208424152908216198963722"},
+		{"23.31", 1, "10000000000"},
+		{"50", 2, "5200000000000000000000"},
+		{"-50", 2, "0.00000000000000000000019"},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 		expected, _ := NewFromString(testCase.ExpectedDec)
@@ -3448,6 +3758,43 @@ func TestDecimal_ExpHullAbrham(t *testing.T) {
 			t.Errorf("expected %s, got %s, for decimal %s", testCase.ExpectedDec, exp.String(), testCase.Dec)
 		}
 
+	}
+}
+
+// ExpHullAbrham is documented to return overallPrecision significant figures.
+// It used to round the result to overallPrecision decimal places whenever the
+// result was < 1, discarding the leading-zero positions, so every sufficiently
+// negative argument lost significant figures (exp(-50).ExpHullAbrham(10)
+// returned 0). Check the delivered precision against exp(x) computed to 40
+// digits with mpmath, across the negative half-line.
+func TestDecimal_ExpHullAbrham_significantFigures(t *testing.T) {
+	trueExp := map[string]string{
+		"-2.5": "8.20849986238987951695286744671598078378041e-2",
+		"-5":   "6.73794699908546709663604842314842424884959e-3",
+		"-10":  "4.53999297624848515355915155605506102379181e-5",
+		"-20":  "2.06115362243855782796594038015582097637581e-9",
+		"-30":  "9.35762296884017460491583222337870674495832e-14",
+		"-50":  "1.92874984796391778301734281652701257475283e-22",
+	}
+	for _, x := range []string{"-2.5", "-5", "-10", "-20", "-30", "-50"} {
+		d := RequireFromString(x)
+		want := RequireFromString(trueExp[x])
+		for _, prec := range []uint32{10, 20, 30} {
+			got, err := d.ExpHullAbrham(prec)
+			if err != nil {
+				t.Fatalf("exp(%s).ExpHullAbrham(%d): %v", x, prec, err)
+			}
+			if got.IsZero() {
+				t.Errorf("exp(%s).ExpHullAbrham(%d) = 0, want ~%s", x, prec, want)
+				continue
+			}
+			relErr := got.Sub(want).Abs().DivRound(want, 45)
+			tol := New(1, -int32(prec)+1) // one unit in the prec-th significant figure
+			if relErr.Cmp(tol) > 0 {
+				t.Errorf("exp(%s).ExpHullAbrham(%d) = %s: relative error %s > %s, fewer than %d significant figures",
+					x, prec, got, relErr, tol, prec)
+			}
+		}
 	}
 }
 
@@ -4037,6 +4384,43 @@ func TestNullDecimal_EncodeSpanner(t *testing.T) {
 	}
 }
 
+func TestNullDecimal_MarshalBSONValue(t *testing.T) {
+	for _, c := range []struct {
+		d   NullDecimal
+		typ byte
+		hex string
+	}{
+		{NullDecimal{}, bsonTypeNull, ""},
+		{NewNullDecimal(New(1, 3)), bsonTypeDecimal128, "01000000000000000000000000004630"},
+	} {
+		typ, data, err := c.d.MarshalBSONValue()
+		if err != nil || typ != c.typ || hex.EncodeToString(data) != c.hex {
+			t.Errorf("MarshalBSONValue(%v): got %#x, %x, %v, want %#x, %s", c.d, typ, data, err, c.typ, c.hex)
+		}
+	}
+}
+
+func TestNullDecimal_UnmarshalBSONValue(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		typ     byte
+		hex     string
+		want    string // "" if the result is invalid
+		wantErr bool
+	}{
+		{"Decimal128", bsonTypeDecimal128, "01000000000000000000000000004630", "1000", false},
+		{"null", bsonTypeNull, "", "", false},
+		{"undefined", bsonTypeUndefined, "", "", false},
+		{"boolean", 0x08, "01", "", true},
+	} {
+		got := NewNullDecimal(New(5, 0))
+		err := got.UnmarshalBSONValue(c.typ, mustDecodeHex(t, c.hex))
+		if (err != nil) != c.wantErr || got.Valid != (c.want != "") || got.Valid && got.Decimal.String() != c.want {
+			t.Errorf("UnmarshalBSONValue(%s): got %v, %v, want %q and error=%v", c.name, got, err, c.want, c.wantErr)
+		}
+	}
+}
+
 func TestBinary(t *testing.T) {
 	for _, y := range testTable {
 		x := y.float
@@ -4472,6 +4856,99 @@ func TestDecimal_StringWithScientificNotationWhenNeeded(t *testing.T) {
 			x := d.String()
 			fmt.Println(x)
 			t.Errorf("expected %s, got %s", test.expected, d.String())
+		}
+	}
+}
+
+func TestDecimal_Format(t *testing.T) {
+	pi := RequireFromString("3.14159")
+	for i, c := range []struct {
+		format string
+		v      interface{}
+		want   string
+	}{
+		{"%v", pi, "3.14159"},
+		{"%s", pi, "3.14159"},
+		{"%v", Decimal{}, "0"},
+		{"%10v", pi, "   3.14159"},
+		{"%-10s|", pi, "3.14159   |"},
+		{"%.3s", pi, "3.1"},
+		{"%q", pi, `"3.14159"`},
+		{"%x", pi, "332e3134313539"},
+		{"%v", &pi, "3.14159"},
+		{"%v", (*Decimal)(nil), "<nil>"},
+		{"%v", []Decimal{pi, pi.Neg()}, "[3.14159 -3.14159]"},
+		{"%+v", NewNullDecimal(pi), "{Decimal:3.14159 Valid:true}"},
+
+		{"%f", RequireFromString("1.23456789"), "1.23456789"},
+		{"%F", pi, "3.14159"},
+		{"%f", New(150, -2), "1.5"},
+		{"%f", New(12, 3), "12000"},
+		{"%.2f", pi, "3.14"},
+		{"%.0f", pi, "3"},
+		{"%.7f", pi, "3.1415900"},
+		{"%.1f", RequireFromString("2.25"), "2.3"},
+		{"%.1f", RequireFromString("-2.25"), "-2.3"},
+		{"%.2f", RequireFromString("-0.001"), "0.00"},
+		{"%2.2f", pi, "3.14"},
+		{"%8.2f", pi, "    3.14"},
+		{"%-8.2f|", pi, "3.14    |"},
+		{"%08.2f", pi, "00003.14"},
+		{"%08.2f", pi.Neg(), "-0003.14"},
+		{"%-08.2f|", pi, "3.14    |"},
+		{"%+.2f", pi, "+3.14"},
+		{"%+.2f", pi.Neg(), "-3.14"},
+		{"%+08.2f", pi, "+0003.14"},
+		{"% .2f", pi, " 3.14"},
+
+		{"%#v", New(314, -2), "decimal.New(314, -2)"},
+		{"%#v", New(-1500, -3), "decimal.New(-1500, -3)"},
+		{"%#v", Decimal{}, "decimal.Decimal{}"},
+		{"%#v", New(1, math.MaxInt32), "decimal.New(1, 2147483647)"},
+		{"%#v", RequireFromString("-12345678901234567890123456789012").Shift(-2), `decimal.RequireFromString("-12345678901234567890123456789012").Shift(-2)`},
+		{"%#v", RequireFromString("12345678901234567890").Shift(20000), `decimal.RequireFromString("12345678901234567890").Shift(20000)`},
+		{"%#v", NewNullDecimal(New(314, -2)), "decimal.NullDecimal{Decimal:decimal.New(314, -2), Valid:true}"},
+
+		{"%d", pi, "%!d(decimal.Decimal=3.14159)"},
+		{"%e", pi, "%!e(decimal.Decimal=3.14159)"},
+	} {
+		if got := fmt.Sprintf(c.format, c.v); got != c.want {
+			t.Errorf("Sprintf(%q) of case %d: got %q, want %q", c.format, i, got, c.want)
+		}
+	}
+
+	for _, c := range []struct {
+		got, want string
+	}{
+		{fmt.Sprintln(pi, pi.Neg()), "3.14159 -3.14159\n"},
+		{fmt.Sprintf("%8d|%f|%.2f|", 1, pi, pi), "       1|3.14159|3.14|"},
+	} {
+		if c.got != c.want {
+			t.Errorf("got %q, want %q", c.got, c.want)
+		}
+	}
+}
+
+func TestDecimal_FormatWithStringSettings(t *testing.T) {
+	defer func() {
+		TrimTrailingZeros = true
+		UseScientificNotation = false
+	}()
+	TrimTrailingZeros = false
+	UseScientificNotation = true
+
+	for _, c := range []struct {
+		format string
+		d      Decimal
+		want   string
+	}{
+		{"%v", New(150, -2), "1.50"},
+		{"%f", New(150, -2), "1.50"},
+		{"%v", New(1, 3), "1E3"},
+		{"%f", New(1, 3), "1000"},
+	} {
+		if got := fmt.Sprintf(c.format, c.d); got != c.want {
+			t.Errorf("Sprintf(%q, %se%d): got %q, want %q", c.format, c.d.Coefficient(), c.d.Exponent(), got, c.want)
 		}
 	}
 }

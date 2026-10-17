@@ -3935,6 +3935,11 @@ func TestDecimal_Ln(t *testing.T) {
 		{"3.13", 100, "1.1410330045520618486427823998884819383708962910797239760817078430268177216960996098918971117211892839"},
 		{"5.71", 25, "1.7422190236679188486939833"},
 		{"5.7185108151957193571930205", 50, "1.74370842450178929149992165925283704012576949094645"},
+		{"10", 5, "2.30259"},
+		// e^2.5 truncated, ln is 2.5 - 5e-45, so the first working precisions can't decide the rounding
+		{"12.18249396070347343807017595116796618318276779", 0, "2"},
+		{"1e-28", 16, "-64.4723826038332792"},
+		{"1e-34", 13, "-78.2878931617976"},
 		{"839101.0351", 25, "13.6400864014410013994397240"},
 		{"839101.0351094726488848490572028502", 50, "13.64008640145229044389152437468283605382056561604272"},
 		{"5023583755703750094849.03519358513093500275017501750602739169823", 25, "49.9684305274348922267409953"},
@@ -3951,6 +3956,19 @@ func TestDecimal_Ln(t *testing.T) {
 
 		if ln.Cmp(expected) != 0 {
 			t.Errorf("expected %s, got %s, for decimal %s", testCase.Expected, ln.String(), testCase.Dec)
+		}
+	}
+}
+
+// ln(10^k) is k*ln(10), and strLn10 has far more digits than any rounding below needs.
+func TestDecimal_LnPowersOfTen(t *testing.T) {
+	ln10 := RequireFromString(strLn10)
+	for k := int32(-40); k <= 40; k++ {
+		for p := int32(0); p <= 30; p++ {
+			want := ln10.Mul(New(int64(k), 0)).Round(p)
+			if got, err := New(1, k).Ln(p); err != nil || !got.Equal(want) {
+				t.Errorf("Ln(1e%d, %d): got %s, %v, want %s", k, p, got, err, want)
+			}
 		}
 	}
 }

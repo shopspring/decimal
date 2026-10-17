@@ -810,7 +810,7 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 
 // Ln calculates natural logarithm of d.
 // Precision argument specifies how precise the result must be (number of digits after decimal point).
-// Negative precision is allowed.
+// Negative precision is allowed. The result is correctly rounded half away from zero.
 //
 // Example:
 //
@@ -820,120 +820,49 @@ func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 //	d2, err := NewFromFloat(579.161).Ln(10)
 //	d2.String()  // output: "6.3615805046"
 func (d Decimal) Ln(precision int32) (Decimal, error) {
-	// Algorithm based on The Use of Iteration Methods for Approximating the Natural Logarithm,
-	// James F. Epperson, The American Mathematical Monthly, Vol. 96, No. 9, November 1989, pp. 831-835.
 	if d.IsNegative() {
 		return Decimal{}, fmt.Errorf("cannot calculate natural logarithm for negative decimals")
 	}
-
 	if d.IsZero() {
 		return Decimal{}, fmt.Errorf("cannot represent natural logarithm of 0, result: -infinity")
 	}
 
-	calcPrecision := precision + 2
-	z := d.Copy()
+	// d = m * 10^k with 1 <= m < 10, so ln(d) = ln(m) + k*ln(10). Both are computed with error bounds,
+	// and the working precision grows until the whole interval rounds to the same value. That ends,
+	// because ln(d) is irrational for every d other than 1.
+	k := int64(d.NumDigits()) - 1 + int64(d.exp)
+	f := int64(precision) + 10
+	if f < 10 {
+		f = 10
+	}
+	for ; ; f += 20 {
+		b := uint(float64(f)*math.Log2(10)) + uint(bits.Len64(uint64(abs64(k)))) + 8
+		m := new(big.Int).Lsh(d.getValue(), b)
+		m.Quo(m, pow10(int64(d.NumDigits())-1))
+		t, lnErr := lnFixed(m, b)
+		ln10, ln10Err := ln10Fixed(b)
+		t.Add(t, new(big.Int).Mul(big.NewInt(k), ln10))
+		tErr := big.NewInt(lnErr + 1 + abs64(k)*ln10Err)
 
-	var comp1, comp3, comp2, comp4, reduceAdjust Decimal
-	comp1 = z.Sub(Decimal{oneInt, 0})
-	comp3 = Decimal{oneInt, -1}
+		neg := t.Sign() < 0
+		t.Abs(t)
+		p := pow10(f)
+		hi := new(big.Int).Add(t, tErr)
+		hi.Mul(hi, p).Rsh(hi, b).Add(hi, oneInt)
+		lo := t.Sub(t, tErr)
+		if lo.Sign() < 0 {
+			lo.SetInt64(0)
+		}
+		lo.Mul(lo, p).Rsh(lo, b)
 
-	// for decimal in range [0.9, 1.1] where ln(d) is close to 0
-	usePowerSeries := false
-
-	if comp1.Abs().Cmp(comp3) <= 0 {
-		usePowerSeries = true
-	} else {
-		// reduce input decimal to range [0.1, 1)
-		expDelta := int32(z.NumDigits()) + z.exp
-		z.exp -= expDelta
-
-		// Input decimal was reduced by factor of 10^expDelta, thus we will need to add
-		// ln(10^expDelta) = expDelta * ln(10)
-		// to the result to compensate that
-		ln10 := ln10.withPrecision(calcPrecision)
-		reduceAdjust = NewFromInt32(expDelta)
-		reduceAdjust = reduceAdjust.Mul(ln10)
-
-		comp1 = z.Sub(Decimal{oneInt, 0})
-
-		if comp1.Abs().Cmp(comp3) <= 0 {
-			usePowerSeries = true
-		} else {
-			// initial estimate using floats
-			zFloat := z.InexactFloat64()
-			comp1 = NewFromFloat(math.Log(zFloat))
+		g := f - int64(precision)
+		if q := roundHalfUp(hi, g); q.Cmp(roundHalfUp(lo, g)) == 0 {
+			if neg {
+				q.Neg(q)
+			}
+			return Decimal{value: q, exp: -precision}, nil
 		}
 	}
-
-	epsilon := Decimal{oneInt, -calcPrecision}
-
-	if usePowerSeries {
-		// Power Series - https://en.wikipedia.org/wiki/Logarithm#Power_series
-		// Calculating n-th term of formula: ln(z+1) = 2 sum [ 1 / (2n+1) * (z / (z+2))^(2n+1) ]
-		// until the difference between current and next term is smaller than epsilon.
-		// Coverage quite fast for decimals close to 1.0
-
-		// z + 2
-		comp2 = comp1.Add(Decimal{twoInt, 0})
-		// z / (z + 2)
-		comp3 = comp1.DivRound(comp2, calcPrecision)
-		// 2 * (z / (z + 2))
-		comp1 = comp3.Add(comp3)
-		comp2 = comp1.Copy()
-
-		for n := 1; ; n++ {
-			// 2 * (z / (z+2))^(2n+1)
-			comp2 = comp2.Mul(comp3).Mul(comp3)
-
-			// 1 / (2n+1) * 2 * (z / (z+2))^(2n+1)
-			comp4 = NewFromInt(int64(2*n + 1))
-			comp4 = comp2.DivRound(comp4, calcPrecision)
-
-			// comp1 = 2 sum [ 1 / (2n+1) * (z / (z+2))^(2n+1) ]
-			comp1 = comp1.Add(comp4)
-
-			if comp4.Abs().Cmp(epsilon) <= 0 {
-				break
-			}
-		}
-	} else {
-		// Halley's Iteration.
-		// Calculating n-th term of formula: a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z),
-		// until the difference between current and next term is smaller than epsilon
-		var prevStep Decimal
-		maxIters := calcPrecision*2 + 10
-
-		for i := int32(0); i < maxIters; i++ {
-			// exp(a_n)
-			comp3, _ = comp1.ExpTaylor(calcPrecision)
-			// exp(a_n) - z
-			comp2 = comp3.Sub(z)
-			// 2 * (exp(a_n) - z)
-			comp2 = comp2.Add(comp2)
-			// exp(a_n) + z
-			comp4 = comp3.Add(z)
-			// 2 * (exp(a_n) - z) / (exp(a_n) + z)
-			comp3 = comp2.DivRound(comp4, calcPrecision)
-			// comp1 = a_(n+1) = a_n - 2 * (exp(a_n) - z) / (exp(a_n) + z)
-			comp1 = comp1.Sub(comp3)
-
-			if prevStep.Add(comp3).IsZero() {
-				// If iteration steps oscillate we should return early and prevent an infinity loop
-				// NOTE(mwoss): This should be quite a rare case, returning error is not necessary
-				break
-			}
-
-			if comp3.Abs().Cmp(epsilon) <= 0 {
-				break
-			}
-
-			prevStep = comp3
-		}
-	}
-
-	comp1 = comp1.Add(reduceAdjust)
-
-	return comp1.Round(precision), nil
 }
 
 // Trig functions

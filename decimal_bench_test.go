@@ -23,10 +23,9 @@ func BenchmarkNewFromFloatWithExponent(b *testing.B) {
 		in[i] = rng.NormFloat64() * 10e20
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		in := rng.NormFloat64() * 10e20
-		_ = NewFromFloatWithExponent(in, math.MinInt32)
+		_ = NewFromFloatWithExponent(in[i], math.MinInt32)
 	}
 }
 
@@ -37,7 +36,7 @@ func BenchmarkNewFromFloat(b *testing.B) {
 		in[i] = rng.NormFloat64() * 10e20
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = NewFromFloat(in[i])
 	}
@@ -45,15 +44,14 @@ func BenchmarkNewFromFloat(b *testing.B) {
 
 func BenchmarkNewFromStringFloat(b *testing.B) {
 	rng := rand.New(rand.NewSource(0xdead1337))
-	in := make([]float64, b.N)
+	in := make([]string, b.N)
 	for i := range in {
-		in[i] = rng.NormFloat64() * 10e20
+		in[i] = strconv.FormatFloat(rng.NormFloat64()*10e20, 'f', -1, 64)
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		in := strconv.FormatFloat(in[i], 'f', -1, 64)
-		_, _ = NewFromString(in)
+		_, _ = NewFromString(in[i])
 	}
 }
 
@@ -200,7 +198,7 @@ func BenchmarkDecimal_Sub_same_precision(b *testing.B) {
 	b.ReportAllocs()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		d1.Add(d2)
+		d1.Sub(d2)
 	}
 }
 

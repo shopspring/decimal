@@ -717,11 +717,13 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	}
 	res := Decimal{new(big.Int).Exp(sum.getValue(), big.NewInt(ki), nil), int32(expInt64)}
 
-	// Round to overallPrecision significant figures. This holds whether res is
-	// >=1 or <1; the old <1 branch rounded to a fixed number of decimal places,
-	// dropping leading zeros (so e.g. exp(-50).ExpHullAbrham(10) returned 0).
-	resNumDigits := int32(res.NumDigits())
-	roundDigits := int32(currentPrecision) - resNumDigits - res.exp
+	// Round to overallPrecision significant figures, at least 1. A raised currentPrecision only keeps
+	// the calculation precise, it doesn't add digits to the result.
+	sig := int32(overallPrecision)
+	if sig == 0 {
+		sig = 1
+	}
+	roundDigits := sig - int32(res.NumDigits()) - res.exp
 
 	res = res.Round(roundDigits)
 

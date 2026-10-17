@@ -387,7 +387,7 @@ func NewFromFloat(value float64) Decimal {
 	if value == 0 {
 		return New(0, 0)
 	}
-	return newFromFloat(value, math.Float64bits(value), &float64info)
+	return newFromFloat(value, 64)
 }
 
 // NewFromFloat32 converts a float32 to Decimal.
@@ -406,55 +406,66 @@ func NewFromFloat32(value float32) Decimal {
 	if value == 0 {
 		return New(0, 0)
 	}
-	// XOR is workaround for https://github.com/golang/go/issues/26285
-	a := math.Float32bits(value) ^ 0x80808080
-	return newFromFloat(float64(value), uint64(a)^0x80808080, &float32info)
+	return newFromFloat(float64(value), 32)
 }
 
-func newFromFloat(val float64, bits uint64, flt *floatInfo) Decimal {
+// newFromFloat converts val to a Decimal holding the shortest decimal digit
+// string that round-trips back to val when parsed at the given bit size.
+//
+// strconv already computes exactly that string, so we ask it for the value in
+// 'e' format with precision -1 and read the digits back out. The 'e' layout is
+// [-]d[.ddd]e±dd, which is bounded (at most 24 bytes) and trivial to scan,
+// unlike 'f' which can run to over 750 bytes for extreme exponents.
+func newFromFloat(val float64, bitSize int) Decimal {
 	if math.IsNaN(val) || math.IsInf(val, 0) {
 		panic(fmt.Sprintf("Cannot create a Decimal from %v", val))
 	}
-	exp := int(bits>>flt.mantbits) & (1<<flt.expbits - 1)
-	mant := bits & (uint64(1)<<flt.mantbits - 1)
 
-	switch exp {
-	case 0:
-		// denormalized
-		exp++
+	var buf [32]byte
+	b := strconv.AppendFloat(buf[:0], val, 'e', -1, bitSize)
 
-	default:
-		// add implicit top bit
-		mant |= uint64(1) << flt.mantbits
+	neg := b[0] == '-'
+	if neg {
+		b = b[1:]
 	}
-	exp += flt.bias
 
-	var d decimal
-	d.Assign(mant)
-	d.Shift(exp - int(flt.mantbits))
-	d.neg = bits>>(flt.expbits+flt.mantbits) != 0
+	// Split the significand from the exponent. b always contains an 'e'.
+	var i int
+	for b[i] != 'e' {
+		i++
+	}
+	digits, expDigits := b[:i], b[i+1:]
 
-	roundShortest(&d, mant, exp, flt)
-	// If less than 19 digits, we can do calculation in an int64.
-	if d.nd < 19 {
-		tmp := int64(0)
-		m := int64(1)
-		for i := d.nd - 1; i >= 0; i-- {
-			tmp += m * int64(d.d[i]-'0')
-			m *= 10
+	// The shortest round-trip form has at most 17 significant digits for a
+	// float64 and 9 for a float32, so the significand always fits in an int64.
+	var mant int64
+	nd := 0
+	for _, c := range digits {
+		if c == '.' {
+			continue
 		}
-		if d.neg {
-			tmp *= -1
-		}
-		return Decimal{value: big.NewInt(tmp), exp: int32(d.dp) - int32(d.nd)}
+		mant = mant*10 + int64(c-'0')
+		nd++
 	}
-	dValue := new(big.Int)
-	dValue, ok := dValue.SetString(string(d.d[:d.nd]), 10)
-	if ok {
-		return Decimal{value: dValue, exp: int32(d.dp) - int32(d.nd)}
+	if neg {
+		mant = -mant
 	}
 
-	return NewFromFloatWithExponent(val, int32(d.dp)-int32(d.nd))
+	esign := 1
+	switch expDigits[0] {
+	case '-':
+		esign = -1
+		expDigits = expDigits[1:]
+	case '+':
+		expDigits = expDigits[1:]
+	}
+	e := 0
+	for _, c := range expDigits {
+		e = e*10 + int(c-'0')
+	}
+
+	// digits is d.ddd, i.e. the significand scaled by 10^(nd-1).
+	return Decimal{value: big.NewInt(mant), exp: int32(esign*e - nd + 1)}
 }
 
 // NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary

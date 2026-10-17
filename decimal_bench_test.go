@@ -23,10 +23,9 @@ func BenchmarkNewFromFloatWithExponent(b *testing.B) {
 		in[i] = rng.NormFloat64() * 10e20
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		in := rng.NormFloat64() * 10e20
-		_ = NewFromFloatWithExponent(in, math.MinInt32)
+		_ = NewFromFloatWithExponent(in[i], math.MinInt32)
 	}
 }
 
@@ -37,7 +36,7 @@ func BenchmarkNewFromFloat(b *testing.B) {
 		in[i] = rng.NormFloat64() * 10e20
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = NewFromFloat(in[i])
 	}
@@ -45,15 +44,14 @@ func BenchmarkNewFromFloat(b *testing.B) {
 
 func BenchmarkNewFromStringFloat(b *testing.B) {
 	rng := rand.New(rand.NewSource(0xdead1337))
-	in := make([]float64, b.N)
+	in := make([]string, b.N)
 	for i := range in {
-		in[i] = rng.NormFloat64() * 10e20
+		in[i] = strconv.FormatFloat(rng.NormFloat64()*10e20, 'f', -1, 64)
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		in := strconv.FormatFloat(in[i], 'f', -1, 64)
-		_, _ = NewFromString(in)
+		_, _ = NewFromString(in[i])
 	}
 }
 
@@ -200,7 +198,7 @@ func BenchmarkDecimal_Sub_same_precision(b *testing.B) {
 	b.ReportAllocs()
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		d1.Add(d2)
+		d1.Sub(d2)
 	}
 }
 
@@ -246,6 +244,15 @@ func BenchmarkDecimal_PowBigInt(b *testing.B) {
 
 	for i := 0; i < b.N; i++ {
 		_, _ = d1.PowBigInt(d2)
+	}
+}
+
+func BenchmarkDecimal_PowNegativeExponent(b *testing.B) {
+	d1 := RequireFromString("1.0041666666666667")
+	d2 := RequireFromString("-360")
+
+	for i := 0; i < b.N; i++ {
+		d1.Pow(d2)
 	}
 }
 
@@ -310,6 +317,46 @@ func BenchmarkDecimal_ExpTaylor(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = d.ExpTaylor(10)
+	}
+}
+
+func BenchmarkDecimal_Normalize(b *testing.B) {
+	for _, c := range []struct {
+		name string
+		d    Decimal
+	}{
+		{"NoZeros", RequireFromString("123.456")},
+		{"OneZero", RequireFromString("12.50")},
+		{"Div", NewFromInt(5).Div(NewFromInt(2))},
+		{"Big", RequireFromString("123456789012345678901234567890.5000")},
+		{"ManyZeros", RequireFromString("1.5").Round(10000)},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				c.d.Normalize()
+			}
+		})
+	}
+}
+
+func BenchmarkDecimal_Sqrt(b *testing.B) {
+	for _, c := range []struct {
+		name   string
+		d      Decimal
+		places int32
+	}{
+		{"Small", RequireFromString("0.002342"), 16},
+		{"Int", NewFromInt(2), 16},
+		{"Big", RequireFromString("123456789012345678901234567890.123"), 16},
+		{"Places1000", NewFromInt(2), 1000},
+	} {
+		b.Run(c.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				_, _ = c.d.SqrtRound(c.places)
+			}
+		})
 	}
 }
 

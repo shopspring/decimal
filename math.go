@@ -643,8 +643,11 @@ func (d Decimal) SqrtRound(places int32) (Decimal, error) {
 //
 // Example:
 //
-//	NewFromFloat(26.1).ExpHullAbrham(2).String()    // output: "220000000000"
-//	NewFromFloat(26.1).ExpHullAbrham(20).String()   // output: "216314672147.05767284"
+//	d1, err := NewFromFloat(26.1).ExpHullAbrham(2)
+//	d1.String() // output: "220000000000"
+//
+//	d2, err := NewFromFloat(26.1).ExpHullAbrham(20)
+//	d2.String() // output: "216314672147.05767284"
 func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 	// Algorithm based on Variable precision exponential function.
 	// ACM Transactions on Mathematical Software by T. E. Hull & A. Abrham.
@@ -736,14 +739,14 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 //
 // Example:
 //
-//	d, err := NewFromFloat(26.1).ExpTaylor(2).String()
-//	d.String()  // output: "216314672147.06"
+//	d1, err := NewFromFloat(26.1).ExpTaylor(2)
+//	d1.String() // output: "216314672147.06"
 //
-//	NewFromFloat(26.1).ExpTaylor(20).String()
-//	d.String()  // output: "216314672147.05767284062928674083"
+//	d2, err := NewFromFloat(26.1).ExpTaylor(20)
+//	d2.String() // output: "216314672147.05767284062928674083"
 //
-//	NewFromFloat(26.1).ExpTaylor(-10).String()
-//	d.String()  // output: "220000000000"
+//	d3, err := NewFromFloat(26.1).ExpTaylor(-10)
+//	d3.String() // output: "220000000000"
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
 	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
 	if d.IsZero() {

@@ -558,18 +558,18 @@ func (d Decimal) Copy() Decimal {
 //
 // Example:
 //
-//	d := New(12345, -4)
-//	d2 := d.rescale(-1)
+//	d1 := New(12345, -4)
+//	d2 := d1.rescale(-1)
 //	d3 := d2.rescale(-4)
-//	println(d1)
-//	println(d2)
-//	println(d3)
+//	fmt.Println(d1)
+//	fmt.Println(d2)
+//	fmt.Println(d3)
 //
 // Output:
 //
 //	1.2345
 //	1.2
-//	1.2000
+//	1.2
 func (d Decimal) rescale(exp int32) Decimal {
 	if d.exp == exp {
 		return Decimal{
@@ -1110,7 +1110,7 @@ func (d Decimal) String() string {
 //	NewFromFloat(5.45).StringFixed(1) // output: "5.5"
 //	NewFromFloat(5.45).StringFixed(2) // output: "5.45"
 //	NewFromFloat(5.45).StringFixed(3) // output: "5.450"
-//	NewFromFloat(545).StringFixed(-1) // output: "540"
+//	NewFromFloat(545).StringFixed(-1) // output: "550"
 //
 // Regardless of the UseScientificNotation option, the returned string will never be in scientific notation.
 func (d Decimal) StringFixed(places int32) string {
@@ -1470,9 +1470,9 @@ func (d Decimal) Ceil() Decimal {
 //
 // Example:
 //
-//	decimal.NewFromString("123.456").Truncate(2).String()  // "123.45"
-//	decimal.NewFromString("5432").Truncate(-2).String()    // "5400"
-//	decimal.NewFromString("-5432").Truncate(-2).String()   // "-5400"
+//	decimal.RequireFromString("123.456").Truncate(2).String() // output: "123.45"
+//	decimal.RequireFromString("5432").Truncate(-2).String()   // output: "5400"
+//	decimal.RequireFromString("-5432").Truncate(-2).String()  // output: "-5400"
 func (d Decimal) Truncate(precision int32) Decimal {
 	if -precision > d.exp {
 		return d.rescale(-precision)

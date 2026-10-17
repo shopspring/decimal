@@ -2,6 +2,13 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build !go1.13
+// +build !go1.13
+
+// This file is only built for Go versions older than 1.13. From Go 1.13 on,
+// strconv's own shortest-float conversion is correct (golang/go#29491) and
+// newFromFloat delegates to it instead. See newfromfloat_go113.go.
+
 // Multiprecision decimal numbers.
 // For floating-point formatting only; not general purpose.
 // Only operations are assign and (binary) left/right shift.

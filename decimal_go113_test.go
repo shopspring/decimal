@@ -10,6 +10,14 @@ import (
 	"testing"
 )
 
+// Before Go 1.13, strconv could return a shortest form that wasn't the nearest one for these (golang/go#29491).
+func init() {
+	testTable = append(testTable,
+		&testEnt{498484681984085570, "498484681984085570", "", ""},
+		&testEnt{5.8339553793802237e+23, "583395537938022370000000", "", ""},
+	)
+}
+
 // TestNewFromFloatShortestRoundTrip pins the contract of NewFromFloat and
 // NewFromFloat32: the result is the shortest decimal that parses back to the
 // original float. It covers the exponent and significand shapes a

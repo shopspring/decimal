@@ -212,12 +212,15 @@ func NewFromBigRat(value *big.Rat, precision int32) Decimal {
 	}, precision)
 }
 
-// NewFromBigFloat returns a new Decimal from a big.Float.
+// NewFromBigFloat returns a new Decimal from a big.Float. The result is the shortest decimal
+// that rounds back to value at value's precision, as NewFromFloat does for a float64.
+// It returns an error for nil and infinite values, and for exponents beyond MaxDecodeExponent.
 //
 // Example:
 //
 //	f, _ := new(big.Float).SetString("-123.45")
 //	d, err := NewFromBigFloat(f)
+//	d.String() // output: "-123.45"
 func NewFromBigFloat(value *big.Float) (Decimal, error) {
 	if value == nil {
 		return Decimal{}, fmt.Errorf("can't convert nil *big.Float to decimal")
@@ -229,21 +232,6 @@ func NewFromBigFloat(value *big.Float) (Decimal, error) {
 		return New(0, 0), nil
 	}
 	return NewFromString(value.Text('g', -1))
-}
-
-// RequireFromBigFloat returns a new Decimal from a big.Float
-// or panics if NewFromBigFloat had returned an error.
-//
-// Example:
-//
-//	f, _ := new(big.Float).SetString("-123.45")
-//	d := RequireFromBigFloat(f)
-func RequireFromBigFloat(value *big.Float) Decimal {
-	dec, err := NewFromBigFloat(value)
-	if err != nil {
-		panic(err)
-	}
-	return dec
 }
 
 // NewFromString returns a new Decimal from a string representation.

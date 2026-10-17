@@ -812,12 +812,6 @@ func TestNewFromBigFloat(t *testing.T) {
 			if d.String() != tc.expected {
 				t.Errorf("expected %s, got %s", tc.expected, d.String())
 			}
-
-			// Also verify RequireFromBigFloat
-			reqD := RequireFromBigFloat(tc.input)
-			if reqD.String() != tc.expected {
-				t.Errorf("RequireFromBigFloat: expected %s, got %s", tc.expected, reqD.String())
-			}
 		})
 	}
 }
@@ -854,35 +848,6 @@ func TestNewFromBigFloat_Error(t *testing.T) {
 				t.Fatal("expected error for exponent exceeding MaxDecodeExponent, got nil")
 			}
 		}
-	})
-}
-
-func TestRequireFromBigFloat_Panic(t *testing.T) {
-	t.Run("nil panics", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Fatal("expected panic for nil")
-			}
-		}()
-		RequireFromBigFloat(nil)
-	})
-
-	t.Run("pos inf panics", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Fatal("expected panic for +Inf")
-			}
-		}()
-		RequireFromBigFloat(new(big.Float).SetInf(false))
-	})
-
-	t.Run("neg inf panics", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Fatal("expected panic for -Inf")
-			}
-		}()
-		RequireFromBigFloat(new(big.Float).SetInf(true))
 	})
 }
 

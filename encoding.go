@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"reflect"
 )
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
@@ -81,11 +82,17 @@ func (d *Decimal) Scan(value interface{}) error {
 	switch v := value.(type) {
 
 	case float32:
-		*d = NewFromFloat(float64(v))
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("could not convert value '%v' to decimal", v)
+		}
+		*d = NewFromFloat32(v)
 		return nil
 
 	case float64:
 		// numeric in sqlite3 sends us float64
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return fmt.Errorf("could not convert value '%v' to decimal", v)
+		}
 		*d = NewFromFloat(v)
 		return nil
 
@@ -100,6 +107,31 @@ func (d *Decimal) Scan(value interface{}) error {
 		*d = NewFromUint64(v)
 		return nil
 
+	case int, int8, int16, int32:
+		// clickhouse and test mocks send the other integer sizes
+		*d = New(reflect.ValueOf(v).Int(), 0)
+		return nil
+
+	case uint, uint8, uint16, uint32:
+		*d = NewFromUint64(reflect.ValueOf(v).Uint())
+		return nil
+
+	case big.Int:
+		// clickhouse sends Int128, UInt128 and Int256 through database/sql as big.Int
+		*d = NewFromBigInt(&v, 0)
+		return nil
+
+	case *big.Int:
+		if v != nil {
+			*d = NewFromBigInt(v, 0)
+			return nil
+		}
+
+	case Decimal:
+		// clickhouse sends Decimal columns through its native API as Decimal
+		*d = v
+		return nil
+
 	case string:
 		var err error
 		*d, err = NewFromString(unquoteIfQuoted(v))
@@ -109,10 +141,8 @@ func (d *Decimal) Scan(value interface{}) error {
 		var err error
 		*d, err = NewFromString(unquoteIfQuoted(string(v)))
 		return err
-
-	default:
-		return fmt.Errorf("could not convert value '%+v' to any known type", value)
 	}
+	return fmt.Errorf("could not convert value '%+v' to any known type", value)
 }
 
 // Value implements the driver.Valuer interface for database serialization.

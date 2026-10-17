@@ -2663,7 +2663,7 @@ func TestDecimal_Scan(t *testing.T) {
 	// apparently MySQL 5.7.16 and returns these as float32 so we need
 	// to handle these as well
 	dbvalueFloat32 := float32(54.33)
-	expected = NewFromFloat(float64(dbvalueFloat32))
+	expected = RequireFromString("54.33")
 	scanHelper(t, dbvalueFloat32, expected)
 
 	// at least SQLite returns an int64 when 0 is stored in the db
@@ -2693,6 +2693,50 @@ func TestDecimal_Scan(t *testing.T) {
 	err = a.Scan(foo{})
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
+	}
+}
+
+func TestDecimal_ScanTypes(t *testing.T) {
+	int128, _ := new(big.Int).SetString("170141183460469231731687303715884105727", 10)
+	for _, c := range []struct {
+		value interface{}
+		want  string
+	}{
+		{int(-3264), "-3264"},
+		{int8(-7), "-7"},
+		{int16(300), "300"},
+		{int32(-70000), "-70000"},
+		{int64(math.MinInt64), "-9223372036854775808"},
+		{uint(3264), "3264"},
+		{uint8(200), "200"},
+		{uint16(65535), "65535"},
+		{uint32(4000000000), "4000000000"},
+		{uint64(math.MaxUint64), "18446744073709551615"},
+		{float32(-0.1), "-0.1"},
+		{float32(math.MaxFloat32), strconv.FormatFloat(math.MaxFloat32, 'f', -1, 32)},
+		{float32(math.SmallestNonzeroFloat32), strconv.FormatFloat(math.SmallestNonzeroFloat32, 'f', -1, 32)},
+		{*int128, "170141183460469231731687303715884105727"},
+		{int128, "170141183460469231731687303715884105727"},
+		{New(2, 3), "2000"},
+	} {
+		var d Decimal
+		if err := d.Scan(c.value); err != nil || d.String() != c.want {
+			t.Errorf("Scan(%T %v): got %s, %v, want %s", c.value, c.value, d, err, c.want)
+		}
+		var n NullDecimal
+		if err := n.Scan(c.value); err != nil || !n.Valid || n.Decimal.String() != c.want {
+			t.Errorf("NullDecimal.Scan(%T %v): got %v, %v, want %s", c.value, c.value, n, err, c.want)
+		}
+	}
+	if int128.String() != "170141183460469231731687303715884105727" {
+		t.Errorf("Scan changed the scanned *big.Int to %s", int128)
+	}
+
+	for _, v := range []interface{}{(*big.Int)(nil), math.NaN(), math.Inf(1), float32(math.Inf(-1))} {
+		var n NullDecimal
+		if err := n.Scan(v); err == nil || n.Valid {
+			t.Errorf("NullDecimal.Scan(%T %v): got %v, %v, want an error", v, v, n, err)
+		}
 	}
 }
 

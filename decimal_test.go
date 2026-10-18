@@ -3884,7 +3884,7 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 		{"-1.0", 5, "0.36788"},
 		{"-1.0", -1, "0"},
 		{"-1.0", -5, "0"},
-		{"-3.0", 1, "0.1"},
+		{"-3.0", 1, "0"},
 		{"-3.0", 2, "0.05"},
 		{"-3.0", 10, "0.0497870684"},
 		{"-5.26", 2, "0.01"},
@@ -3898,6 +3898,21 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 		{"-26.1", -10, "0"},
 		{"-50.1591", 10, "0"},
 		{"-50.1591", 30, "0.000000000000000000000164505208"},
+		{"0.0003", 11, "1.00030004500"},
+		{"-0.0003", 11, "0.99970004500"},
+		{"13.33", 18, "615382.927889960912547581"},
+		{"20", 20, "485165195.40979027796910683054"},
+		{"42.825", 1, "3968818034674880849.5"},
+		{"-9.17", 25, "0.0001041165097309841435372"},
+		{"100", 3, "26881171418161354484126255515800135873611118.774"},
+		{"1e-30", 5, "1"},
+		{"-60", 5, "0"},
+		// ln(2.5) and ln(0.25) rounded towards -infinity, e^x is 2.5 - 2e-45 and 0.25 - 2e-46,
+		// so the first working precisions can't decide the rounding
+		{"0.916290731874155065183527211768011071450101219", 0, "2"},
+		{"0.916290731874155065183527211768011071450101219", 1, "2.5"},
+		{"-1.386294361119890618834464242916353136151000269", 1, "0.2"},
+		{"-1.386294361119890618834464242916353136151000269", 2, "0.25"},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 		expected, _ := NewFromString(testCase.ExpectedDec)
@@ -3908,25 +3923,38 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 		}
 
 		if exp.Cmp(expected) != 0 {
-			t.Errorf("expected %s, got %s", testCase.ExpectedDec, exp.String())
+			t.Errorf("expected %s, got %s, for decimal %s and precision %d", testCase.ExpectedDec, exp.String(), testCase.Dec, testCase.Precision)
+		}
+	}
+}
+
+func TestDecimal_ExpTaylor_OutOfRange(t *testing.T) {
+	for _, testCase := range []struct {
+		Dec       string
+		Precision int32
+	}{
+		{"1e10", 2},
+		{"1e400", 2},
+		{"1", 2000000000},
+	} {
+		if _, err := RequireFromString(testCase.Dec).ExpTaylor(testCase.Precision); err == nil {
+			t.Errorf("expected out of range error for exp(%s) with precision %d", testCase.Dec, testCase.Precision)
+		}
+	}
+
+	// results below 10^-precision round to 0, however small
+	for _, dec := range []string{"-1e10", "-1e400"} {
+		if got, err := RequireFromString(dec).ExpTaylor(30); err != nil || !got.IsZero() {
+			t.Errorf("exp(%s): got %s, %v, want 0", dec, got, err)
 		}
 	}
 }
 
 // TestDecimal_ExpTaylor_Concurrency tests the concurrency safety of the
-// ExpTaylor method, particularly focusing on the shared state caching mechanism
-// for factorial calculations.
+// ExpTaylor method, which shares the cached ln(10) between goroutines.
 func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
-	resetFactorials := func() {
-		factorialsMutex.Lock()
-		factorials = []Decimal{New(1, 0)}
-		factorialsMutex.Unlock()
-	}
 	t.Run("concurrent calculation works as expected", func(t *testing.T) {
-		resetFactorials()
-
 		// Run multiple goroutines calculating exp concurrently
-		// This should trigger concurrent factorial calculations.
 		var wg sync.WaitGroup
 		numGoroutines := 50
 		results := make([]Decimal, numGoroutines)
@@ -3959,22 +3987,10 @@ func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
 				t.Errorf("goroutine %d: result mismatch: expected %s, got %s", i+1, expected.String(), result.String())
 			}
 		}
-
-		// Verify factorials slice doesn't have duplicate Zero values
-		// (which would indicate the double-check locking failed).
-		factorialsMutex.RLock()
-		for i, f := range factorials {
-			if i > 0 && f.IsZero() {
-				t.Errorf("factorial at index %d is Zero, double-check locking may have failed", i)
-			}
-		}
-		factorialsMutex.RUnlock()
 	})
 
 	t.Run("race detection", func(t *testing.T) {
-		// NOTE: Factorials from previous subtests are intentionally reused here.
-		// This tests that concurrent access works correctly with a pre-populated cache,
-		// which is the real-world scenario. Run with `go test -race`.
+		// Run with `go test -race`.
 
 		var wg sync.WaitGroup
 		numGoroutines := 100

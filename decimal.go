@@ -785,7 +785,6 @@ func (d Decimal) Div(d2 Decimal) Decimal {
 //	0 >= r > -abs(d2) * 10 ^(-precision) if d<0
 //
 // Note that precision<0 is allowed as input.
-// A precision of math.MinInt32 panics because its scale does not fit in an int32.
 func (d Decimal) QuoRem(d2 Decimal, precision int32) (Decimal, Decimal) {
 	return d.quoRem(d2, precision, nil)
 }
@@ -795,12 +794,9 @@ func (d Decimal) quoRem(d2 Decimal, precision int32, bb *big.Int) (Decimal, Deci
 	if d2.getValue().Sign() == 0 {
 		panic("decimal division by 0")
 	}
-	if precision == math.MinInt32 {
-		panic("overflow in decimal QuoRem")
-	}
 	scale := -precision
 	e := int64(d.exp) - int64(d2.exp) - int64(scale)
-	if e > math.MaxInt32 || e < math.MinInt32 {
+	if precision == math.MinInt32 || e > math.MaxInt32 || e < math.MinInt32 {
 		panic("overflow in decimal QuoRem")
 	}
 	if bb == nil {

@@ -2542,6 +2542,16 @@ func TestDecimal_Overflow(t *testing.T) {
 	if !didPanic(func() { New(1, math.MaxInt32).Mul(New(1, math.MaxInt32)) }) {
 		t.Fatalf("should have gotten an overflow panic")
 	}
+	// -math.MinInt32 wraps back to itself as an int32.
+	if !didPanic(func() { New(1, math.MinInt32).QuoRem(New(1, 0), math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { New(1, math.MinInt32).DivRound(New(1, 0), math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if q, _ := New(1, math.MaxInt32).QuoRem(New(1, 0), math.MinInt32+1); !q.Equal(New(1, math.MaxInt32)) {
+		t.Fatalf("precision math.MinInt32+1 should still work, got %s", q)
+	}
 }
 
 func TestDecimal_ExtremeValues(t *testing.T) {

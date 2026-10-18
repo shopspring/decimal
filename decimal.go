@@ -796,7 +796,7 @@ func (d Decimal) quoRem(d2 Decimal, precision int32, bb *big.Int) (Decimal, Deci
 	}
 	scale := -precision
 	e := int64(d.exp) - int64(d2.exp) - int64(scale)
-	if e > math.MaxInt32 || e < math.MinInt32 {
+	if precision == math.MinInt32 || e > math.MaxInt32 || e < math.MinInt32 {
 		panic("overflow in decimal QuoRem")
 	}
 	if bb == nil {

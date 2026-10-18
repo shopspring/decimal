@@ -91,6 +91,7 @@ Explore other alternatives to find the one that best fits your needs :)
 * [cockroachdb/apd](https://github.com/cockroachdb/apd) - arbitrary precision, mutable and rich API similar to `big.Int`, more performant than this library 
 * [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), fully compatible API with this library 
 * [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
+* [quagmt/udecimal](https://github.com/quagmt/udecimal) - high performance, mostly zero-allocation, up to 19 digits after the decimal point
 * [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork focusing on billing and e-commerce web application related use cases, includes out-of-the-box BSON marshaling support
 
 ## FAQ

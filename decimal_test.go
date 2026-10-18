@@ -2803,6 +2803,10 @@ func TestDecimal_Scan(t *testing.T) {
 	if err == nil {
 		t.Errorf("a.Scan(Foo{}) should have thrown an error but did not")
 	}
+
+	if err := a.Scan(nil); err == nil || !strings.Contains(err.Error(), "NullDecimal") {
+		t.Errorf("a.Scan(nil): got %v, want an error that points to NullDecimal", err)
+	}
 }
 
 func TestDecimal_ScanTypes(t *testing.T) {

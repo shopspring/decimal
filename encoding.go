@@ -81,6 +81,9 @@ func (d *Decimal) Scan(value interface{}) error {
 	// first try to see if the data is stored in database as a Numeric datatype
 	switch v := value.(type) {
 
+	case nil:
+		return fmt.Errorf("can't scan NULL into a Decimal, use NullDecimal or *Decimal")
+
 	case float32:
 		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
 			return fmt.Errorf("could not convert value '%v' to decimal", v)

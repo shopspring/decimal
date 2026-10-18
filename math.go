@@ -350,14 +350,14 @@ func powRatio(d Decimal) (*big.Int, *big.Int) {
 	return p.Quo(p, g), q.Quo(q, g)
 }
 
-// iroot returns the integer k-th root of x >= 1 and whether it is exact.
+// iroot returns the integer k-th root of x >= 1, rounded down, and whether it is exact.
 func iroot(x *big.Int, k int64) (*big.Int, bool) {
 	if k == 1 || x.Cmp(oneInt) == 0 {
 		return x, true
 	}
 	if int64(x.BitLen()) <= k {
-		// 1 < x < 2^k has no integer k-th root
-		return nil, false
+		// 1 < x < 2^k
+		return big.NewInt(1), false
 	}
 	// Newton's method from above converges to the floor of the root
 	kb, km1 := big.NewInt(k), big.NewInt(k-1)
@@ -634,6 +634,58 @@ func (d Decimal) SqrtRound(places int32) (Decimal, error) {
 	n.Sqrt(n)
 	n.Add(n, fiveInt).Quo(n, tenInt)
 	return Decimal{value: n, exp: -places}, nil
+}
+
+// Root returns the n-th root of d with DivisionPrecision digits after the decimal point, like Div.
+// Use RootRound to choose the precision per call. Odd roots of negative numbers are negative.
+// It returns an error when n < 1, and for negative d when n is even.
+//
+// Example:
+//
+//	d, err := NewFromInt(2).Root(3)
+//	d.String() // output: "1.2599210498948732"
+func (d Decimal) Root(n int64) (Decimal, error) {
+	return d.RootRound(n, int32(DivisionPrecision))
+}
+
+// RootRound returns the n-th root of d rounded half away from zero to places digits after the
+// decimal point, like DivRound. The result is exact up to that rounding. Odd roots of negative
+// numbers are negative. It returns an error when n < 1, and for negative d when n is even.
+// The work grows with n times places, so very large roots such as the millionth are slow.
+//
+// Example:
+//
+//	d, err := NewFromFloat(-0.125).RootRound(3, 2)
+//	d.String() // output: "-0.5"
+func (d Decimal) RootRound(n int64, places int32) (Decimal, error) {
+	if n < 1 {
+		return Decimal{}, fmt.Errorf("cannot calculate the %d-th root, n must be at least 1", n)
+	}
+	if d.Sign() < 0 && n%2 == 0 {
+		return Decimal{}, fmt.Errorf("cannot represent imaginary value of an even root of x, where x < 0")
+	}
+
+	// floor(root(|d|) * 10^(places+1)) is the integer n-th root of |d| * 10^(n*(places+1)), and its
+	// last digit decides the rounding, as in SqrtRound.
+	k := int64(d.exp) + n*(int64(places)+1)
+	x := new(big.Int).Abs(d.getValue())
+	if k >= 0 {
+		x.Mul(x, pow10(k))
+	} else if -k <= int64(d.NumDigits()) {
+		x.Quo(x, pow10(-k))
+	} else {
+		x.SetInt64(0)
+	}
+	r := new(big.Int)
+	if x.Sign() > 0 {
+		root, _ := iroot(x, n)
+		r.Set(root)
+	}
+	r.Add(r, fiveInt).Quo(r, tenInt)
+	if d.Sign() < 0 {
+		r.Neg(r)
+	}
+	return Decimal{value: r, exp: -places}, nil
 }
 
 // ExpHullAbrham calculates the natural exponent of decimal (e to the power of d) using Hull-Abraham algorithm.

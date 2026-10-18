@@ -150,6 +150,22 @@ this causes extra allocations, so Decimal is less performant.  My assumption
 is that if you're using Decimals, you probably care more about correctness
 than performance.
 
+#### How do I control the JSON format of one field?
+
+Wrap the field in a small type with its own `MarshalJSON`. For example, to always write money with 2 decimal places:
+
+```go
+type Money struct{ decimal.Decimal }
+
+func (m Money) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + m.StringFixed(2) + `"`), nil
+}
+```
+
+A `Money` field marshals as `"12.50"`, other decimals keep their usual format, and unmarshaling still works through
+the embedded `Decimal`. To write one field as a JSON number instead of a string, return `[]byte(m.String())`.
+This is safer than the global settings, which change every decimal in the program.
+
 ## License
 
 The MIT License (MIT)

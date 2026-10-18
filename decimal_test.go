@@ -2206,6 +2206,34 @@ func TestDecimal_Div(t *testing.T) {
 	}
 }
 
+func TestDecimal_DivisionPrecisionBounds(t *testing.T) {
+	d := New(1, math.MinInt32)
+	for name, divide := range map[string]func(){
+		"QuoRem":   func() { d.QuoRem(New(1, 0), math.MinInt32) },
+		"DivRound": func() { d.DivRound(New(1, 0), math.MinInt32) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			defer func() {
+				if got := recover(); got != "overflow in decimal QuoRem" {
+					t.Errorf("panic = %v, want overflow in decimal QuoRem", got)
+				}
+			}()
+			divide()
+		})
+	}
+
+	for _, precision := range []int32{math.MinInt32 + 1, math.MaxInt32} {
+		d := New(1, -precision)
+		q, r := d.QuoRem(New(1, 0), precision)
+		if !q.Equal(d) || !r.IsZero() {
+			t.Errorf("QuoRem failed at precision %d", precision)
+		}
+		if !d.DivRound(New(1, 0), precision).Equal(d) {
+			t.Errorf("DivRound failed at precision %d", precision)
+		}
+	}
+}
+
 func TestDecimal_QuoRem(t *testing.T) {
 	type Inp4 struct {
 		d   string

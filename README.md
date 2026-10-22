@@ -92,6 +92,7 @@ Explore other alternatives to find the one that best fits your needs :)
 * [alpacahq/alpacadecimal](https://github.com/alpacahq/alpacadecimal) - high performance, low precision (12 digits), fully compatible API with this library 
 * [govalues/decimal](https://github.com/govalues/decimal) - high performance, zero-allocation, low precision (19 digits)
 * [quagmt/udecimal](https://github.com/quagmt/udecimal) - high performance, mostly zero-allocation, up to 19 digits after the decimal point
+* [aytechnet/decimal](https://github.com/aytechnet/decimal) - high performance, zero-allocation, 8-byte value type (17 significant digits), mostly compatible API with this library, with rounding checked against it
 * [greatcloak/decimal](https://github.com/greatcloak/decimal) - fork focusing on billing and e-commerce web application related use cases, includes out-of-the-box BSON marshaling support
 
 ## FAQ

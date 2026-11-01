@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go }}
+          check-latest: true
       - run: go build .
       - run: go test -v
   lint:

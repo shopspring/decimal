@@ -5093,6 +5093,20 @@ func ExampleNewFromFloat() {
 	// 4611686018427387904
 }
 
+func ExampleNewFromFloatWithExponent() {
+	fmt.Println(NewFromFloatWithExponent(123.456, -2).String())
+	fmt.Println(NewFromFloatWithExponent(123.456, 0).String())
+	fmt.Println(NewFromFloatWithExponent(123.456, 2).String())
+	fmt.Println(NewFromFloatWithExponent(150, 2).String())
+	fmt.Println(NewFromFloatWithExponent(-150, 2).String())
+	// Output:
+	// 123.46
+	// 123
+	// 100
+	// 200
+	// -200
+}
+
 // TestTruncateNegativePrecision verifies that Truncate correctly handles
 // negative precision values, truncating the integer part towards zero.
 func TestTruncateNegativePrecision(t *testing.T) {

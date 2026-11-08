@@ -490,12 +490,20 @@ func newFromFloat(val float64, bitSize int) Decimal {
 	return Decimal{value: big.NewInt(mant), exp: int32(esign*e - nd + 1)}
 }
 
-// NewFromFloatWithExponent converts a float64 to Decimal, with an arbitrary
-// number of fractional digits.
+// NewFromFloatWithExponent converts a float64 to Decimal, rounding to the nearest
+// multiple of 10^exp. Halfway values are rounded away from zero.
+//
+// The exponent specifies the decimal place to round to: -2 rounds to the nearest
+// hundredth, 0 to the nearest integer, and 2 to the nearest hundred.
+//
+// Rounding uses the actual binary floating-point value, which may differ from the
+// decimal literal used to create it.
 //
 // Example:
 //
 //	NewFromFloatWithExponent(123.456, -2).String() // output: "123.46"
+//	NewFromFloatWithExponent(123.456, 0).String()  // output: "123"
+//	NewFromFloatWithExponent(123.456, 2).String()  // output: "100"
 func NewFromFloatWithExponent(value float64, exp int32) Decimal {
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		panic(fmt.Sprintf("Cannot create a Decimal from %v", value))

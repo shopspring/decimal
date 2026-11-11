@@ -3708,6 +3708,10 @@ func TestDecimal_Root(t *testing.T) {
 }
 
 func TestDecimal_IsInteger(t *testing.T) {
+	if New(1, math.MinInt32).IsInteger() {
+		t.Error("a nonzero decimal with exponent math.MinInt32 is fractional")
+	}
+
 	for _, testCase := range []struct {
 		Dec       string
 		IsInteger bool

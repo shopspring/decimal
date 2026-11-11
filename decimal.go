@@ -907,7 +907,7 @@ func (d Decimal) IsInteger() bool {
 	// If all of them are zeroes, we are sure that given decimal can be represented as an integer
 	var r big.Int
 	q := new(big.Int).Set(v)
-	for z := abs(d.exp); z > 0; z-- {
+	for exp := d.exp; exp < 0; exp++ {
 		q.QuoRem(q, tenInt, &r)
 		if r.Sign() != 0 {
 			return false

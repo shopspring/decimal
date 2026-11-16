@@ -3884,7 +3884,7 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 		{"-1.0", 5, "0.36788"},
 		{"-1.0", -1, "0"},
 		{"-1.0", -5, "0"},
-		{"-3.0", 1, "0.1"},
+		{"-3.0", 1, "0.0"},
 		{"-3.0", 2, "0.05"},
 		{"-3.0", 10, "0.0497870684"},
 		{"-5.26", 2, "0.01"},
@@ -3898,6 +3898,16 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 		{"-26.1", -10, "0"},
 		{"-50.1591", 10, "0"},
 		{"-50.1591", 30, "0.000000000000000000000164505208"},
+		// The last digit used to be off: the terms of the series were rounded to one guard digit,
+		// and the reciprocal for negative inputs was rounded twice.
+		{"6", 6, "403.428793"},
+		{"30", 0, "10686474581524"},
+		{"2.474", 8, "11.86983134"},
+		{"-0.111", 2, "0.89"},
+		{"-0.8297", 0, "0"},
+		{"-51.44", 22, "0"},
+		{"1000", 3, "197007111401704699388887935224332312531693798532384578995280299138506385078244119347497807656302688993096381798752022693598298173054461289923262783660152825232320535169584566756192271567602788071422466826314006855168508653497941660316045367817938092905299728580132869945856470286534375900456564355589156220422320260518826112288638358372248724725214506150418881937494100871264232248436315760560377439930623959705844189509050047074217568.227"},
+		{"-1000", 440, "5.07596e-435"},
 	} {
 		d, _ := NewFromString(testCase.Dec)
 		expected, _ := NewFromString(testCase.ExpectedDec)
@@ -3913,20 +3923,23 @@ func TestDecimal_ExpTaylor(t *testing.T) {
 	}
 }
 
-// TestDecimal_ExpTaylor_Concurrency tests the concurrency safety of the
-// ExpTaylor method, particularly focusing on the shared state caching mechanism
-// for factorial calculations.
-func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
-	resetFactorials := func() {
-		factorialsMutex.Lock()
-		factorials = []Decimal{New(1, 0)}
-		factorialsMutex.Unlock()
+func TestDecimal_ExpTaylor_LargeMagnitude(t *testing.T) {
+	// e^-10^12 rounds to 0 at any representable precision, and e^10^12 has too many digits.
+	// Both used to run the series for hours.
+	d, err := New(-1, 12).ExpTaylor(10)
+	if err != nil || !d.IsZero() {
+		t.Errorf("expected 0, got %s, %v", d, err)
 	}
-	t.Run("concurrent calculation works as expected", func(t *testing.T) {
-		resetFactorials()
+	if _, err := New(1, 12).ExpTaylor(10); err == nil {
+		t.Error("expected an error for a result too large to represent")
+	}
+}
 
-		// Run multiple goroutines calculating exp concurrently
-		// This should trigger concurrent factorial calculations.
+// TestDecimal_ExpTaylor_Concurrency tests the concurrency safety of the
+// ExpTaylor method. Run with `go test -race`.
+func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
+	t.Run("concurrent calculation works as expected", func(t *testing.T) {
+		// Run multiple goroutines calculating exp concurrently.
 		var wg sync.WaitGroup
 		numGoroutines := 50
 		results := make([]Decimal, numGoroutines)
@@ -3959,23 +3972,9 @@ func TestDecimal_ExpTaylor_Concurrency(t *testing.T) {
 				t.Errorf("goroutine %d: result mismatch: expected %s, got %s", i+1, expected.String(), result.String())
 			}
 		}
-
-		// Verify factorials slice doesn't have duplicate Zero values
-		// (which would indicate the double-check locking failed).
-		factorialsMutex.RLock()
-		for i, f := range factorials {
-			if i > 0 && f.IsZero() {
-				t.Errorf("factorial at index %d is Zero, double-check locking may have failed", i)
-			}
-		}
-		factorialsMutex.RUnlock()
 	})
 
 	t.Run("race detection", func(t *testing.T) {
-		// NOTE: Factorials from previous subtests are intentionally reused here.
-		// This tests that concurrent access works correctly with a pre-populated cache,
-		// which is the real-world scenario. Run with `go test -race`.
-
 		var wg sync.WaitGroup
 		numGoroutines := 100
 

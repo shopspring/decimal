@@ -8,9 +8,6 @@ import (
 	"sync"
 )
 
-var factorials = []Decimal{New(1, 0)}
-var factorialsMutex sync.RWMutex
-
 // Pow returns d to the power of d2.
 // The result is exact for non-negative integer exponents. For negative or non-integer exponents it is
 // rounded half away from zero to PowPrecisionNegativeExponent places after the decimal point. A result
@@ -396,6 +393,16 @@ func powFracFixed(d, y Decimal, k, f, extra int64, precision int32, force bool) 
 	}
 	tErr.Mul(tErr, y.Abs().Ceil().getValue()).Add(tErr, oneInt)
 
+	lo, hi, scale := expBounds(t, tErr, ln10, ln10Err, f, b)
+	if force {
+		lo = hi
+	}
+	return roundBounds(lo, hi, scale, precision)
+}
+
+// expBounds bounds v = e^(t / 2^b), for t known to within tErr ulps, by lo <= v*10^scale <= hi
+// (lo >= 0), with about f significant digits. ln10 and ln10Err come from ln10Fixed(b).
+func expBounds(t, tErr, ln10 *big.Int, ln10Err int64, f int64, b uint) (*big.Int, *big.Int, int64) {
 	q, s := new(big.Int).DivMod(t, ln10, new(big.Int))
 	sErr := new(big.Int).Abs(q)
 	sErr.Mul(sErr, big.NewInt(ln10Err)).Add(sErr, tErr)
@@ -408,15 +415,12 @@ func powFracFixed(d, y Decimal, k, f, extra int64, precision int32, force bool) 
 	p := pow10(f)
 	hi := new(big.Int).Add(r, sErr)
 	hi.Mul(hi, p).Rsh(hi, b).Add(hi, oneInt)
-	lo := hi
-	if !force {
-		lo = new(big.Int).Sub(r, sErr)
-		lo.Mul(lo, p).Rsh(lo, b)
-		if lo.Sign() < 0 {
-			lo.SetInt64(0)
-		}
+	lo := new(big.Int).Sub(r, sErr)
+	lo.Mul(lo, p).Rsh(lo, b)
+	if lo.Sign() < 0 {
+		lo.SetInt64(0)
 	}
-	return roundBounds(lo, hi, f-q.Int64(), precision)
+	return lo, hi, f - q.Int64()
 }
 
 // lnFixed returns ln(m / 2^b) * 2^b for m / 2^b in [1, 10], with its error bound in ulps.
@@ -784,7 +788,8 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 
 // ExpTaylor calculates the natural exponent of decimal (e to the power of d) using Taylor series expansion.
 // Precision argument specifies how precise the result must be (number of digits after decimal point).
-// Negative precision is allowed.
+// Negative precision is allowed. The result is correctly rounded half away from zero. It returns an
+// error when the magnitude of the result or the precision is too large to represent.
 //
 // ExpTaylor is much faster for large precision values than ExpHullAbrham.
 //
@@ -799,65 +804,43 @@ func (d Decimal) ExpHullAbrham(overallPrecision uint32) (Decimal, error) {
 //	d3, err := NewFromFloat(26.1).ExpTaylor(-10)
 //	d3.String() // output: "220000000000"
 func (d Decimal) ExpTaylor(precision int32) (Decimal, error) {
-	// Note(mwoss): Implementation can be optimized by exclusively using big.Int API only
 	if d.IsZero() {
 		return Decimal{oneInt, 0}.Round(precision), nil
 	}
 
-	var epsilon Decimal
-	var divPrecision int32
-	if precision < 0 {
-		epsilon = New(1, -1)
-		divPrecision = 8
-	} else {
-		epsilon = New(1, -precision-1)
-		divPrecision = precision + 1
+	// lg estimates log10(e^d). A result far below half a unit of the last place rounds to 0.
+	lg := d.InexactFloat64() / math.Ln10
+	if lg < -float64(precision)-2 {
+		return Decimal{new(big.Int), -precision}, nil
+	}
+	if !powInRange(lg, precision) {
+		return Decimal{}, errPowOutOfRange
 	}
 
-	decAbs := d.Abs()
-	pow := d.Abs()
-	factorial := New(1, 0)
-
-	result := New(1, 0)
-
-	for i := int64(1); ; {
-		step := pow.DivRound(factorial, divPrecision)
-		result = result.Add(step)
-
-		// Stop Taylor series when current step is smaller than epsilon
-		if step.Cmp(epsilon) < 0 {
-			break
-		}
-
-		pow = pow.Mul(decAbs)
-
-		i++
-
-		// Calculate next factorial number or retrieve cached value
-		factorialsMutex.RLock()
-		if len(factorials) >= int(i) && !factorials[i-1].IsZero() {
-			factorial = factorials[i-1]
-			factorialsMutex.RUnlock()
+	// e^d = e^s * 10^q, where q = floor(d / ln(10)), is computed with error bounds like Pow, and the
+	// working precision grows until the whole interval rounds to the same value. That ends, because
+	// e^d is irrational for every d other than 0.
+	extra := int64(math.Log10(math.Abs(lg)+1)) + 4
+	f := int64(math.Floor(lg)) + 1 + int64(precision)
+	if f < 1 {
+		f = 1
+	}
+	for f += 9; ; f += 20 {
+		b := uint(float64(f+extra)*math.Log2(10)) + 1
+		t := new(big.Int).Lsh(d.getValue(), b)
+		if d.exp >= 0 {
+			t.Mul(t, pow10(int64(d.exp)))
 		} else {
-			prevFactorial := factorials[i-2]
-			factorialsMutex.RUnlock()
-			factorial = prevFactorial.Mul(New(i, 0))
-			factorialsMutex.Lock()
-			// Check again in case another goroutine already added it.
-			if len(factorials) < int(i) || factorials[i-1].IsZero() {
-				factorials = append(factorials, Zero)
-				factorials[i-1] = factorial
+			t.Quo(t, pow10(-int64(d.exp)))
+		}
+		ln10, ln10Err := ln10Fixed(b)
+		lo, hi, scale := expBounds(t, big.NewInt(1), ln10, ln10Err, f, b)
+		if g := scale - int64(precision); g >= 1 {
+			if q := roundHalfUp(hi, g); q.Cmp(roundHalfUp(lo, g)) == 0 {
+				return Decimal{q, -precision}, nil
 			}
-			factorialsMutex.Unlock()
 		}
 	}
-
-	if d.Sign() < 0 {
-		result = New(1, 0).DivRound(result, precision+1)
-	}
-
-	result = result.Round(precision)
-	return result, nil
 }
 
 // Ln calculates natural logarithm of d.

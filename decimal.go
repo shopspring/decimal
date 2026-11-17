@@ -1583,7 +1583,7 @@ func (d Decimal) string(trimTrailingZeros, useScientificNotation bool) string {
 //
 // A zero, which has no significant digits, is simply serialized to "0".
 func (d Decimal) ScientificNotationString() string {
-	exp := int(d.exp)
+	exp := int64(d.exp)
 	intStr := new(big.Int).Abs(d.getValue()).String()
 	if intStr == "0" {
 		return intStr
@@ -1592,9 +1592,9 @@ func (d Decimal) ScientificNotationString() string {
 	var remaining string
 	if len(intStr) > 1 {
 		remaining = "." + intStr[1:]
-		exp = exp + len(intStr) - 1
+		exp = exp + int64(len(intStr)) - 1
 	}
-	number := string(first) + remaining + "E" + strconv.Itoa(exp)
+	number := string(first) + remaining + "E" + strconv.FormatInt(exp, 10)
 	if d.value.Sign() < 0 {
 		return "-" + number
 	}

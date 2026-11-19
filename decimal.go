@@ -933,13 +933,33 @@ func (d Decimal) Cmp(d2 Decimal) int {
 	if d.exp == d2.exp {
 		return d.getValue().Cmp(d2.getValue())
 	}
-	if s, s2 := d.Sign(), d2.Sign(); s != s2 {
+	s, s2 := d.Sign(), d2.Sign()
+	if s != s2 {
 		if s > s2 {
 			return 1
 		}
 		return -1
 	} else if s == 0 {
 		return 0
+	}
+
+	// Bound 10^delta between 2^(3*delta) and 2^(4*delta).
+	// Disjoint coefficient bit-length ranges prove the ordering without
+	// materializing the power of ten. All arithmetic fits int64 even for
+	// the full int32 exponent range.
+	high, low := d, d2
+	direction := s
+	if high.exp < low.exp {
+		high, low = low, high
+		direction = -direction
+	}
+	delta := int64(high.exp) - int64(low.exp)
+	highBits, lowBits := int64(high.getValue().BitLen()), int64(low.getValue().BitLen())
+	if highBits+3*delta > lowBits {
+		return direction
+	}
+	if highBits+4*delta < lowBits {
+		return -direction
 	}
 
 	var scaled big.Int

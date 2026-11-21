@@ -650,7 +650,8 @@ func (d Decimal) Root(n int64) (Decimal, error) {
 
 // RootRound returns the n-th root of d rounded half away from zero to places digits after the
 // decimal point, like DivRound. The result is exact up to that rounding. Odd roots of negative
-// numbers are negative. It returns an error when n < 1, and for negative d when n is even.
+// numbers are negative. It returns an error when n < 1, for negative d when n is even,
+// or when the degree or precision overflows the result exponent or internal scale.
 // The work grows with n times places, so very large roots such as the millionth are slow.
 //
 // Example:
@@ -665,13 +666,21 @@ func (d Decimal) RootRound(n int64, places int32) (Decimal, error) {
 		return Decimal{}, fmt.Errorf("cannot represent imaginary value of an even root of x, where x < 0")
 	}
 
+	// Compute the scale without overflowing before checking its range. A wrapped scale
+	// can silently turn a nonzero root into zero or pass a negative exponent to pow10.
+	x := new(big.Int).Mul(big.NewInt(n), big.NewInt(int64(places)+1))
+	x.Add(x, big.NewInt(int64(d.exp)))
+	if places == math.MinInt32 || !x.IsInt64() {
+		return Decimal{}, fmt.Errorf("cannot calculate root: degree or precision is too large")
+	}
+	k := x.Int64()
+
 	// floor(root(|d|) * 10^(places+1)) is the integer n-th root of |d| * 10^(n*(places+1)), and its
 	// last digit decides the rounding, as in SqrtRound.
-	k := int64(d.exp) + n*(int64(places)+1)
-	x := new(big.Int).Abs(d.getValue())
+	x.Abs(d.getValue())
 	if k >= 0 {
 		x.Mul(x, pow10(k))
-	} else if -k <= int64(d.NumDigits()) {
+	} else if k >= -int64(d.NumDigits()) {
 		x.Quo(x, pow10(-k))
 	} else {
 		x.SetInt64(0)

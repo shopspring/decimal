@@ -2206,6 +2206,16 @@ func TestDecimal_Div(t *testing.T) {
 	}
 }
 
+func TestDecimal_DivExactQuotientExponent(t *testing.T) {
+	got := RequireFromString("4").Div(RequireFromString("2"))
+	if got.Exponent() != 0 {
+		t.Errorf("expected exact quotient exponent 0, got %d", got.Exponent())
+	}
+	if got.String() != "2" {
+		t.Errorf("expected exact quotient 2, got %s", got.String())
+	}
+}
+
 func TestDecimal_QuoRem(t *testing.T) {
 	type Inp4 struct {
 		d   string

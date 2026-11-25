@@ -774,7 +774,7 @@ func (d Decimal) Normalize() Decimal {
 // Div returns d / d2. If it doesn't divide exactly, the result will have
 // DivisionPrecision digits after the decimal point. Use DivRound to choose the precision per call.
 func (d Decimal) Div(d2 Decimal) Decimal {
-	return d.DivRound(d2, int32(DivisionPrecision))
+	return d.DivRound(d2, int32(DivisionPrecision)).Normalize()
 }
 
 // QuoRem does division with remainder

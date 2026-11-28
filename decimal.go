@@ -1287,6 +1287,9 @@ func (d Decimal) goSyntax() string {
 //	NewFromFloat(5.45).Round(1).String() // output: "5.5"
 //	NewFromFloat(545).Round(-1).String() // output: "550" (with UseScientificNotation false, "5.5E2" if true)
 func (d Decimal) Round(places int32) Decimal {
+	if places == math.MinInt32 {
+		panic("overflow in decimal Round")
+	}
 	if d.exp == -places {
 		return d
 	}
@@ -1316,6 +1319,9 @@ func (d Decimal) Round(places int32) Decimal {
 //	NewFromFloat(1.1001).RoundCeil(2).String() // output: "1.11"
 //	NewFromFloat(-1.454).RoundCeil(1).String() // output: "-1.4"
 func (d Decimal) RoundCeil(places int32) Decimal {
+	if places == math.MinInt32 {
+		panic("overflow in decimal RoundCeil")
+	}
 	if d.exp >= -places {
 		return d.rescale(-places)
 	}
@@ -1344,6 +1350,9 @@ func (d Decimal) RoundCeil(places int32) Decimal {
 //	NewFromFloat(1.1001).RoundFloor(2).String() // output: "1.1"
 //	NewFromFloat(-1.454).RoundFloor(1).String() // output: "-1.5"
 func (d Decimal) RoundFloor(places int32) Decimal {
+	if places == math.MinInt32 {
+		panic("overflow in decimal RoundFloor")
+	}
 	if d.exp >= -places {
 		return d.rescale(-places)
 	}
@@ -1372,6 +1381,9 @@ func (d Decimal) RoundFloor(places int32) Decimal {
 //	NewFromFloat(1.1001).RoundUp(2).String() // output: "1.11"
 //	NewFromFloat(-1.454).RoundUp(1).String() // output: "-1.5"
 func (d Decimal) RoundUp(places int32) Decimal {
+	if places == math.MinInt32 {
+		panic("overflow in decimal RoundUp")
+	}
 	if d.exp >= -places {
 		return d.rescale(-places)
 	}
@@ -1398,6 +1410,9 @@ func (d Decimal) RoundUp(places int32) Decimal {
 //	NewFromFloat(1.1001).RoundDown(2).String() // output: "1.1"
 //	NewFromFloat(-1.454).RoundDown(1).String() // output: "-1.4"
 func (d Decimal) RoundDown(places int32) Decimal {
+	if places == math.MinInt32 {
+		panic("overflow in decimal RoundDown")
+	}
 	return d.rescale(-places)
 }
 
@@ -1507,6 +1522,9 @@ func (d Decimal) Ceil() Decimal {
 //	decimal.RequireFromString("5432").Truncate(-2).String()   // output: "5400"
 //	decimal.RequireFromString("-5432").Truncate(-2).String()  // output: "-5400"
 func (d Decimal) Truncate(precision int32) Decimal {
+	if precision == math.MinInt32 {
+		panic("overflow in decimal Truncate")
+	}
 	if -precision > d.exp {
 		return d.rescale(-precision)
 	}

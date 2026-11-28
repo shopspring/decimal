@@ -2552,6 +2552,35 @@ func TestDecimal_Overflow(t *testing.T) {
 	if q, _ := New(1, math.MaxInt32).QuoRem(New(1, 0), math.MinInt32+1); !q.Equal(New(1, math.MaxInt32)) {
 		t.Fatalf("precision math.MinInt32+1 should still work, got %s", q)
 	}
+	// The rounding functions negate places, so math.MinInt32 wraps back to
+	// itself there too: Truncate silently returns the input unchanged, and
+	// the Round family stalls building a power of ten with ~2^31 digits.
+	// RoundBank and StringFixed go through Round, so they panic as well.
+	d := RequireFromString("123.456")
+	if !didPanic(func() { d.Truncate(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.Round(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.RoundCeil(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.RoundFloor(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.RoundUp(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.RoundDown(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.RoundBank(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
+	if !didPanic(func() { d.StringFixed(math.MinInt32) }) {
+		t.Fatalf("should have gotten an overflow panic")
+	}
 }
 
 func TestDecimal_ExtremeValues(t *testing.T) {
